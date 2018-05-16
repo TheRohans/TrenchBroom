@@ -1,0 +1,144 @@
+//
+// Mesh game definition file (.fdg)
+// version 0.1.0
+// for Trenchbroom 2.1, and Mesh 1.0
+//
+
+@SolidClass = worldspawn : "World entity"
+[
+  message(string) : "Map Description / Title"
+  chaptertitle(string) : "Chapter Title Message"
+  ground(choices) : "Ground" : 0 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+  // ambientLightUni
+  light_color(string) : "Ambient light (RGB)": ".5 .5 .5"
+  // sunColorUni
+  sun_color(string) : "Sun Color (RGB)" : ".5 .5 .5"
+  // sunDirUni
+  sun_dir(string) : "Sun Direction (X Y Z)" : "0 0 0"
+]
+
+@BaseClass = Nameable [ name(string) : "Item name in code" ]
+@BaseClass = Behaviorable [ behaviours(string) : "Behaviours for this model (space separated)" ]
+@BaseClass = Shadeable [ shader(string) : "Shader to use" ]
+
+@BaseClass = Angle [ angle(integer) : "Direction" ]
+
+@BaseClass = Appearflags []
+
+@BaseClass = SoundEmitter [
+  sound(string) : "Sound file to play"
+  loop(choices) : "Loop sound" : 0 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+  autoplay(choices) : "Automatically play" : 0 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+]
+
+@BaseClass = Targetname [ targetname(target_source) : "Name" ]
+@BaseClass = Target [ target(target_destination) : "Target" ]
+
+@BaseClass = Physics [
+  body(choices) : "Physics Body" : 1 =
+  [
+    0 : "NONE"
+    1 : "DYNAMIC"
+    2 : "STATIC"
+    4 : "KINEMATIC"
+  ]
+  shape(choices) : "Physics Shape" : 1 =
+  [
+    0 : "NONE"
+    1 : "SPHERE"
+    2 : "PLANE"
+    4 : "BOX"
+    16 : "CONVEXPOLYHEDRON"
+    32786 : "CRATE"
+    9007199254740991 : "PAWN"
+  ]
+]
+
+@BaseClass base(Appearflags, Nameable) size(-16 -16 -24, 16 16 32) color(0 255 0) = PlayerClass []
+
+@BaseClass base(Appearflags, Nameable) size(-16 -16 -16, 16 16 16) color(0 255 0) = CameraClass []
+
+@BaseClass base(Appearflags, Nameable) = Item []
+
+@BaseClass base(Angle, Target, Item, Shadeable, Behaviorable, Physics) size(-16 -16 -16, 16 16 16) color(80 0 200) = StaticModel
+[
+  model(string) : "Model file name"
+  material(string) : "Material file name"
+  scale(string): "The scale of the object 1, .5, etc"
+]
+// @BaseClass size(-16 -1 -16, 16 1 16) color(80 0 200) base(StaticModel) = Billboard []
+
+@BaseClass = Light 
+[
+  light_color(string) : "Light Color" : "1 1 .5"
+  brightness(integer) : "Brightness" : 200
+  // style(choices) : "Appearance" : 0 =
+  // [
+  //   0 : "Normal"
+  // ]
+  // pattern(string) : "Custom Appearance"
+]
+
+// ////////////////////////////////////////////////////////////////////////////////
+
+@PointClass base(PlayerClass) = player_start : "Player Start" []
+@PointClass base(StaticModel, SoundEmitter) = model : "Static Model" []
+@PointClass base(Light, Nameable) color(255 255 102) = light : "Dynamic Light" []
+@PointClass base(CameraClass) = camera : "Camera" []
+// @PointClass base(Billboard, SoundEmitter) = sprite : "Flat Sprites" []
+@PointClass base(Appearflags, SoundEmitter, Nameable) color(150 0 150) = sound : "Sound" []
+
+// ////////////////////////////////////////////////////////////////////////////////
+
+@BaseClass base(Appearflags, Target, Nameable, Behaviorable) = Trigger
+[
+  delay(string) : "Delay before trigger" : "0"
+  message(string) : "Message"
+]
+
+@SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_active : "Active Element" []
+
+@SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_brush : "Brush Element" [
+  solid(choices) : "Collision" : 0 =
+  [
+    0 : "None"
+    6 : "Physics"
+  ]
+  rendermode(choices) : "Render Mode" : 0 = 
+  [
+    0 : "Normal"
+    10: "Don't Render"
+  ]
+]
+
+@SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_door : "Door Element" [
+  movedir(choices) : "Direction" : 1 =
+  [
+    1 : "Up"
+    2 : "Down"
+    3 : "Left"
+    4 : "Right"
+  ]
+  speed(string) : "How fast the door opens / closes" : ".8"
+  wait(string) : "Time to wait before auto close" : "0"
+  lip(string) : "Amount to stick out of wall / floor" : ".1"
+]
+
+@SolidClass base(Trigger, Shadeable) = trigger_active : "Trigger: Activate" []
+
+@SolidClass base(Angle, Appearflags, Nameable, Behaviorable, Shadeable) = skybox_active : "Skybox Element" 
+[
+  skybox(string) : "Texture set name"
+]

@@ -21,3 +21,6 @@ app/resources/documentation/help/index.html
 
 app/resources/games-testing/Wrath
 app/resources/games-testing/SteelStorm
+
+build-ninja
+build-xcode

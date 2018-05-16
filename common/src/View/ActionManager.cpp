@@ -505,7 +505,9 @@ namespace TrenchBroom {
             fileMenu->addSeparator();
             fileMenu->addUnmodifiableActionItem(wxID_SAVE, "Save", KeyboardShortcut('S', WXK_CONTROL));
             fileMenu->addUnmodifiableActionItem(wxID_SAVEAS, "Save as...", KeyboardShortcut('S', WXK_SHIFT, WXK_CONTROL));
-
+            
+            fileMenu->addUnmodifiableActionItem(CommandIds::Menu::FileExportObj, "Save for Mesh...", KeyboardShortcut('E', WXK_CONTROL));
+            
             Menu* exportMenu = fileMenu->addMenu("Export");
             exportMenu->addModifiableActionItem(CommandIds::Menu::FileExportObj, "Wavefront OBJ...");
 

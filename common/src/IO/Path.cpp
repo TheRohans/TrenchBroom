@@ -166,7 +166,8 @@ namespace TrenchBroom {
         }
 
         bool Path::isEmpty() const {
-            return !m_absolute && m_components.empty();
+            // return !m_absolute && m_components.empty();
+            return m_components.empty();
         }
 
         Path Path::firstComponent() const {

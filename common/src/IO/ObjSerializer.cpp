@@ -24,6 +24,7 @@
 #include "Model/BrushFace.h"
 #include "Model/BrushGeometry.h"
 
+#include <algorithm>
 #include <cassert>
 
 namespace TrenchBroom {
@@ -39,8 +40,10 @@ namespace TrenchBroom {
             ensure(m_stream != nullptr, "stream is null");
         }
 
-        void ObjFileSerializer::doBeginFile() {}
-
+        void ObjFileSerializer::doBeginFile() {
+            std::fprintf(m_stream, "# {{Mesh}}\n\n");
+        }
+        
         void ObjFileSerializer::doEndFile() {
             writeVertices();
             std::fprintf(m_stream, "\n");
@@ -95,17 +98,37 @@ namespace TrenchBroom {
                 std::fprintf(m_stream, "\n");
             }
         }
-
-        void ObjFileSerializer::doBeginEntity(const Model::Node* /* node */) {}
-        void ObjFileSerializer::doEndEntity(Model::Node* /* node */) {}
-        void ObjFileSerializer::doEntityAttribute(const Model::EntityAttribute& attribute) {}
-
-        void ObjFileSerializer::doBeginBrush(const Model::Brush* /* brush */) {
+       
+        void ObjFileSerializer::doBeginEntity(const Model::Node* node) {
+            std::fprintf(m_stream, "#e: %s\n", node->name().c_str());
+        }
+        
+        void ObjFileSerializer::doEndEntity(Model::Node* node) {
+            std::fprintf(m_stream, "#-: %s\n\n", node->name().c_str());
+        }
+        
+        void ObjFileSerializer::doEntityAttribute(const Model::EntityAttribute& attribute) {
+            std::string value = attribute.value();
+            std::replace(value.begin(), value.end(), ' ', ',');
+            std::fprintf(m_stream, "#:: %s=%s\n",
+                        attribute.name().c_str(),
+                        value.c_str());
+        }
+        
+        void ObjFileSerializer::doBeginBrush(const Model::Brush* brush) {
             m_currentObject.entityNo = entityNo();
             m_currentObject.brushNo = brushNo();
+            
+            std::fprintf(m_stream, "#b: entity%u_brush%u\n", m_currentObject.entityNo, m_currentObject.brushNo);
+            
+            for (const Model::BrushFace* face : brush->faces()) {
+                std::fprintf(m_stream, "#:: texture=%s\n", face->textureName().c_str());
+                // face->attribs() <- has offset, rotation, etc
+                break;
+            }
         }
-
-        void ObjFileSerializer::doEndBrush(Model::Brush* /* brush */) {
+        void ObjFileSerializer::doEndBrush(Model::Brush* brush) {
+            std::fprintf(m_stream, "#-: entity%u_brush%u\n\n", m_currentObject.entityNo, m_currentObject.brushNo);
             m_objects.push_back(m_currentObject);
             m_currentObject.faces.clear();
         }
