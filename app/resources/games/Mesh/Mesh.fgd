@@ -19,6 +19,44 @@
   sun_color(string) : "Sun Color (RGB)" : ".5 .5 .5"
   // sunDirUni
   sun_dir(string) : "Sun Direction (X Y Z)" : "0 0 0"
+  frustum_filter(choices) : "Frustum Enabled" : 1 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+  grid(choices) : "Grid Enabled" : 1 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+  grid_size(choices) : "Grid bucket size" : 16 =
+  [
+    4 : "4 (TB 64)"
+    8 : "8 (TB 128)"
+    16 : "16 (TB 256)"
+    32 : "32 (TB 512)"
+    160 : "160 (TB 2560)"
+  ]
+  grid_count(choices) : "Grid bucket count (squared)" : 11 =
+  [
+    3 : "3"
+    5 : "5"
+    9 : "9"
+    11 : "11"
+    27 : "27"
+    33 : "33"
+    66 : "66"
+    132 : "132"
+  ]
+  grid_radius(choices) : "Grid query radius" : 5 =
+  [
+    1 : "1"
+    3 : "3"
+    5 : "5"
+    7 : "7"
+    9 : "9"
+    11 : "11"
+  ]
 ]
 
 @BaseClass = Nameable [ name(string) : "Item name in code" ]
@@ -62,6 +100,7 @@
     4 : "BOX"
     16 : "CONVEXPOLYHEDRON"
     32786 : "CRATE"
+    524288 : "LADDER"
     9007199254740991 : "PAWN"
   ]
 ]
@@ -78,26 +117,32 @@
   material(string) : "Material file name"
   scale(string): "The scale of the object 1, .5, etc"
 ]
-// @BaseClass size(-16 -1 -16, 16 1 16) color(80 0 200) base(StaticModel) = Billboard []
 
 @BaseClass = Light 
 [
   light_color(string) : "Light Color" : "1 1 .5"
   brightness(integer) : "Brightness" : 200
-  // style(choices) : "Appearance" : 0 =
-  // [
-  //   0 : "Normal"
-  // ]
-  // pattern(string) : "Custom Appearance"
 ]
 
 // ////////////////////////////////////////////////////////////////////////////////
 
-@PointClass base(PlayerClass) = player_start : "Player Start" []
+@PointClass base(PlayerClass) = player_start : "Player Start" 
+[
+  name(string) : "Object name in code" : "player"
+  near(string) : "Near plane" : ".001"
+  far(string) : "Far plane" : "500"
+  fov(string) : "Field of view" : "100"
+  mass(string) : "Player's Mass" : "95"
+]
 @PointClass base(StaticModel, SoundEmitter) = model : "Static Model" []
 @PointClass base(Light, Nameable) color(255 255 102) = light : "Dynamic Light" []
-@PointClass base(CameraClass) = camera : "Camera" []
-// @PointClass base(Billboard, SoundEmitter) = sprite : "Flat Sprites" []
+@PointClass base(CameraClass) = camera : "Camera" 
+[
+  name(string) : "Object name in code" : "player"
+  near(string) : "Near plane" : ".001"
+  far(string) : "Far plane" : "500"
+  fov(string) : "Field of view" : "100"
+]
 @PointClass base(Appearflags, SoundEmitter, Nameable) color(150 0 150) = sound : "Sound" []
 
 // ////////////////////////////////////////////////////////////////////////////////
@@ -109,6 +154,8 @@
 ]
 
 @SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_active : "Active Element" []
+
+// @SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_ladder : "Ladder like Element" []
 
 @SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_brush : "Brush Element" [
   solid(choices) : "Collision" : 0 =
@@ -124,15 +171,23 @@
 ]
 
 @SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_door : "Door Element" [
+  moveaxis(choices) : "Axis to move on" : 1 = 
+  [
+    0 : "X"
+    1 : "Y"
+    2 : "Z"
+  ]
   movedir(choices) : "Direction" : 1 =
   [
-    1 : "Up"
-    2 : "Down"
-    3 : "Left"
-    4 : "Right"
+    0 : "Positive"
+    1 : "Negatve"
+  ]
+  initialstate(choices) : "Inital State" : 0 =
+  [
+    0 : "Closed"
+    1 : "Open"
   ]
   speed(string) : "How fast the door opens / closes" : ".8"
-  wait(string) : "Time to wait before auto close" : "0"
   lip(string) : "Amount to stick out of wall / floor" : ".1"
 ]
 
