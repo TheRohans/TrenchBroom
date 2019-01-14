@@ -16,9 +16,9 @@
   // ambientLightUni
   light_color(string) : "Ambient light (RGB)": ".5 .5 .5"
   // sunColorUni
-  sun_color(string) : "Sun Color (RGB)" : ".5 .5 .5"
-  // sunDirUni
-  sun_dir(string) : "Sun Direction (X Y Z)" : "0 0 0"
+  // sun_color(string) : "Sun Color (RGB)" : ".5 .5 .5"
+  // // sunDirUni
+  // sun_dir(string) : "Sun Direction (X Y Z)" : "0 0 0"
   frustum_filter(choices) : "Frustum Enabled" : 1 =
   [
     0 : "No"
@@ -118,10 +118,25 @@
   scale(string): "The scale of the object 1, .5, etc"
 ]
 
-@BaseClass = Light 
+@BaseClass base(Appearflags) size(-16 -16 -16, 16 16 16) color(255 255 102) = Light 
 [
-  light_color(string) : "Light Color" : "1 1 .5"
-  brightness(integer) : "Brightness" : 200
+  light_type(choices) : "Light Type" : 2 =
+  [
+    1 : "Directional"
+    2 : "Point"
+    3 : "Spot"
+  ]
+  attenuation(choices) : "Attenuation" : 2 =
+  [
+    1 : "Constant (unaffected by distance)"
+    2 : "Linear (diminish a fixed rate)"
+    3 : "Quadratic (diminished by distance)"
+  ]
+  light_color(string) : "Light Color" : "1 1 1"
+  direction(string) : "Forward direction of the light (xyz; Directional and Spot)" : "90 0 0"
+  intensity(string) : "Brightness (1 full; 0 off; 1+ over bright)" : "1"
+  range(string) : "Light Max Range (in 16)" : "10"
+  cutoff(string) : "(Spot Only) radius fade out (0 - 1)" : "0.7"
 ]
 
 // ////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +150,7 @@
   mass(string) : "Player's Mass" : "95"
 ]
 @PointClass base(StaticModel, SoundEmitter) = model : "Static Model" []
-@PointClass base(Light, Nameable) color(255 255 102) = light : "Dynamic Light" []
+@PointClass base(Light, Nameable) = light : "Dynamic Light" []
 @PointClass base(CameraClass) = camera : "Camera" 
 [
   name(string) : "Object name in code" : "player"
