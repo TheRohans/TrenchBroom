@@ -13,12 +13,8 @@
     0 : "No"
     1 : "Yes"
   ]
-  // ambientLightUni
+  // ambientLight
   light_color(string) : "Ambient light (RGB)": ".5 .5 .5"
-  // sunColorUni
-  // sun_color(string) : "Sun Color (RGB)" : ".5 .5 .5"
-  // // sunDirUni
-  // sun_dir(string) : "Sun Direction (X Y Z)" : "0 0 0"
   frustum_filter(choices) : "Frustum Enabled" : 1 =
   [
     0 : "No"
@@ -57,6 +53,14 @@
     9 : "9"
     11 : "11"
   ]
+  fog(choices) : "Fog Enabled" : 0 =
+  [
+    0 : "No"
+    1 : "Yes"
+  ]
+  fog_color(string) : "Fog Color (RGB)": ".8 .8 .8"
+  fog_density(string) : "Fog thickness" : "4.0"
+  fog_far(string) : "How far away thing must be to be fully washed out" : "250.0"
 ]
 
 @BaseClass = Nameable [ name(string) : "Item name in code" ]
