@@ -115,11 +115,12 @@
 
 @BaseClass base(Appearflags, Nameable) = Item []
 
-@BaseClass base(Angle, Target, Item, Shadeable, Behaviorable, Physics) size(-16 -16 -16, 16 16 16) color(80 0 200) = StaticModel
+@BaseClass base(Target, Item, Shadeable, Behaviorable, Physics) size(-16 -16 -16, 16 16 16) color(80 0 200) = StaticModel
 [
   model(string) : "Model file name"
-  material(string) : "Material file name"
+  material(string) : "Material file name (.mtl)"
   scale(string): "The scale of the object 1, .5, etc"
+  angles(string): "The forward direction of the model": "0 0 0"
 ]
 
 @BaseClass base(Appearflags) size(-16 -16 -16, 16 16 16) color(255 255 102) = Light 
@@ -137,7 +138,7 @@
     3 : "Quadratic (diminished by distance)"
   ]
   light_color(string) : "Light Color" : "1 1 1"
-  direction(string) : "Forward direction of the light (xyz; Directional and Spot)" : "90 0 0"
+  angles(string) : "Forward direction of the light (xyz; Directional and Spot)": "90 0 0"
   intensity(string) : "Brightness (1 full; 0 off; 1+ over bright)" : "1"
   range(string) : "Light Max Range (in 16)" : "10"
   cutoff(string) : "(Spot Only) radius fade out (0 - 1)" : "0.7"
@@ -161,6 +162,7 @@
   near(string) : "Near plane" : ".001"
   far(string) : "Far plane" : "500"
   fov(string) : "Field of view" : "100"
+  angles(string): "The forward direction of the camera": "0 0 0"
 ]
 @PointClass base(Appearflags, SoundEmitter, Nameable) color(150 0 150) = sound : "Sound" []
 
