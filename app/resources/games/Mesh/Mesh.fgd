@@ -61,6 +61,7 @@
   fog_color(string) : "Fog Color (RGB)": ".8 .8 .8"
   fog_density(string) : "Fog thickness" : "4.0"
   fog_far(string) : "How far away thing must be to be fully washed out" : "250.0"
+  void_color(string) : "Fog Color (RGB)": ".8 .8 .8"
 ]
 
 @BaseClass = Nameable [ name(string) : "Item name in code" ]
