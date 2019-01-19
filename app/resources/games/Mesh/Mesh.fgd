@@ -69,6 +69,7 @@
 @BaseClass = Shadeable [ shader(string) : "Shader to use" ]
 
 @BaseClass = Angle [ angle(integer) : "Direction" ]
+@BaseClass = Requires [ requires(string) : "Item required to trigger" ]
 
 @BaseClass = Appearflags []
 
@@ -169,13 +170,13 @@
 
 // ////////////////////////////////////////////////////////////////////////////////
 
-@BaseClass base(Appearflags, Target, Nameable, Behaviorable) = Trigger
+@BaseClass base(Appearflags, Target, Nameable, Behaviorable, Requires) = Trigger
 [
   delay(string) : "Delay before trigger" : "0"
   message(string) : "Message"
 ]
 
-@SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_active : "Active Element" []
+@SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Requires, Shadeable) = func_active : "Active Element" []
 
 // @SolidClass base(Angle, Appearflags, Target, Nameable, Behaviorable, Shadeable) = func_ladder : "Ladder like Element" []
 
