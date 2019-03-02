@@ -36,6 +36,8 @@
 
 #include <memory>
 
+wxDECLARE_EVENT(SHOW_POPUP_MENU_EVENT, wxCommandEvent);
+
 namespace TrenchBroom {
     class Logger;
     
@@ -191,6 +193,16 @@ namespace TrenchBroom {
             Model::Node* findNewParentEntityForBrushes(const Model::NodeList& nodes) const;
             
             bool canReparentNodes(const Model::NodeList& nodes, const Model::Node* newParent) const;
+            /**
+             * Reparents nodes, and deselects everything as a side effect.
+             *
+             * @param nodes the nodes to reparent
+             * @param newParent the new parent
+             * @param preserveEntities if true, if `nodes` contains brushes belonging to an entity, the whole
+             *                         entity and all brushes it contains are also reparented.
+             *                         if false, only the brushes listed in `nodes` are reparented, not any
+             *                         parent entities.
+             */
             void reparentNodes(const Model::NodeList& nodes, Model::Node* newParent, bool preserveEntities);
             Model::NodeList collectReparentableNodes(const Model::NodeList& nodes, const Model::Node* newParent) const;
             
@@ -233,8 +245,14 @@ namespace TrenchBroom {
             void validatePortalFileRenderer(Renderer::RenderContext& renderContext);
 
             void renderCompass(Renderer::RenderBatch& renderBatch);
+        public: // implement InputEventProcessor interface
+            void processEvent(const KeyEvent& event) override;
+            void processEvent(const MouseEvent& event) override;
+            void processEvent(const CancelEvent& event) override;
         private: // implement ToolBoxConnector
             void doShowPopupMenu() override;
+            void OnShowPopupMenu(wxCommandEvent& event);
+
             wxMenu* makeEntityGroupsMenu(Assets::EntityDefinition::Type type, int id);
             
             void OnUpdatePopupMenuItem(wxUpdateUIEvent& event);

@@ -19,22 +19,17 @@
 
 #include "MdlParser.h"
 
-#include "CollectionUtils.h"
-#include "Macros.h"
-#include "Assets/EntityModel.h"
 #include "Assets/Texture.h"
 #include "Assets/Palette.h"
 #include "IO/IOUtils.h"
-#include "Renderer/IndexRangeMap.h"
 #include "Renderer/IndexRangeMapBuilder.h"
-
-#include <cassert>
-#include <memory>
 
 namespace TrenchBroom {
     namespace IO {
         namespace MdlLayout {
-            static const unsigned int HeaderScale       = 0x8;
+            static const int Ident = (('O'<<24) + ('P'<<16) + ('D'<<8) + 'I');
+            static const int Version6 = 6;
+
             static const unsigned int HeaderNumSkins    = 0x30;
             static const unsigned int Skins             = 0x54;
             static const unsigned int SimpleFrameName   = 0x8;
@@ -219,8 +214,19 @@ namespace TrenchBroom {
             unused(m_end);
         }
 
-        Assets::EntityModel* MdlParser::doParseModel() {
-            const auto* cursor = m_begin + MdlLayout::HeaderScale;
+        Assets::EntityModel* MdlParser::doParseModel(Logger& logger) {
+            const auto* cursor = m_begin;
+
+            const auto ident = read<int32_t>(cursor);
+            const auto version = read<int32_t>(cursor);
+
+            if (ident != MdlLayout::Ident) {
+                throw AssetException() << "Unknown MDL model ident: " << ident;
+            }
+            if (version != MdlLayout::Version6) {
+                throw AssetException() << "Unknown MDL model version: " << version;
+            }
+
             const auto scale = readVec3f(cursor);
             const auto origin = readVec3f(cursor);
             
@@ -235,18 +241,19 @@ namespace TrenchBroom {
             const auto flags = readInt<int32_t>(cursor);
 
             auto model = std::make_unique<Assets::EntityModel>(m_name);
+            auto& surface = model->addSurface(m_name);
 
-            parseSkins(cursor, model.get(), skinCount, skinWidth, skinHeight, flags);
+            parseSkins(cursor, surface, skinCount, skinWidth, skinHeight, flags);
 
             const auto skinVertices = parseSkinVertices(cursor, skinVertexCount);
             const auto skinTriangles = parseSkinTriangles(cursor, skinTriangleCount);
 
-            parseFrames(cursor, model.get(), frameCount, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
+            parseFrames(cursor, *model, surface, frameCount, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
 
             return model.release();
         }
 
-        void MdlParser::parseSkins(const char*& cursor, Assets::EntityModel* model, const size_t count, const size_t width, const size_t height, const int flags) {
+        void MdlParser::parseSkins(const char*& cursor, Assets::EntityModel::Surface& surface, const size_t count, const size_t width, const size_t height, const int flags) {
             const auto size = width * height;
             const auto transparency = (flags & MF_HOLEY)
                     ? Assets::PaletteTransparency::Index255Transparent
@@ -267,7 +274,7 @@ namespace TrenchBroom {
 
                     textureName << m_name << "_" << i;
 
-                    model->addSkin(new Assets::Texture(textureName.str(), width, height, avgColor, rgbaImage, GL_RGBA, type));
+                    surface.addSkin(new Assets::Texture(textureName.str(), width, height, avgColor, rgbaImage, GL_RGBA, type));
                 } else {
                     const auto pictureCount = readSize<int32_t>(cursor);
 
@@ -279,7 +286,7 @@ namespace TrenchBroom {
 
                     textureName << m_name << "_" << i;
 
-                    model->addSkin(new Assets::Texture(textureName.str(), width, height, avgColor, rgbaImage, GL_RGBA, type));
+                    surface.addSkin(new Assets::Texture(textureName.str(), width, height, avgColor, rgbaImage, GL_RGBA, type));
                 }
             }
         }
@@ -305,17 +312,17 @@ namespace TrenchBroom {
             return triangles;
         }
 
-        void MdlParser::parseFrames(const char*& cursor, Assets::EntityModel* model, const size_t count, const MdlSkinTriangleList& skinTriangles, const MdlSkinVertexList& skinVertices, const size_t skinWidth, const size_t skinHeight, const vm::vec3f& origin, const vm::vec3f& scale) {
+        void MdlParser::parseFrames(const char*& cursor, Assets::EntityModel& model, Assets::EntityModel::Surface& surface, const size_t count, const MdlSkinTriangleList& skinTriangles, const MdlSkinVertexList& skinVertices, const size_t skinWidth, const size_t skinHeight, const vm::vec3f& origin, const vm::vec3f& scale) {
             for (size_t i = 0; i < count; ++i) {
                 const auto type = readInt<int32_t>(cursor);
                 if (type == 0) { // single frame
-                    parseFrame(cursor, model, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
+                    parseFrame(cursor, model, surface, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
                 } else { // frame group, but we only read the first frame
                     const auto* base = cursor;
                     const auto groupFrameCount = readSize<int32_t>(cursor);
 
                     const auto* frameCursor = base + MdlLayout::MultiFrameTimes + groupFrameCount * sizeof(float);
-                    parseFrame(frameCursor, model, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
+                    parseFrame(frameCursor, model, surface, skinTriangles, skinVertices, skinWidth, skinHeight, origin, scale);
 
                     // forward to after the last group frame as if we had read them all
                     const auto offset = (groupFrameCount - 1) * (MdlLayout::SimpleFrameName + MdlLayout::SimpleFrameLength + skinVertices.size() * 4);
@@ -324,7 +331,7 @@ namespace TrenchBroom {
             }
         }
 
-        void MdlParser::parseFrame(const char*& cursor, Assets::EntityModel* model, const MdlSkinTriangleList& skinTriangles, const MdlSkinVertexList& skinVertices, const size_t skinWidth, const size_t skinHeight, const vm::vec3f& origin, const vm::vec3f& scale) {
+        void MdlParser::parseFrame(const char*& cursor, Assets::EntityModel& model, Assets::EntityModel::Surface& surface, const MdlSkinTriangleList& skinTriangles, const MdlSkinVertexList& skinVertices, const size_t skinWidth, const size_t skinHeight, const vm::vec3f& origin, const vm::vec3f& scale) {
             using Vertex = Assets::EntityModel::Vertex;
             using VertexList = Vertex::List;
 
@@ -345,6 +352,8 @@ namespace TrenchBroom {
                 positions[i] = unpackFrameVertex(packedVertices[i], origin, scale);
             }
 
+            vm::bbox3f bounds;
+
             VertexList frameTriangles;
             frameTriangles.reserve(skinTriangles.size());
             for (size_t i = 0; i < skinTriangles.size(); ++i) {
@@ -358,7 +367,14 @@ namespace TrenchBroom {
                         texCoords[0] += 0.5f;
                     }
 
-                    frameTriangles.push_back(Vertex(positions[vertexIndex], texCoords));
+                    const auto& position = positions[vertexIndex];
+                    if (i == 0 && j == 0) {
+                        bounds.min = bounds.max = position;
+                    } else {
+                        bounds = vm::merge(bounds, position);
+                    }
+
+                    frameTriangles.push_back(Vertex(position, texCoords));
                 }
             }
 
@@ -368,7 +384,8 @@ namespace TrenchBroom {
             Renderer::IndexRangeMapBuilder<Assets::EntityModel::Vertex::Spec> builder(frameTriangles.size() * 3, size);
             builder.addTriangles(frameTriangles);
 
-            model->addFrame(String(name), builder.vertices(), builder.indexArray());
+            model.addFrame(String(name), bounds);
+            surface.addIndexedMesh(builder.vertices(), builder.indices());
         }
 
         vm::vec3f MdlParser::unpackFrameVertex(const PackedFrameVertex& vertex, const vm::vec3f& origin, const vm::vec3f& scale) const {

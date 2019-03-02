@@ -56,7 +56,6 @@ namespace TrenchBroom {
         
         UVView::UVView(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager) :
         RenderView(parent, contextManager, GLAttribs::attribs()),
-        ToolBoxConnector(this),
         m_document(document),
         m_helper(m_camera) {
             setToolBox(m_toolBox);
@@ -196,7 +195,7 @@ namespace TrenchBroom {
 
         class UVView::RenderTexture : public Renderer::DirectRenderable {
         private:
-            typedef Renderer::VertexSpecs::P3NT2::Vertex Vertex;
+            using Vertex = Renderer::VertexSpecs::P3NT2::Vertex;
             
             const UVViewHelper& m_helper;
             Renderer::VertexArray m_vertexArray;
@@ -308,7 +307,7 @@ namespace TrenchBroom {
             const auto yAxis  = vm::vec3f(face->textureYAxis() - dot(face->textureYAxis(), normal) * normal);
             const auto center = vm::vec3f(face->boundsCenter());
             
-            typedef Renderer::VertexSpecs::P3C4::Vertex Vertex;
+            using Vertex = Renderer::VertexSpecs::P3C4::Vertex;
             Vertex::List vertices;
             vertices.reserve(4);
             
@@ -325,6 +324,18 @@ namespace TrenchBroom {
 
         void UVView::renderToolBox(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) {
             renderTools(renderContext, renderBatch);
+        }
+
+        void UVView::processEvent(const KeyEvent& event) {
+            ToolBoxConnector::processEvent(event);
+        }
+
+        void UVView::processEvent(const MouseEvent& event) {
+            ToolBoxConnector::processEvent(event);
+        }
+
+        void UVView::processEvent(const CancelEvent& event) {
+            ToolBoxConnector::processEvent(event);
         }
 
         PickRequest UVView::doGetPickRequest(const int x, const int y) const {

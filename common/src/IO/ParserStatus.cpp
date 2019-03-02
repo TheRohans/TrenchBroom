@@ -22,8 +22,9 @@
 
 namespace TrenchBroom {
     namespace IO {
-        ParserStatus::ParserStatus(Logger* logger) :
-        m_logger(logger) {}
+        ParserStatus::ParserStatus(Logger& logger, String prefix) :
+        m_logger(logger),
+        m_prefix(std::move(prefix)) {}
 
         ParserStatus::~ParserStatus() {}
 
@@ -74,12 +75,36 @@ namespace TrenchBroom {
             throw ParserException(buildMessage(line, str));
         }
 
+        void ParserStatus::debug(const String& str) {
+            log(Logger::LogLevel_Debug, str);
+        }
+
+        void ParserStatus::info(const String& str) {
+            log(Logger::LogLevel_Info, str);
+        }
+
+        void ParserStatus::warn(const String& str) {
+            log(Logger::LogLevel_Warn, str);
+        }
+
+        void ParserStatus::error(const String& str) {
+            log(Logger::LogLevel_Error, str);
+        }
+
+        void ParserStatus::errorAndThrow(const String& str) {
+            error(str);
+            throw ParserException(buildMessage(str));
+        }
+
         void ParserStatus::log(const Logger::LogLevel level, const size_t line, const size_t column, const String& str) {
             doLog(level, buildMessage(line, column, str));
         }
 
         String ParserStatus::buildMessage(const size_t line, const size_t column, const String& str) const {
             StringStream msg;
+            if (!m_prefix.empty()) {
+                msg << m_prefix << ": ";
+            }
             msg << str << " (line " << line << ", column " << column << ")";
             return msg.str();
         }
@@ -90,13 +115,28 @@ namespace TrenchBroom {
         
         String ParserStatus::buildMessage(const size_t line, const String& str) const {
             StringStream msg;
+            if (!m_prefix.empty()) {
+                msg << m_prefix << ": ";
+            }
             msg << str << " (line " << line << ")";
             return msg.str();
         }
 
+        void ParserStatus::log(Logger::LogLevel level, const String& str) {
+            doLog(level, buildMessage(str));
+        }
+
+        String ParserStatus::buildMessage(const String& str) const {
+            StringStream msg;
+            if (!m_prefix.empty()) {
+                msg << m_prefix << ": ";
+            }
+            msg << str << " (unknown position)";
+            return msg.str();
+        }
+
         void ParserStatus::doLog(const Logger::LogLevel level, const String& str) {
-            if (m_logger != nullptr)
-                m_logger->log(level, str);
+            m_logger.log(level, str);
         }
     }
 }

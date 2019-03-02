@@ -35,10 +35,28 @@ namespace TrenchBroom {
     namespace Assets {
         class TextureCollection;
         
-        typedef Buffer<unsigned char> TextureBuffer;
+        using TextureBuffer = Buffer<unsigned char>;
 
         enum class TextureType {
-            Opaque, Masked
+            Opaque,
+            /**
+             * Modifies texture uploading to support mask textures.
+             */
+            Masked
+        };
+
+        enum class TextureCulling {
+            CullDefault,
+            CullNone,
+            CullFront,
+            CullBack,
+            CullBoth
+        };
+
+        struct TextureBlendFunc {
+            bool enable;
+            GLenum srcFactor;
+            GLenum destFactor;
         };
 
         vm::vec2s sizeAtMipLevel(size_t width, size_t height, size_t level);
@@ -60,6 +78,15 @@ namespace TrenchBroom {
             GLenum m_format;
             TextureType m_type;
 
+            // Quake 3 surface parameters; move these to materials when we add proper support for those.
+            StringSet m_surfaceParms;
+
+            // Quake 3 surface culling; move to materials
+            TextureCulling m_culling;
+
+            // Quake 3 blend function, move to materials
+            TextureBlendFunc m_blendFunc;
+
             mutable GLuint m_textureId;
             mutable TextureBuffer::List m_buffers;
         public:
@@ -68,11 +95,22 @@ namespace TrenchBroom {
             Texture(const String& name, size_t width, size_t height, GLenum format = GL_RGB, TextureType type = TextureType::Opaque);
             ~Texture();
 
+            static TextureType selectTextureType(bool masked);
+
             const String& name() const;
             
             size_t width() const;
             size_t height() const;
             const Color& averageColor() const;
+
+            const StringSet& surfaceParms() const;
+            void setSurfaceParms(const StringSet& surfaceParms);
+
+            TextureCulling culling() const;
+            void setCulling(TextureCulling culling);
+
+            const TextureBlendFunc& blendFunc() const;
+            void setBlendFunc(GLenum srcFactor, GLenum destFactor);
 
             size_t usageCount() const;
             void incUsageCount();
@@ -86,7 +124,6 @@ namespace TrenchBroom {
 
             void activate() const;
             void deactivate() const;
-
         public: // exposed for tests only
             /**
              * Returns the texture data in the format returned by format().

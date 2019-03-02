@@ -36,7 +36,7 @@ namespace TrenchBroom {
     }
     
     namespace Renderer {
-        class TexturedIndexRangeRenderer;
+        class TexturedRenderer;
         class Vbo;
     }
     
@@ -45,15 +45,15 @@ namespace TrenchBroom {
         
         class EntityModelManager {
         private:
-            typedef std::map<IO::Path, EntityModel*> ModelCache;
-            typedef std::set<IO::Path> ModelMismatches;
-            typedef std::vector<EntityModel*> ModelList;
+            using ModelCache = std::map<IO::Path, EntityModel*>;
+            using ModelMismatches = std::set<IO::Path>;
+            using ModelList = std::vector<EntityModel*>;
             
-            typedef std::map<Assets::ModelSpecification, Renderer::TexturedIndexRangeRenderer*> RendererCache;
-            typedef std::set<Assets::ModelSpecification> RendererMismatches;
-            typedef std::vector<Renderer::TexturedIndexRangeRenderer*> RendererList;
+            using RendererCache = std::map<Assets::ModelSpecification, Renderer::TexturedRenderer*>;
+            using RendererMismatches = std::set<Assets::ModelSpecification>;
+            using RendererList = std::vector<Renderer::TexturedRenderer*>;
             
-            Logger* m_logger;
+            Logger& m_logger;
             const IO::EntityModelLoader* m_loader;
 
             int m_minFilter;
@@ -68,7 +68,7 @@ namespace TrenchBroom {
             mutable ModelList m_unpreparedModels;
             mutable RendererList m_unpreparedRenderers;
         public:
-            EntityModelManager(Logger* logger, int minFilter, int magFilter);
+            EntityModelManager(int magFilter, int minFilter, Logger& logger);
             ~EntityModelManager();
             
             void clear();
@@ -78,7 +78,7 @@ namespace TrenchBroom {
             
             EntityModel* model(const IO::Path& path) const;
             EntityModel* safeGetModel(const IO::Path& path) const;
-            Renderer::TexturedIndexRangeRenderer* renderer(const Assets::ModelSpecification& spec) const;
+            Renderer::TexturedRenderer* renderer(const Assets::ModelSpecification& spec) const;
             
             bool hasModel(const Model::Entity* entity) const;
             bool hasModel(const Assets::ModelSpecification& spec) const;

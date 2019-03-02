@@ -190,7 +190,7 @@ namespace TrenchBroom {
                 
                 const auto spec = definition->defaultModel();
                 const auto* model = safeGetModel(m_entityModelManager, spec, m_logger);
-                Renderer::TexturedIndexRangeRenderer* modelRenderer = nullptr;
+                Renderer::TexturedRenderer* modelRenderer = nullptr;
                 
                 vm::bbox3f rotatedBounds;
                 if (model != nullptr) {
@@ -334,7 +334,7 @@ namespace TrenchBroom {
         }
 
         void EntityBrowserView::renderGroupTitleBackgrounds(Layout& layout, const float y, const float height) {
-            typedef Renderer::VertexSpecs::P2::Vertex Vertex;
+            using Vertex = Renderer::VertexSpecs::P2::Vertex;
             Vertex::List vertices;
             
             for (size_t i = 0; i < layout.size(); ++i) {

@@ -128,7 +128,7 @@ namespace TrenchBroom {
             createMenuBar();
             createStatusBar();
 
-            m_document->setParentLogger(logger());
+            m_document->setParentLogger(m_console);
             m_document->setViewEffectsService(m_mapView);
 
             m_autosaveTimer = new wxTimer(this);
@@ -225,8 +225,8 @@ namespace TrenchBroom {
             return m_document;
         }
 
-        Logger* MapFrame::logger() const {
-            return m_console;
+        Logger& MapFrame::logger() const {
+            return *m_console;
         }
 
         void MapFrame::setToolBoxDropTarget() {
@@ -239,14 +239,14 @@ namespace TrenchBroom {
             SetDropTarget(new MapFrameDropTarget(m_document, this));
         }
 
-        bool MapFrame::newDocument(Model::GameSPtr game, const Model::MapFormat::Type mapFormat) {
+        bool MapFrame::newDocument(Model::GameSPtr game, const Model::MapFormat mapFormat) {
             if (!confirmOrDiscardChanges())
                 return false;
             m_document->newDocument(mapFormat, MapDocument::DefaultWorldBounds, game);
             return true;
         }
 
-        bool MapFrame::openDocument(Model::GameSPtr game, const Model::MapFormat::Type mapFormat, const IO::Path& path) {
+        bool MapFrame::openDocument(Model::GameSPtr game, const Model::MapFormat mapFormat, const IO::Path& path) {
             if (!confirmOrDiscardChanges())
                 return false;
             m_document->loadDocument(mapFormat, MapDocument::DefaultWorldBounds, game, path);
@@ -257,7 +257,7 @@ namespace TrenchBroom {
             try {
                 if (m_document->persistent()) {
                     m_document->saveDocument();
-                    logger()->info("Saved " + m_document->path().asString());
+                    logger().info() << "Saved " << m_document->path();
                     return true;
                 }
                 return saveDocumentAs();
@@ -281,7 +281,7 @@ namespace TrenchBroom {
 
                 const IO::Path path(saveDialog.GetPath().ToStdString());
                 m_document->saveDocumentAs(path);
-                logger()->info("Saved " + m_document->path().asString());
+                logger().info() << "Saved " << m_document->path();
                 return true;
             } catch (const FileSystemException& e) {
                 ::wxMessageBox(e.what(), "", wxOK | wxICON_ERROR, this);
@@ -308,7 +308,7 @@ namespace TrenchBroom {
         bool MapFrame::exportDocument(const Model::ExportFormat format, const IO::Path& path) {
             try {
                 m_document->exportDocumentAs(format, path);
-                logger()->info("Exported " + path.asString());
+                logger().info() << "Exported " << path;
                 return true;
             } catch (const FileSystemException& e) {
                 ::wxMessageBox(e.what(), "", wxOK | wxICON_ERROR, this);
@@ -984,13 +984,13 @@ namespace TrenchBroom {
         PasteType MapFrame::paste() {
             OpenClipboard openClipboard;
             if (!wxTheClipboard->IsOpened() || !wxTheClipboard->IsSupported(wxDF_TEXT)) {
-                logger()->error("Clipboard is empty");
+                logger().error() << "Clipboard is empty";
                 return PT_Failed;
             }
 
             wxTextDataObject textData;
             if (!wxTheClipboard->GetData(textData)) {
-                logger()->error("Could not get clipboard contents");
+                logger().error() << "Could not get clipboard contents";
                 return PT_Failed;
             }
 
@@ -1193,7 +1193,15 @@ namespace TrenchBroom {
             if (IsBeingDeleted()) return;
 
             if (canDoCsgConvexMerge()) { // on gtk, menu shortcuts remain enabled even if the menu item is disabled
-                m_document->csgConvexMerge();
+                if (m_mapView->vertexToolActive() && m_mapView->vertexTool()->canDoCsgConvexMerge()) {
+                    m_mapView->vertexTool()->csgConvexMerge();
+                } else if (m_mapView->edgeToolActive() && m_mapView->edgeTool()->canDoCsgConvexMerge()) {
+                    m_mapView->edgeTool()->csgConvexMerge();
+                } else if (m_mapView->faceToolActive() && m_mapView->faceTool()->canDoCsgConvexMerge()) {
+                    m_mapView->faceTool()->csgConvexMerge();
+                } else {
+                    m_document->csgConvexMerge();
+                }
             }
         }
 
@@ -1999,11 +2007,14 @@ namespace TrenchBroom {
 
         bool MapFrame::canDoCsgConvexMerge() const {
             return (m_document->hasSelectedBrushFaces() && m_document->selectedBrushFaces().size() > 1) ||
-                   (m_document->selectedNodes().hasOnlyBrushes() && m_document->selectedNodes().brushCount() > 1);
+                   (m_document->selectedNodes().hasOnlyBrushes() && m_document->selectedNodes().brushCount() > 1) ||
+                   (m_mapView->vertexToolActive() && m_mapView->vertexTool()->canDoCsgConvexMerge()) ||
+                   (m_mapView->edgeToolActive() && m_mapView->edgeTool()->canDoCsgConvexMerge()) ||
+                   (m_mapView->faceToolActive() && m_mapView->faceTool()->canDoCsgConvexMerge());
         }
 
         bool MapFrame::canDoCsgSubtract() const {
-            return m_document->selectedNodes().hasOnlyBrushes() && m_document->selectedNodes().brushCount() > 1;
+            return m_document->selectedNodes().hasOnlyBrushes() && m_document->selectedNodes().brushCount() >= 1;
         }
 
         bool MapFrame::canDoCsgIntersect() const {

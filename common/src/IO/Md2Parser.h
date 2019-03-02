@@ -32,7 +32,6 @@
 
 namespace TrenchBroom {
     namespace Assets {
-        class EntityModel;
         class Palette;
     }
     
@@ -104,14 +103,14 @@ namespace TrenchBroom {
         public:
             Md2Parser(const String& name, const char* begin, const char* end, const Assets::Palette& palette, const FileSystem& fs);
         private:
-            Assets::EntityModel* doParseModel() override;
+            Assets::EntityModel* doParseModel(Logger& logger) override;
             Md2SkinList parseSkins(const char* begin, size_t skinCount);
             Md2FrameList parseFrames(const char* begin, size_t frameCount, size_t frameVertexCount);
             Md2MeshList parseMeshes(const char* begin, size_t commandCount);
 
             Assets::EntityModel* buildModel(const Md2SkinList& skins, const Md2FrameList& frames, const Md2MeshList& meshes);
-            void loadSkins(Assets::EntityModel* model, const Md2SkinList& skins);
-            void buildFrames(Assets::EntityModel* model, const Md2FrameList& frames, const Md2MeshList& meshes);
+            void loadSkins(Assets::EntityModel::Surface& surface, const Md2SkinList& skins);
+            void buildFrames(Assets::EntityModel& model, Assets::EntityModel::Surface& surface, const Md2FrameList& frames, const Md2MeshList& meshes);
 
             Assets::EntityModel::VertexList getVertices(const Md2Frame& frame, const Md2MeshVertexList& meshVertices) const;
         };

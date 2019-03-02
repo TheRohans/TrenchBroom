@@ -20,6 +20,7 @@
 #include "World.h"
 
 #include "Model/AssortNodesVisitor.h"
+#include "Model/TagMatcher.h"
 #include "Model/Brush.h"
 #include "Model/BrushFace.h"
 #include "Model/CollectNodesWithDescendantSelectionCountVisitor.h"
@@ -27,10 +28,9 @@
 
 namespace TrenchBroom {
     namespace Model {
-        World::World(MapFormat::Type mapFormat, const BrushContentTypeBuilder* brushContentTypeBuilder, const vm::bbox3& worldBounds) :
-        m_factory(mapFormat, brushContentTypeBuilder),
+        World::World(MapFormat mapFormat, const vm::bbox3& worldBounds) :
+        m_factory(mapFormat),
         m_defaultLayer(nullptr),
-        // m_nodeTree(VecCodeComputer<vm::vec3>(worldBounds)),
         m_updateNodeTree(true) {
             addOrUpdateAttribute(AttributeNames::Classname, AttributeValues::WorldspawnClassname);
             createDefaultLayer(worldBounds);
@@ -135,11 +135,7 @@ namespace TrenchBroom {
         
         class World::MatchTreeNodes {
         public:
-            bool operator()(const Model::World* world) const   { return false; }
-            bool operator()(const Model::Layer* layer) const   { return false; }
-            bool operator()(const Model::Group* group) const   { return true; }
-            bool operator()(const Model::Entity* entity) const { return true; }
-            bool operator()(const Model::Brush* brush) const   { return true; }
+            bool operator()(const Model::Node* node) const   { return node->shouldAddToSpacialIndex(); }
         };
 
         void World::disableNodeTreeUpdates() {
@@ -245,22 +241,26 @@ namespace TrenchBroom {
             return false;
         }
 
+        bool World::doShouldAddToSpacialIndex() const {
+            return false;
+        }
+
         void World::doDescendantWasAdded(Node* node, const size_t depth) {
-            if (m_updateNodeTree && depth > 1) { // ignore layers
+            if (m_updateNodeTree && node->shouldAddToSpacialIndex()) {
                 AddNodeToNodeTree visitor(m_nodeTree);
                 node->acceptAndRecurse(visitor);
             }
         }
 
         void World::doDescendantWillBeRemoved(Node* node, const size_t depth) {
-            if (m_updateNodeTree && depth > 1) { // ignore layers
+            if (m_updateNodeTree && node->shouldAddToSpacialIndex()) {
                 RemoveNodeFromNodeTree visitor(m_nodeTree);
                 node->acceptAndRecurse(visitor);
             }
         }
 
         void World::doDescendantBoundsDidChange(Node* node, const vm::bbox3& oldBounds, const size_t depth) {
-            if (m_updateNodeTree && depth > 1) { // ignore layers
+            if (m_updateNodeTree && node->shouldAddToSpacialIndex()) {
                 UpdateNodeInNodeTree visitor(m_nodeTree, oldBounds);
                 node->accept(visitor);
             }
@@ -350,7 +350,7 @@ namespace TrenchBroom {
             return vm::vec3::zero;
         }
 
-        MapFormat::Type World::doGetFormat() const {
+        MapFormat World::doGetFormat() const {
             return m_factory.format();
         }
 
@@ -380,6 +380,10 @@ namespace TrenchBroom {
         
         BrushFace* World::doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY) const {
             return m_factory.createFace(point1, point2, point3, attribs, texAxisX, texAxisY);
+        }
+
+        bool World::doEvaluateTagMatcher(const TagMatcher& matcher) const {
+            return matcher.matches(*this);
         }
     }
 }

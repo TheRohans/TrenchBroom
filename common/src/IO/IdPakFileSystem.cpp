@@ -20,10 +20,11 @@
 #include "IdPakFileSystem.h"
 
 #include "CollectionUtils.h"
+#include "IO/CharArrayReader.h"
 #include "IO/DiskFileSystem.h"
-#include "IO/IOUtils.h"
 
 #include <cassert>
+#include <memory>
 
 namespace TrenchBroom {
     namespace IO {
@@ -36,7 +37,10 @@ namespace TrenchBroom {
         }
 
         IdPakFileSystem::IdPakFileSystem(const Path& path, MappedFile::Ptr file) :
-        ImageFileSystem(path, file) {
+        IdPakFileSystem(nullptr, path, file) {}
+
+        IdPakFileSystem::IdPakFileSystem(std::shared_ptr<FileSystem> next, const Path& path, MappedFile::Ptr file) :
+        ImageFileSystem(std::move(next), path, file) {
             initialize();
         }
 
@@ -44,30 +48,30 @@ namespace TrenchBroom {
             char magic[PakLayout::HeaderMagicLength];
             char entryNameBuffer[PakLayout::EntryNameLength + 1];
             entryNameBuffer[PakLayout::EntryNameLength] = 0;
-            
-            const char* cursor = m_file->begin() + PakLayout::HeaderAddress;
-            readBytes(cursor, magic, PakLayout::HeaderMagicLength);
-            
-            const size_t directoryAddress = readSize<int32_t>(cursor);
-            const size_t directorySize = readSize<int32_t>(cursor);
-            const size_t entryCount = directorySize / PakLayout::EntryLength;
-            
-            assert(m_file->begin() + directoryAddress + directorySize <= m_file->end());
-            cursor = m_file->begin() + directoryAddress;
-            
+
+            CharArrayReader reader(m_file->begin(), m_file->end());
+            reader.seekForward(PakLayout::HeaderAddress);
+            reader.read(magic, PakLayout::HeaderMagicLength);
+
+            const auto directoryAddress = reader.readSize<int32_t>();
+            const auto directorySize = reader.readSize<int32_t>();
+            const auto entryCount = directorySize / PakLayout::EntryLength;
+
+            reader.seekFromBegin(directoryAddress);
+
             for (size_t i = 0; i < entryCount; ++i) {
-                readBytes(cursor, entryNameBuffer, PakLayout::EntryNameLength);
-                const String entryName(entryNameBuffer);
-                const size_t entryAddress = readSize<int32_t>(cursor);
-                const size_t entryLength = readSize<int32_t>(cursor);
-                assert(m_file->begin() + entryAddress + entryLength <= m_file->end());
-                
+                reader.read(entryNameBuffer, PakLayout::EntryNameLength);
+
+                const auto entryName = String(entryNameBuffer);
+                const auto entryAddress = reader.readSize<int32_t>();
+                const auto entryLength = reader.readSize<int32_t>();
+
                 const char* entryBegin = m_file->begin() + entryAddress;
                 const char* entryEnd = entryBegin + entryLength;
                 const Path filePath(StringUtils::toLower(entryName));
-                MappedFile::Ptr entryFile(new MappedFileView(m_file, filePath, entryBegin, entryEnd));
+                const auto entryFile = std::make_shared<MappedFileView>(m_file, filePath, entryBegin, entryEnd);
 
-                m_root.addFile(filePath, new SimpleFile(entryFile));
+                m_root.addFile(filePath, std::make_unique<SimpleFile>(entryFile));
             }
         }
     }

@@ -22,29 +22,29 @@
 
 #include "StringUtils.h"
 #include "Preference.h"
-#include "IO/FileSystemHierarchy.h"
 #include "IO/Path.h"
 #include "Model/GameConfig.h"
 #include "Model/MapFormat.h"
 #include "Model/ModelTypes.h"
 
+#include <memory>
 #include <vector>
 
 namespace TrenchBroom {
     class Logger;
     
     namespace IO {
-        class DiskFileSystem;
+        class WritableDiskFileSystem;
     }
     
     namespace Model {
         class GameFactory {
         private:
-            typedef std::map<String, GameConfig> ConfigMap;
-            typedef std::map<String, Preference<IO::Path> > GamePathMap;
-            
-            IO::WritableFileSystemHierarchy m_configFS;
-            
+            using ConfigMap = std::map<String, GameConfig>;
+            using GamePathMap = std::map<String, Preference<IO::Path> >;
+
+            std::unique_ptr<IO::WritableDiskFileSystem> m_configFS;
+
             StringList m_names;
             ConfigMap m_configs;
             mutable GamePathMap m_gamePaths;
@@ -56,7 +56,7 @@ namespace TrenchBroom {
             
             const StringList& gameList() const;
             size_t gameCount() const;
-            GameSPtr createGame(const String& gameName, Logger* logger);
+            GameSPtr createGame(const String& gameName, Logger& logger);
             
             StringList fileFormats(const String& gameName) const;
             IO::Path iconPath(const String& gameName) const;
@@ -67,7 +67,7 @@ namespace TrenchBroom {
             GameConfig& gameConfig(const String& gameName);
             const GameConfig& gameConfig(const String& gameName) const;
             
-            std::pair<String, MapFormat::Type> detectGame(const IO::Path& path) const;
+            std::pair<String, MapFormat> detectGame(const IO::Path& path) const;
         private:
             GameFactory();
             void initializeFileSystem();

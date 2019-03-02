@@ -20,6 +20,7 @@
 #include "Texture.h"
 #include "Assets/ImageUtils.h"
 #include "Assets/TextureCollection.h"
+#include "Renderer/GL.h"
 
 #include <cassert>
 #include <algorithm>
@@ -69,6 +70,8 @@ namespace TrenchBroom {
         m_overridden(false),
         m_format(format),
         m_type(type),
+        m_culling(TextureCulling::CullDefault),
+        m_blendFunc{false, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
         m_textureId(0) {
             assert(m_width > 0);
             assert(m_height > 0);
@@ -86,6 +89,8 @@ namespace TrenchBroom {
         m_overridden(false),
         m_format(format),
         m_type(type),
+        m_culling(TextureCulling::CullDefault),
+        m_blendFunc{false, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
         m_textureId(0),
         m_buffers(buffers) {
             assert(m_width > 0);
@@ -110,6 +115,8 @@ namespace TrenchBroom {
         m_overridden(false),
         m_format(format),
         m_type(type),
+        m_culling(TextureCulling::CullDefault),
+        m_blendFunc{false, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
         m_textureId(0) {}
 
         Texture::~Texture() {
@@ -118,7 +125,15 @@ namespace TrenchBroom {
             }
             m_textureId = 0;
         }
-        
+
+        TextureType Texture::selectTextureType(const bool masked) {
+            if (masked) {
+                return TextureType::Masked;
+            } else {
+                return TextureType::Opaque;
+            }
+        }
+
         const String& Texture::name() const {
             return m_name;
         }
@@ -134,7 +149,33 @@ namespace TrenchBroom {
         const Color& Texture::averageColor() const {
             return m_averageColor;
         }
-        
+
+        const StringSet& Texture::surfaceParms() const {
+            return m_surfaceParms;
+        }
+
+        void Texture::setSurfaceParms(const StringSet& surfaceParms) {
+            m_surfaceParms = surfaceParms;
+        }
+
+        TextureCulling Texture::culling() const {
+            return m_culling;
+        }
+
+        void Texture::setCulling(const TextureCulling culling) {
+            m_culling = culling;
+        }
+
+        const TextureBlendFunc& Texture::blendFunc() const {
+            return m_blendFunc;
+        }
+
+        void Texture::setBlendFunc(GLenum srcFactor, GLenum destFactor) {
+            m_blendFunc.enable = true;
+            m_blendFunc.srcFactor = srcFactor;
+            m_blendFunc.destFactor = destFactor;
+        }
+
         size_t Texture::usageCount() const {
             return m_usageCount;
         }
@@ -184,14 +225,14 @@ namespace TrenchBroom {
                 glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
                 glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
-                if (m_buffers.size() == 1) {
-                    // generate mipmaps if we don't have any
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE));
-                } else if (m_type == TextureType::Masked) {
-                    // masked textures don't work well with mipmaps, so we force GL_NEAREST filtering and don't generate any
+                if (m_type == TextureType::Masked) {
+                    // masked textures don't work well with automatic mipmaps, so we force GL_NEAREST filtering and don't generate any
                     glAssert(glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_FALSE));
                     glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
                     glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+                } else if (m_buffers.size() == 1) {
+                    // generate mipmaps if we don't have any
+                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE));
                 } else {
                     glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(m_buffers.size() - 1)));
                 }
@@ -232,11 +273,50 @@ namespace TrenchBroom {
         void Texture::activate() const {
             if (isPrepared()) {
                 glAssert(glBindTexture(GL_TEXTURE_2D, m_textureId));
+
+                switch (m_culling) {
+                    case Assets::TextureCulling::CullNone:
+                        glAssert(glDisable(GL_CULL_FACE));
+                        break;
+                    case Assets::TextureCulling::CullFront:
+                        glAssert(glCullFace(GL_FRONT));
+                        break;
+                    case Assets::TextureCulling::CullBoth:
+                        glAssert(glCullFace(GL_FRONT_AND_BACK));
+                        break;
+                    case Assets::TextureCulling::CullDefault:
+                    case Assets::TextureCulling::CullBack:
+                        break;
+                }
+
+                if (m_blendFunc.enable) {
+                    glAssert(glPushAttrib(GL_COLOR_BUFFER_BIT));
+                    glAssert(glBlendFunc(m_blendFunc.srcFactor, m_blendFunc.destFactor));
+                }
             }
         }
         
         void Texture::deactivate() const {
             if (isPrepared()) {
+                if (m_blendFunc.enable) {
+                    glAssert(glPopAttrib());
+                }
+
+                switch (m_culling) {
+                    case Assets::TextureCulling::CullNone:
+                        glAssert(glEnable(GL_CULL_FACE));
+                        break;
+                    case Assets::TextureCulling::CullFront:
+                        glAssert(glCullFace(GL_BACK));
+                        break;
+                    case Assets::TextureCulling::CullBoth:
+                        glAssert(glCullFace(GL_BACK));
+                        break;
+                    case Assets::TextureCulling::CullDefault:
+                    case Assets::TextureCulling::CullBack:
+                        break;
+                }
+
                 glAssert(glBindTexture(GL_TEXTURE_2D, 0));
             }
         }

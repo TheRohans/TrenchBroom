@@ -30,7 +30,7 @@ namespace TrenchBroom {
     namespace Model {
         class CompilationProfile {
         public:
-            typedef std::vector<CompilationProfile*> List;
+            using List = std::vector<CompilationProfile*>;
             
             Notifier0 profileWillBeRemoved;
             Notifier0 profileDidChange;
@@ -66,7 +66,7 @@ namespace TrenchBroom {
             void accept(const CompilationTaskConstVisitor& visitor);
             void accept(const ConstCompilationTaskConstVisitor& visitor) const;
 
-            deleteCopyAndAssignment(CompilationProfile)
+            deleteCopyAndMove(CompilationProfile)
         };
     }
 }

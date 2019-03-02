@@ -46,19 +46,20 @@ namespace TrenchBroom {
         ::testing::Test(),
         m_mapFormat(Model::MapFormat::Standard) {}
 
-        MapDocumentTest::MapDocumentTest(const Model::MapFormat::Type mapFormat) :
+        MapDocumentTest::MapDocumentTest(const Model::MapFormat mapFormat) :
         ::testing::Test(),
         m_mapFormat(mapFormat),
         m_pointEntityDef(nullptr),
         m_brushEntityDef(nullptr) {}
 
         void MapDocumentTest::SetUp() {
+            game = std::make_shared<Model::TestGame>();
             document = MapDocumentCommandFacade::newMapDocument();
-            document->newDocument(m_mapFormat, vm::bbox3(8192.0), Model::GameSPtr(new Model::TestGame()));
+            document->newDocument(m_mapFormat, vm::bbox3(8192.0), game);
 
             // create two entity definitions
             m_pointEntityDef = new Assets::PointEntityDefinition("point_entity", Color(), vm::bbox3(16.0), "this is a point entity", Assets::AttributeDefinitionList(), Assets::ModelDefinition());
-            m_brushEntityDef = new Assets::BrushEntityDefinition("point_entity", Color(), "this is a point entity", Assets::AttributeDefinitionList());
+            m_brushEntityDef = new Assets::BrushEntityDefinition("brush_entity", Color(), "this is a point entity", Assets::AttributeDefinitionList());
 
             document->setEntityDefinitions(Assets::EntityDefinitionList { m_pointEntityDef, m_brushEntityDef });
         }
@@ -356,12 +357,12 @@ namespace TrenchBroom {
             document->addNode(entity, document->currentParent());
 
             Model::ParallelTexCoordSystem texAlignment(vm::vec3(1, 0, 0), vm::vec3(0, 1, 0));
-            Model::TexCoordSystemSnapshot* texAlignmentSnapshot = texAlignment.takeSnapshot();
+            auto texAlignmentSnapshot = texAlignment.takeSnapshot();
 
             Model::Brush* brush1 = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(32, 64, 64)), "texture");
             Model::Brush* brush2 = builder.createCuboid(vm::bbox3(vm::vec3(32, 0, 0), vm::vec3(64, 64, 64)), "texture");
-            brush1->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(texAlignmentSnapshot);
-            brush2->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(texAlignmentSnapshot);
+            brush1->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(*texAlignmentSnapshot);
+            brush2->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(*texAlignmentSnapshot);
             document->addNode(brush1, entity);
             document->addNode(brush2, entity);
             ASSERT_EQ(2, entity->children().size());
@@ -374,8 +375,6 @@ namespace TrenchBroom {
             Model::BrushFace* top = brush3->findFace(vm::vec3::pos_z);
             ASSERT_EQ(vm::vec3(1, 0, 0), top->textureXAxis());
             ASSERT_EQ(vm::vec3(0, 1, 0), top->textureYAxis());
-
-            delete texAlignmentSnapshot;
         }
 
         TEST_F(ValveMapDocumentTest, csgSubtractTexturing) {
@@ -385,16 +384,17 @@ namespace TrenchBroom {
             document->addNode(entity, document->currentParent());
 
             Model::ParallelTexCoordSystem texAlignment(vm::vec3(1, 0, 0), vm::vec3(0, 1, 0));
-            Model::TexCoordSystemSnapshot* texAlignmentSnapshot = texAlignment.takeSnapshot();
+            auto texAlignmentSnapshot = texAlignment.takeSnapshot();
 
             Model::Brush* brush1 = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(64, 64, 64)), "texture");
             Model::Brush* brush2 = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(64, 64, 32)), "texture");
-            brush2->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(texAlignmentSnapshot);
+            brush2->findFace(vm::vec3::pos_z)->restoreTexCoordSystemSnapshot(*texAlignmentSnapshot);
             document->addNode(brush1, entity);
             document->addNode(brush2, entity);
             ASSERT_EQ(2, entity->children().size());
 
-            document->select(Model::NodeList { brush1, brush2 });
+            // we want to compute brush1 - brush2
+            document->select(Model::NodeList { brush2 });
             ASSERT_TRUE(document->csgSubtract());
             ASSERT_EQ(1, entity->children().size());
 
@@ -406,8 +406,61 @@ namespace TrenchBroom {
             Model::BrushFace* top = brush3->findFace(vm::vec3::neg_z);
             ASSERT_EQ(vm::vec3(1, 0, 0), top->textureXAxis());
             ASSERT_EQ(vm::vec3(0, 1, 0), top->textureYAxis());
+        }
 
-            delete texAlignmentSnapshot;
+        TEST_F(MapDocumentTest, csgSubtractMultipleBrushes) {
+            const Model::BrushBuilder builder(document->world(), document->worldBounds());
+
+            auto* entity = new Model::Entity();
+            document->addNode(entity, document->currentParent());
+
+            Model::Brush* minuend = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(64, 64, 64)), "texture");
+            Model::Brush* subtrahend1 = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(32, 32, 64)), "texture");
+            Model::Brush* subtrahend2 = builder.createCuboid(vm::bbox3(vm::vec3(32, 32, 0), vm::vec3(64, 64, 64)), "texture");
+
+            document->addNodes(Model::NodeList{minuend, subtrahend1, subtrahend2}, entity);
+            ASSERT_EQ(3, entity->children().size());
+
+            // we want to compute minuend - {subtrahend1, subtrahend2}
+            document->select(Model::NodeList{subtrahend1, subtrahend2});
+            ASSERT_TRUE(document->csgSubtract());
+            ASSERT_EQ(2, entity->children().size());
+
+            auto* remainder1 = dynamic_cast<Model::Brush*>(entity->children()[0]);
+            auto* remainder2 = dynamic_cast<Model::Brush*>(entity->children()[1]);
+            ASSERT_NE(nullptr, remainder1);
+            ASSERT_NE(nullptr, remainder2);
+
+            const auto expectedBBox1 = vm::bbox3(vm::vec3(0, 32, 0), vm::vec3(32, 64, 64));
+            const auto expectedBBox2 = vm::bbox3(vm::vec3(32, 0, 0), vm::vec3(64, 32, 64));
+
+            if (remainder1->bounds() != expectedBBox1) {
+                std::swap(remainder1, remainder2);
+            }
+
+            EXPECT_EQ(expectedBBox1, remainder1->bounds());
+            EXPECT_EQ(expectedBBox2, remainder2->bounds());
+        }
+
+        TEST_F(MapDocumentTest, csgSubtractAndUndoRestoresSelection) {
+            const Model::BrushBuilder builder(document->world(), document->worldBounds());
+
+            auto* entity = new Model::Entity();
+            document->addNode(entity, document->currentParent());
+
+            Model::Brush* subtrahend1 = builder.createCuboid(vm::bbox3(vm::vec3(0, 0, 0), vm::vec3(64, 64, 64)), "texture");
+            document->addNodes(Model::NodeList{subtrahend1}, entity);
+
+            document->select(Model::NodeList{subtrahend1});
+            ASSERT_TRUE(document->csgSubtract());
+            ASSERT_EQ(0, entity->children().size());
+            EXPECT_TRUE(document->selectedNodes().empty());
+
+            // check that the selection is restored after undo
+            document->undoLastCommand();
+
+            EXPECT_TRUE(document->selectedNodes().hasOnlyBrushes());
+            EXPECT_EQ((Model::BrushList{subtrahend1}), document->selectedNodes().brushes());
         }
 
         TEST_F(MapDocumentTest, newWithGroupOpen) {

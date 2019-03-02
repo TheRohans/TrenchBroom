@@ -44,6 +44,7 @@ namespace TrenchBroom {
             bool doCanAddChild(const Node* child) const override;
             bool doCanRemoveChild(const Node* child) const override;
             bool doRemoveIfEmpty() const override;
+            bool doShouldAddToSpacialIndex() const override;
             void doNodeBoundsDidChange(const vm::bbox3& oldBounds) override;
             bool doSelectable() const override;
 
@@ -58,9 +59,10 @@ namespace TrenchBroom {
         private:
             void invalidateBounds();
             void validateBounds() const;
+        private: // implement Taggable interface
+            bool doEvaluateTagMatcher(const TagMatcher& matcher) const override;
         private:
-            Layer(const Layer&);
-            Layer& operator=(const Layer&);
+            deleteCopyAndMove(Layer)
         };
     }
 }

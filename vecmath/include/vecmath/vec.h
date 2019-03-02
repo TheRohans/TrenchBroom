@@ -90,13 +90,17 @@ namespace vm {
          * Note that this method does not signal if the string could actually be parsed.
          *
          * @param str the string to parse
+         * @param defaultValue the default value to return if parsing fails
          * @return the vector parsed from the string
          */
-        static vec<T,S> parse(const std::string& str) {
+        static vec<T,S> parse(const std::string& str, const vec<T,S>& defaultValue = vec<T,S>::zero) {
             size_t pos = 0;
             vec<T,S> result;
-            doParse(str, pos, result);
-            return result;
+            if (doParse(str, pos, result)) {
+                return result;
+            } else {
+                return defaultValue;
+            }
         }
 
         /**
@@ -456,6 +460,24 @@ namespace vm {
         vec<T,4> xyzw() const {
             static_assert(S > 3);
             return vec<T,4>(x(), y(), z(), w());
+        }
+
+        /**
+        * Adds the given range of vertices to the given output iterator.
+        *
+        * @tparam I the range iterator type
+        * @tparam O the output iterator type
+        * @param cur the range start
+        * @param end the range end
+        * @param out the output iterator
+        */
+        template <typename I, typename O>
+        static void getVertices(I cur, I end, O out) {
+            while (cur != end) {
+                out = *cur;
+                ++out;
+                ++cur;
+            }
         }
     };
 

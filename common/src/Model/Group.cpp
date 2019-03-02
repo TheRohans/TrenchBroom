@@ -21,6 +21,7 @@
 
 #include "TrenchBroom.h"
 #include "Hit.h"
+#include "Model/TagMatcher.h"
 #include "Model/BoundsContainsNodeVisitor.h"
 #include "Model/BoundsIntersectsNodeVisitor.h"
 #include "Model/Brush.h"
@@ -140,6 +141,10 @@ namespace TrenchBroom {
         }
 
         bool Group::doRemoveIfEmpty() const {
+            return true;
+        }
+
+        bool Group::doShouldAddToSpacialIndex() const {
             return true;
         }
 
@@ -263,6 +268,10 @@ namespace TrenchBroom {
             iterate(visitor);
             m_bounds = visitor.bounds();
             m_boundsValid = true;
+        }
+
+        bool Group::doEvaluateTagMatcher(const TagMatcher& matcher) const {
+            return matcher.matches(*this);
         }
     }
 }

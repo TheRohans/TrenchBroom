@@ -19,6 +19,7 @@
 
 #include "Layer.h"
 
+#include "Model/TagMatcher.h"
 #include "Model/Brush.h"
 #include "Model/ComputeNodeBoundsVisitor.h"
 #include "Model/Group.h"
@@ -77,6 +78,10 @@ namespace TrenchBroom {
             return false;
         }
 
+        bool Layer::doShouldAddToSpacialIndex() const {
+            return false;
+        }
+
         void Layer::doNodeBoundsDidChange(const vm::bbox3& oldBounds) {
             invalidateBounds();
         }
@@ -117,6 +122,10 @@ namespace TrenchBroom {
             iterate(visitor);
             m_bounds = visitor.bounds();
             m_boundsValid = true;
+        }
+
+        bool Layer::doEvaluateTagMatcher(const TagMatcher& matcher) const {
+            return matcher.matches(*this);
         }
     }
 }

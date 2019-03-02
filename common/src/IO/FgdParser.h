@@ -26,7 +26,7 @@
 #include "Assets/AssetTypes.h"
 #include "IO/EntityDefinitionClassInfo.h"
 #include "IO/EntityDefinitionParser.h"
-#include "IO/FileSystemHierarchy.h"
+#include "IO/FileSystem.h"
 #include "IO/Parser.h"
 #include "IO/Token.h"
 #include "IO/Tokenizer.h"
@@ -38,7 +38,7 @@
 namespace TrenchBroom {
     namespace IO {
         namespace FgdToken {
-            typedef unsigned int Type;
+            using Type = unsigned int;
             static const Type Integer           = 1 <<  0; // integer number
             static const Type Decimal           = 1 <<  1; // decimal number
             static const Type Word              = 1 <<  2; // letter or digits, no whitespace
@@ -65,7 +65,7 @@ namespace TrenchBroom {
 
         class FgdParser : public EntityDefinitionParser, public Parser<FgdToken::Type> {
         private:
-            typedef FgdTokenizer::Token Token;
+            using Token = FgdTokenizer::Token;
             
             template <typename T>
             struct DefaultValue {
@@ -79,7 +79,7 @@ namespace TrenchBroom {
             Color m_defaultEntityColor;
 
             std::list<Path> m_paths;
-            FileSystemHierarchy m_fileSystem;
+            std::shared_ptr<FileSystem> m_fs;
 
             FgdTokenizer m_tokenizer;
             EntityDefinitionClassInfoMap m_baseClasses;
@@ -125,6 +125,7 @@ namespace TrenchBroom {
             DefaultValue<String> parseDefaultStringValue(ParserStatus& status);
             DefaultValue<int> parseDefaultIntegerValue(ParserStatus& status);
             DefaultValue<float> parseDefaultFloatValue(ParserStatus& status);
+            DefaultValue<String> parseDefaultChoiceValue(ParserStatus& status);
             
             vm::vec3 parseVector(ParserStatus& status);
             vm::bbox3 parseSize(ParserStatus& status);

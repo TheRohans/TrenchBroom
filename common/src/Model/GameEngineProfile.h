@@ -31,7 +31,7 @@ namespace TrenchBroom {
     namespace Model {
         class GameEngineProfile {
         public:
-            typedef std::vector<GameEngineProfile*> List;
+            using List = std::vector<GameEngineProfile*>;
         private:
             String m_name;
             IO::Path m_path;
@@ -52,7 +52,7 @@ namespace TrenchBroom {
             void setPath(const IO::Path& path);
             void setParameterSpec(const String& parameterSpec);
 
-            deleteCopyAndAssignment(GameEngineProfile)
+            deleteCopyAndMove(GameEngineProfile)
         };
     }
 }

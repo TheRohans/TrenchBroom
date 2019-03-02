@@ -24,35 +24,22 @@
 #include "IO/DiskFileSystem.h"
 #include "IO/FileMatcher.h"
 #include "IO/Path.h"
+#include "IO/TestEnvironment.h"
 
 #include <algorithm>
 
-#include <wx/dir.h>
-#include <wx/file.h>
 #include <wx/filefn.h>
 
 namespace TrenchBroom {
     namespace IO {
-        class TestEnvironment {
-        private:
-            Path m_dir;
+        class FSTestEnvironment : public TestEnvironment {
         public:
-            TestEnvironment(const String& dir = "fstest") :
-            m_dir(Path(::wxGetCwd().ToStdString()) + Path(dir)) {
-                deleteTestEnvironment();
+            explicit FSTestEnvironment(const String& dir = "fstest") :
+            TestEnvironment(dir) {
                 createTestEnvironment();
             }
-            
-            ~TestEnvironment() {
-                assertResult(deleteTestEnvironment());
-            }
-            
-            inline const Path& dir() const {
-                return m_dir;
-            }
         private:
-            void createTestEnvironment() {
-                createDirectory(Path(""));
+            void doCreateTestEnvironment() override {
                 createDirectory(Path("dir1"));
                 createDirectory(Path("dir2"));
                 createDirectory(Path("anotherDir"));
@@ -63,46 +50,25 @@ namespace TrenchBroom {
                 createFile(Path("anotherDir/subDirTest/test2.map"), "//sub dir test file\n{}");
                 createFile(Path("anotherDir/test3.map"), "//yet another test file\n{}");
             }
-            
-            void createDirectory(const Path& path) {
-                assertResult(::wxMkdir((m_dir + path).asString()));
-            }
-            
-            void createFile(const Path& path, const wxString& contents) {
-                wxFile file;
-                assertResult(file.Create((m_dir + path).asString()));
-                assertResult(file.Write(contents));
-            }
-            
-            bool deleteDirectory(const Path& path) {
-                if (!::wxDirExists(path.asString()))
-                    return true;
-                
-                { // put in a block so that dir gets closed before we call wxRmdir
-                    wxDir dir(path.asString());
-                    assert(dir.IsOpened());
-                    
-                    wxString filename;
-                    if (dir.GetFirst(&filename)) {
-                        do {
-                            const Path subPath = path + Path(filename.ToStdString());
-                            if (::wxDirExists(subPath.asString()))
-                                deleteDirectory(subPath);
-                            else
-                                ::wxRemoveFile(subPath.asString());
-                        } while (dir.GetNext(&filename));
-                    }
-                }
-                return ::wxRmdir(path.asString());
-            }
-            
-            bool deleteTestEnvironment() {
-                return deleteDirectory(m_dir);
-            }
         };
+
+        TEST(FileSystemTest, makeAbsolute) {
+            FSTestEnvironment env;
+
+            auto fs = std::make_shared<DiskFileSystem>(env.dir() + Path("anotherDir"));
+                 fs = std::make_shared<DiskFileSystem>(fs, env.dir() + Path("dir1"));
+
+            // Existing files should be resolved against the first file system in the chain that contains them:
+            const auto absPathExisting = fs->makeAbsolute(Path("test3.map"));
+            ASSERT_EQ(env.dir() + Path("anotherDir/test3.map"), absPathExisting);
+
+            // Non existing files should be resolved against the first filesystem in the fs chain:
+            const auto absPathNotExisting = fs->makeAbsolute(Path("asdf.map"));
+            ASSERT_EQ(env.dir() + Path("dir1/asdf.map"), absPathNotExisting);
+        }
         
         TEST(DiskTest, fixPath) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(Disk::fixPath(Path("asdf/blah")), FileSystemException);
             ASSERT_THROW(Disk::fixPath(Path("/../../test")), FileSystemException);
@@ -113,7 +79,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskTest, directoryExists) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(Disk::directoryExists(Path("asdf/bleh")), FileSystemException);
             
@@ -122,7 +88,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskTest, fileExists) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(Disk::fileExists(Path("asdf/bleh")), FileSystemException);
             
@@ -131,7 +97,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskTest, getDirectoryContents) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(Disk::getDirectoryContents(Path("asdf/bleh")), FileSystemException);
             ASSERT_THROW(Disk::getDirectoryContents(env.dir() + Path("does/not/exist")), FileSystemException);
@@ -146,7 +112,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskTest, openFile) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(Disk::openFile(Path("asdf/bleh")), FileSystemException);
             ASSERT_THROW(Disk::openFile(env.dir() + Path("does/not/exist")), FileNotFoundException);
@@ -157,7 +123,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskTest, resolvePath) {
-            TestEnvironment env;
+            FSTestEnvironment env;
 
             Path::List rootPaths;
             rootPaths.push_back(env.dir());
@@ -178,7 +144,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskFileSystemTest, createDiskFileSystem) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(DiskFileSystem(env.dir() + Path("asdf"), true), FileSystemException);
             ASSERT_NO_THROW(DiskFileSystem(env.dir() + Path("asdf"), false));
@@ -186,13 +152,13 @@ namespace TrenchBroom {
             
             // for case sensitive file systems
             ASSERT_NO_THROW(DiskFileSystem(env.dir() + Path("ANOTHERDIR"), true));
-            
+
             const DiskFileSystem fs(env.dir() + Path("anotherDir/.."), true);
-            ASSERT_EQ(env.dir(), fs.makeAbsolute(Path("")));
+            ASSERT_EQ(fs.root(), fs.makeAbsolute(Path("")));
         }
         
         TEST(DiskFileSystemTest, directoryExists) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             const DiskFileSystem fs(env.dir());
 
 #if defined _WIN32
@@ -212,7 +178,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskFileSystemTest, fileExists) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             const DiskFileSystem fs(env.dir());
             
 #if defined _WIN32
@@ -232,7 +198,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskFileSystemTest, findItems) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             const DiskFileSystem fs(env.dir());
 
 #if defined _WIN32
@@ -261,7 +227,7 @@ namespace TrenchBroom {
         }
         
         TEST(DiskFileSystemTest, findItemsRecursively) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             const DiskFileSystem fs(env.dir());
             
 #if defined _WIN32
@@ -298,7 +264,7 @@ namespace TrenchBroom {
         // getDirectoryContents gets tested thoroughly by the tests for the find* methods
         
         TEST(DiskFileSystemTest, openFile) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             const DiskFileSystem fs(env.dir());
             
 #if defined _WIN32
@@ -316,7 +282,7 @@ namespace TrenchBroom {
         }
         
         TEST(WritableDiskFileSystemTest, createWritableDiskFileSystem) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             
             ASSERT_THROW(WritableDiskFileSystem(env.dir() + Path("asdf"), false), FileSystemException);
             ASSERT_NO_THROW(WritableDiskFileSystem(env.dir() + Path("asdf"), true));
@@ -330,7 +296,7 @@ namespace TrenchBroom {
         }
         
         TEST(WritableDiskFileSystemTest, createDirectory) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             WritableDiskFileSystem fs(env.dir(), false);
             
 #if defined _WIN32
@@ -355,7 +321,7 @@ namespace TrenchBroom {
         }
         
         TEST(WritableDiskFileSystemTest, deleteFile) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             WritableDiskFileSystem fs(env.dir(), false);
             
 #if defined _WIN32
@@ -381,7 +347,7 @@ namespace TrenchBroom {
         }
         
         TEST(WritableDiskFileSystemTest, moveFile) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             WritableDiskFileSystem fs(env.dir(), false);
             
 #if defined _WIN32
@@ -421,7 +387,7 @@ namespace TrenchBroom {
         }
         
         TEST(WritableDiskFileSystemTest, copyFile) {
-            TestEnvironment env;
+            FSTestEnvironment env;
             WritableDiskFileSystem fs(env.dir(), false);
             
 #if defined _WIN32

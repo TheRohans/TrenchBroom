@@ -32,7 +32,6 @@
 
 namespace TrenchBroom {
     namespace Model {
-        class BrushContentTypeBuilder;
         class PickResult;
         
         class World : public AttributableNode, public ModelFactory {
@@ -46,7 +45,7 @@ namespace TrenchBroom {
             NodeTree m_nodeTree;
             bool m_updateNodeTree;
         public:
-            World(MapFormat::Type mapFormat, const BrushContentTypeBuilder* brushContentTypeBuilder, const vm::bbox3& worldBounds);
+            World(MapFormat mapFormat, const vm::bbox3& worldBounds);
         public: // layer management
             Layer* defaultLayer() const;
             LayerList allLayers() const;
@@ -80,6 +79,7 @@ namespace TrenchBroom {
             bool doCanAddChild(const Node* child) const override;
             bool doCanRemoveChild(const Node* child) const override;
             bool doRemoveIfEmpty() const override;
+            bool doShouldAddToSpacialIndex() const override;
 
             void doDescendantWasAdded(Node* node, size_t depth) override;
             void doDescendantWillBeRemoved(Node* node, size_t depth) override;
@@ -103,7 +103,7 @@ namespace TrenchBroom {
             vm::vec3 doGetLinkSourceAnchor() const override;
             vm::vec3 doGetLinkTargetAnchor() const override;
         private: // implement ModelFactory interface
-            MapFormat::Type doGetFormat() const override;
+            MapFormat doGetFormat() const override;
             World* doCreateWorld(const vm::bbox3& worldBounds) const override;
             Layer* doCreateLayer(const String& name, const vm::bbox3& worldBounds) const override;
             Group* doCreateGroup(const String& name) const override;
@@ -111,9 +111,10 @@ namespace TrenchBroom {
             Brush* doCreateBrush(const vm::bbox3& worldBounds, const BrushFaceList& faces) const override;
             BrushFace* doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs) const override;
             BrushFace* doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY) const override;
+        private: // implement Taggable interface
+            bool doEvaluateTagMatcher(const TagMatcher& matcher) const override;
         private:
-            World(const World&);
-            World& operator=(const World&);
+            deleteCopyAndMove(World)
         };
     }
 }

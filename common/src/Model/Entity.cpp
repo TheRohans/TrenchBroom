@@ -19,6 +19,7 @@
 
 #include "Entity.h"
 
+#include "Model/TagMatcher.h"
 #include "Model/BoundsContainsNodeVisitor.h"
 #include "Model/BoundsIntersectsNodeVisitor.h"
 #include "Model/Brush.h"
@@ -99,7 +100,10 @@ namespace TrenchBroom {
         }
 
         void Entity::cacheAttributes() {
-            m_cachedOrigin = vm::vec3::parse(attribute(AttributeNames::Origin, ""));
+            m_cachedOrigin = vm::vec3::parse(attribute(AttributeNames::Origin, ""), vm::vec3::zero);
+            if (vm::isNaN(m_cachedOrigin)) {
+                m_cachedOrigin = vm::vec3::zero;
+            }
             m_cachedRotation = EntityRotationPolicy::getRotation(this);
         }
 
@@ -162,6 +166,10 @@ namespace TrenchBroom {
         }
         
         bool Entity::doRemoveIfEmpty() const {
+            return true;
+        }
+
+        bool Entity::doShouldAddToSpacialIndex() const {
             return true;
         }
 
@@ -373,6 +381,10 @@ namespace TrenchBroom {
                 m_bounds = m_bounds.translate(origin());
             }
             m_boundsValid = true;
+        }
+
+        bool Entity::doEvaluateTagMatcher(const TagMatcher& matcher) const {
+            return matcher.matches(*this);
         }
     }
 }

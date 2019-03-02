@@ -21,13 +21,14 @@
 #define TrenchBroom_Node
 
 #include "Model/ModelTypes.h"
+#include "Model/Tag.h"
 
 namespace TrenchBroom {
     namespace Model {
         class IssueGeneratorRegistry;
         class PickResult;
 
-        class Node {
+        class Node : public Taggable {
         private:
             Node* m_parent;
             NodeList m_children;
@@ -99,6 +100,8 @@ namespace TrenchBroom {
             const NodeList& children() const;
             size_t descendantCount() const;
             size_t familySize() const;
+
+            bool shouldAddToSpacialIndex() const;
         public:
             void addChildren(const NodeList& children);
             
@@ -180,7 +183,7 @@ namespace TrenchBroom {
             private:
                 Node* m_node;
             public:
-                NotifyNodeChange(Node* node);
+                explicit NotifyNodeChange(Node* node);
                 ~NotifyNodeChange();
             };
 
@@ -188,14 +191,6 @@ namespace TrenchBroom {
             void nodeWillChange();
             void nodeDidChange();
 
-            class NotifyNodeBoundsChange {
-            private:
-                Node* m_node;
-                const vm::bbox3 m_oldBounds;
-            public:
-                NotifyNodeBoundsChange(Node* node);
-                ~NotifyNodeBoundsChange();
-            };
             void nodeBoundsDidChange(vm::bbox3 oldBounds);
         private:
             void childWillChange(Node* node);
@@ -415,6 +410,8 @@ namespace TrenchBroom {
             virtual bool doCanAddChild(const Node* child) const = 0;
             virtual bool doCanRemoveChild(const Node* child) const = 0;
             virtual bool doRemoveIfEmpty() const = 0;
+
+            virtual bool doShouldAddToSpacialIndex() const = 0;
             
             virtual void doChildWillBeAdded(Node* node);
             virtual void doChildWasAdded(Node* node);

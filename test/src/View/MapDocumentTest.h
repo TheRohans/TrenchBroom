@@ -32,19 +32,21 @@ namespace TrenchBroom {
     }
     namespace Model {
         class Brush;
+        class TestGame;
     }
     
     namespace View {
         class MapDocumentTest : public ::testing::Test {
         private:
-            Model::MapFormat::Type m_mapFormat;
+            Model::MapFormat m_mapFormat;
         protected:
+            std::shared_ptr<Model::TestGame> game;
             MapDocumentSPtr document;
             Assets::PointEntityDefinition* m_pointEntityDef;
             Assets::BrushEntityDefinition* m_brushEntityDef;
         protected:
             MapDocumentTest();
-            MapDocumentTest(Model::MapFormat::Type mapFormat);
+            explicit MapDocumentTest(Model::MapFormat mapFormat);
             
             void SetUp() override;
             void TearDown() override;

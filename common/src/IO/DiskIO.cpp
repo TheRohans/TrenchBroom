@@ -115,15 +115,17 @@ namespace TrenchBroom {
             Path::List getDirectoryContents(const Path& path) {
                 const Path fixedPath = fixPath(path);
                 wxDir dir(fixedPath.asString());
-                if (!dir.IsOpened())
+                if (!dir.IsOpened()) {
                     throw FileSystemException("Cannot open directory: '" + fixedPath.asString() + "'");
-                
+                }
+
                 Path::List result;
                 wxString filename;
                 if (dir.GetFirst(&filename)) {
                     result.push_back(Path(filename.ToStdString()));
-                    while (dir.GetNext(&filename))
+                    while (dir.GetNext(&filename)) {
                         result.push_back(Path(filename.ToStdString()));
+                    }
                 }
                 
                 return result;
@@ -131,13 +133,11 @@ namespace TrenchBroom {
             
             MappedFile::Ptr openFile(const Path& path) {
                 const Path fixedPath = fixPath(path);
-                if (!fileExists(fixedPath))
+                if (!fileExists(fixedPath)) {
                     throw FileNotFoundException("File not found: '" + fixedPath.asString() + "'");
-#ifdef _WIN32
-                return MappedFile::Ptr(new WinMappedFile(fixedPath, std::ios::in));
-#else
-                return MappedFile::Ptr(new PosixMappedFile(fixedPath, std::ios::in));
-#endif
+                }
+
+                return openMappedFile(fixedPath, std::ios::in);
             }
             
             Path getCurrentWorkingDir() {

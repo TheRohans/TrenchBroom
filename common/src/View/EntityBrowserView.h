@@ -39,18 +39,18 @@ namespace TrenchBroom {
     
     namespace Renderer {
         class FontDescriptor;
-        class TexturedIndexRangeRenderer;
+        class TexturedRenderer;
         class Transformation;
     }
     
     namespace View {
         class GLContextManager;
         
-        typedef String EntityGroupData;
+        using EntityGroupData = String;
         
         class EntityCellData {
         private:
-            typedef Renderer::TexturedIndexRangeRenderer EntityRenderer;
+            using EntityRenderer = Renderer::TexturedRenderer;
         public:
             const Assets::PointEntityDefinition* entityDefinition;
             EntityRenderer* modelRenderer;
@@ -62,10 +62,10 @@ namespace TrenchBroom {
 
         class EntityBrowserView : public CellView<EntityCellData, EntityGroupData> {
         private:
-            typedef Renderer::TexturedIndexRangeRenderer EntityRenderer;
+            using EntityRenderer = Renderer::TexturedRenderer;
             
-            typedef Renderer::VertexSpecs::P2T2C4::Vertex TextVertex;
-            typedef std::map<Renderer::FontDescriptor, TextVertex::List> StringMap;
+            using TextVertex = Renderer::VertexSpecs::P2T2C4::Vertex;
+            using StringMap = std::map<Renderer::FontDescriptor, TextVertex::List>;
 
             Assets::EntityDefinitionManager& m_entityDefinitionManager;
             Assets::EntityModelManager& m_entityModelManager;
