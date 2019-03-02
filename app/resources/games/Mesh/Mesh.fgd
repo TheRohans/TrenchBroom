@@ -69,7 +69,11 @@
 @BaseClass = Shadeable [ shader(string) : "Shader to use" ]
 
 @BaseClass = Angle [ angle(integer) : "Direction" ]
-@BaseClass = Requires [ requires(string) : "Item required to trigger" ]
+@BaseClass = Requires [ 
+  requires(string) : "Item required to trigger" 
+  activate_count(integer) : "Number of times this thing can be used. -1 is no limit" : -1
+  affects(string) : "Object this item responds to" : "player"
+]
 
 @BaseClass = Appearflags []
 
@@ -90,6 +94,7 @@
 @BaseClass = Targetname [ targetname(target_source) : "Name" ]
 @BaseClass = Target [ target(target_destination) : "Target" ]
 
+//    524288 : "LADDER"
 @BaseClass = Physics [
   body(choices) : "Physics Body" : 1 =
   [
@@ -106,7 +111,7 @@
     4 : "BOX"
     16 : "CONVEXPOLYHEDRON"
     32786 : "CRATE"
-    524288 : "LADDER"
+    4503599627370495 : "ACTOR"
     9007199254740991 : "PAWN"
   ]
 ]
