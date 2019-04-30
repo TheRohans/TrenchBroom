@@ -62,6 +62,7 @@
   fog_density(string) : "Fog thickness" : "4.0"
   fog_far(string) : "How far away thing must be to be fully washed out" : "250.0"
   void_color(string) : "Fog Color (RGB)": ".8 .8 .8"
+  room_time(integer) : "Room Time (seconds used for physics. large levels need lower values)" : 20
 ]
 
 @BaseClass = Nameable [ name(string) : "Item name in code" ]
@@ -130,7 +131,7 @@
   angles(string): "The forward direction of the model": "0 0 0"
 ]
 
-@BaseClass base(Appearflags) size(-16 -16 -16, 16 16 16) color(255 255 102) = Light 
+@BaseClass base(Appearflags, Behaviorable) size(-16 -16 -16, 16 16 16) color(255 255 102) = Light 
 [
   light_type(choices) : "Light Type" : 2 =
   [
