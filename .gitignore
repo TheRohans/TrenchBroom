@@ -24,3 +24,4 @@ app/resources/games-testing/SteelStorm
 
 build-ninja
 build-xcode
+.vscode
