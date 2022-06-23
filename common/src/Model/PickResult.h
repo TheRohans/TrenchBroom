@@ -17,50 +17,49 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_PickResult
-#define TrenchBroom_PickResult
+#pragma once
 
-#include "Model/CompareHits.h"
+#include "Macros.h"
 #include "Model/Hit.h"
-#include "Model/HitQuery.h"
+#include "Model/HitFilter.h"
 
 #include <vecmath/util.h>
 
+#include <memory>
+#include <vector>
+
 namespace TrenchBroom {
-    namespace Model {
-        class CompareHits;
-        class HitFilter;
-        class EditorContext;
+namespace Model {
+class CompareHits;
+class HitQuery;
 
-        class PickResult {
-        public:
-            using ComparePtr = std::shared_ptr<CompareHits>;
-        private:
-            const EditorContext* m_editorContext;
-            Hit::List m_hits;
-            ComparePtr m_compare;
-            class CompareWrapper;
-        public:
-            PickResult(const EditorContext& editorContext, CompareHits* compare) :
-            m_editorContext(&editorContext),
-            m_compare(compare) {}
+class PickResult {
+private:
+  std::vector<Hit> m_hits;
+  std::shared_ptr<CompareHits> m_compare;
+  class CompareWrapper;
 
-            PickResult();
+public:
+  PickResult(std::shared_ptr<CompareHits> compare);
+  PickResult();
 
-            static PickResult byDistance(const EditorContext& editorContext);
-            static PickResult bySize(const EditorContext& editorContext, vm::axis::type axis);
+  defineCopyAndMove(PickResult);
 
-            bool empty() const;
-            size_t size() const;
+  ~PickResult();
 
-            void addHit(const Hit& hit);
+  static PickResult byDistance();
+  static PickResult bySize(vm::axis::type axis);
 
-            const Hit::List& all() const;
-            HitQuery query() const;
+  bool empty() const;
+  size_t size() const;
 
-            void clear();
-        };
-    }
-}
+  void addHit(const Hit& hit);
 
-#endif /* defined(TrenchBroom_PickResult) */
+  const std::vector<Hit>& all() const;
+  const Hit& first(const HitFilter& filter) const;
+  std::vector<Hit> all(const HitFilter& filter) const;
+
+  void clear();
+};
+} // namespace Model
+} // namespace TrenchBroom

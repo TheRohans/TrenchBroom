@@ -1,265 +1,251 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "TextureBrowser.h"
 
+#include "Assets/Texture.h"
+#include "Assets/TextureManager.h"
 #include "PreferenceManager.h"
 #include "Preferences.h"
-#include "Assets/TextureManager.h"
-#include "View/ViewConstants.h"
 #include "View/MapDocument.h"
-#include "View/TextureSelectedCommand.h"
+#include "View/QtUtils.h"
+#include "View/TextureBrowserView.h"
+#include "View/ViewConstants.h"
 
-#include <wx/choice.h>
-#include <wx/event.h>
-#include <wx/tglbtn.h>
-#include <wx/sizer.h>
-#include <wx/srchctrl.h>
+#include <kdl/memory_utils.h>
+
+#include <QComboBox>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QScrollBar>
+#include <QVBoxLayout>
+#include <QtGlobal>
+
+// for use in QVariant
+Q_DECLARE_METATYPE(TrenchBroom::View::TextureSortOrder)
 
 namespace TrenchBroom {
-    namespace View {
-        TextureBrowser::TextureBrowser(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager) :
-        wxPanel(parent),
-        m_document(document) {
-            createGui(contextManager);
-            bindEvents();
-            bindObservers();
-            reload();
-        }
-        
-        TextureBrowser::~TextureBrowser() {
-            unbindObservers();
-        }
-
-        Assets::Texture* TextureBrowser::selectedTexture() const {
-            return m_view->selectedTexture();
-        }
-        
-        void TextureBrowser::setSelectedTexture(Assets::Texture* selectedTexture) {
-            m_view->setSelectedTexture(selectedTexture);
-        }
-
-        void TextureBrowser::setSortOrder(const TextureBrowserView::SortOrder sortOrder) {
-            m_view->setSortOrder(sortOrder);
-            switch (sortOrder) {
-                case TextureBrowserView::SO_Name:
-                    m_sortOrderChoice->SetSelection(0);
-                    break;
-                case TextureBrowserView::SO_Usage:
-                    m_sortOrderChoice->SetSelection(1);
-                    break;
-                switchDefault()
-            }
-            
-        }
-        
-        void TextureBrowser::setGroup(const bool group) {
-            m_view->setGroup(group);
-            m_groupButton->SetValue(group);
-        }
-        
-        void TextureBrowser::setHideUnused(const bool hideUnused) {
-            m_view->setHideUnused(hideUnused);
-            m_usedButton->SetValue(hideUnused);
-        }
-        
-        void TextureBrowser::setFilterText(const String& filterText) {
-            m_view->setFilterText(filterText);
-            m_filterBox->ChangeValue(filterText);
-        }
-
-        void TextureBrowser::OnSortOrderChanged(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            const TextureBrowserView::SortOrder sortOrder = event.GetSelection() == 0 ? TextureBrowserView::SO_Name : TextureBrowserView::SO_Usage;
-            m_view->setSortOrder(sortOrder);
-        }
-        
-        void TextureBrowser::OnGroupButtonToggled(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            m_view->setGroup(m_groupButton->GetValue());
-        }
-        
-        void TextureBrowser::OnUsedButtonToggled(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            m_view->setHideUnused(m_usedButton->GetValue());
-        }
-        
-        void TextureBrowser::OnFilterPatternChanged(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            m_view->setFilterText(m_filterBox->GetValue().ToStdString());
-        }
-
-        void TextureBrowser::OnTextureSelected(TextureSelectedCommand& event) {
-            if (IsBeingDeleted()) return;
-
-            // let the event bubble up to our own listeners
-            event.SetEventObject(this);
-            event.SetId(GetId());
-            ProcessEvent(event);
-        }
-
-        void TextureBrowser::createGui(GLContextManager& contextManager) {
-            wxPanel* browserPanel = new wxPanel(this);
-            m_scrollBar = new wxScrollBar(browserPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSB_VERTICAL);
-            
-            MapDocumentSPtr document = lock(m_document);
-            m_view = new TextureBrowserView(browserPanel, m_scrollBar, contextManager, document->textureManager());
-            
-            wxSizer* browserPanelSizer = new wxBoxSizer(wxHORIZONTAL);
-            browserPanelSizer->Add(m_view, 1, wxEXPAND);
-            browserPanelSizer->Add(m_scrollBar, 0, wxEXPAND);
-            browserPanel->SetSizer(browserPanelSizer);
-            
-            const wxString sortOrders[2] = { "Name", "Usage" };
-            m_sortOrderChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 2, sortOrders);
-            m_sortOrderChoice->SetSelection(0);
-            m_sortOrderChoice->SetToolTip("Select ordering criterion");
-            
-            m_groupButton = new wxToggleButton(this, wxID_ANY, "Group", wxDefaultPosition, wxDefaultSize, LayoutConstants::ToggleButtonStyle | wxBU_EXACTFIT);
-            m_groupButton->SetToolTip("Group textures by texture collection");
-
-            m_usedButton = new wxToggleButton(this, wxID_ANY, "Used", wxDefaultPosition, wxDefaultSize, LayoutConstants::ToggleButtonStyle | wxBU_EXACTFIT);
-            m_usedButton->SetToolTip("Only show textures currently in use");
-            
-            m_filterBox = new wxSearchCtrl(this, wxID_ANY);
-            m_filterBox->ShowCancelButton(true);
-            
-            wxSizer* controlSizer = new wxBoxSizer(wxHORIZONTAL);
-            controlSizer->AddSpacer(LayoutConstants::ChoiceLeftMargin);
-            controlSizer->Add(m_sortOrderChoice, 0, wxTOP, LayoutConstants::ChoiceTopMargin);
-            controlSizer->AddSpacer(LayoutConstants::NarrowHMargin);
-            controlSizer->Add(m_groupButton);
-            controlSizer->AddSpacer(LayoutConstants::NarrowHMargin);
-            controlSizer->Add(m_usedButton);
-            controlSizer->AddSpacer(LayoutConstants::NarrowHMargin);
-            controlSizer->Add(m_filterBox, 1, wxEXPAND);
-            
-            wxSizer* outerSizer = new wxBoxSizer(wxVERTICAL);
-            outerSizer->Add(browserPanel, 1, wxEXPAND);
-            outerSizer->AddSpacer(LayoutConstants::NarrowVMargin);
-            outerSizer->Add(controlSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, LayoutConstants::NarrowHMargin);
-            outerSizer->AddSpacer(LayoutConstants::NarrowVMargin);
-
-            SetSizer(outerSizer);
-        }
-        
-        void TextureBrowser::bindEvents() {
-            m_sortOrderChoice->Bind(wxEVT_CHOICE, &TextureBrowser::OnSortOrderChanged, this);
-            m_groupButton->Bind(wxEVT_TOGGLEBUTTON, &TextureBrowser::OnGroupButtonToggled, this);
-            m_usedButton->Bind(wxEVT_TOGGLEBUTTON, &TextureBrowser::OnUsedButtonToggled, this);
-            m_filterBox->Bind(wxEVT_TEXT, &TextureBrowser::OnFilterPatternChanged, this);
-            m_view->Bind(TEXTURE_SELECTED_EVENT, &TextureBrowser::OnTextureSelected, this);
-            
-            PreferenceManager& prefs = PreferenceManager::instance();
-            prefs.preferenceDidChangeNotifier.addObserver(this, &TextureBrowser::preferenceDidChange);
-        }
-        
-        void TextureBrowser::bindObservers() {
-            MapDocumentSPtr document = lock(m_document);
-            document->documentWasNewedNotifier.addObserver(this, &TextureBrowser::documentWasNewed);
-            document->documentWasLoadedNotifier.addObserver(this, &TextureBrowser::documentWasLoaded);
-            document->nodesWereAddedNotifier.addObserver(this, &TextureBrowser::nodesWereAdded);
-            document->nodesWereRemovedNotifier.addObserver(this, &TextureBrowser::nodesWereRemoved);
-            document->nodesDidChangeNotifier.addObserver(this, &TextureBrowser::nodesDidChange);
-            document->brushFacesDidChangeNotifier.addObserver(this, &TextureBrowser::brushFacesDidChange);
-            document->textureCollectionsDidChangeNotifier.addObserver(this, &TextureBrowser::textureCollectionsDidChange);
-            document->currentTextureNameDidChangeNotifier.addObserver(this, &TextureBrowser::currentTextureNameDidChange);
-            
-            PreferenceManager& prefs = PreferenceManager::instance();
-            prefs.preferenceDidChangeNotifier.addObserver(this, &TextureBrowser::preferenceDidChange);
-        }
-        
-        void TextureBrowser::unbindObservers() {
-            if (!expired(m_document)) {
-                MapDocumentSPtr document = lock(m_document);
-                document->documentWasNewedNotifier.removeObserver(this, &TextureBrowser::documentWasNewed);
-                document->documentWasLoadedNotifier.removeObserver(this, &TextureBrowser::documentWasLoaded);
-                document->textureCollectionsDidChangeNotifier.removeObserver(this, &TextureBrowser::textureCollectionsDidChange);
-                document->nodesWereAddedNotifier.removeObserver(this, &TextureBrowser::nodesWereAdded);
-                document->nodesWereRemovedNotifier.removeObserver(this, &TextureBrowser::nodesWereRemoved);
-                document->nodesDidChangeNotifier.removeObserver(this, &TextureBrowser::nodesDidChange);
-                document->brushFacesDidChangeNotifier.removeObserver(this, &TextureBrowser::brushFacesDidChange);
-                document->currentTextureNameDidChangeNotifier.removeObserver(this, &TextureBrowser::currentTextureNameDidChange);
-            }
-            
-            PreferenceManager& prefs = PreferenceManager::instance();
-            prefs.preferenceDidChangeNotifier.removeObserver(this, &TextureBrowser::preferenceDidChange);
-        }
-        
-        void TextureBrowser::documentWasNewed(MapDocument* document) {
-            reload();
-        }
-        
-        void TextureBrowser::documentWasLoaded(MapDocument* document) {
-            reload();
-        }
-
-        void TextureBrowser::nodesWereAdded(const Model::NodeList& nodes) {
-            reload();
-        }
-        
-        void TextureBrowser::nodesWereRemoved(const Model::NodeList& nodes) {
-            reload();
-        }
-        
-        void TextureBrowser::nodesDidChange(const Model::NodeList& nodes) {
-            reload();
-        }
-        
-        void TextureBrowser::brushFacesDidChange(const Model::BrushFaceList& faces) {
-            reload();
-        }
-
-        void TextureBrowser::textureCollectionsDidChange() {
-            reload();
-        }
-
-        void TextureBrowser::currentTextureNameDidChange(const String& textureName) {
-            updateSelectedTexture();
-        }
-
-        void TextureBrowser::preferenceDidChange(const IO::Path& path) {
-            MapDocumentSPtr document = lock(m_document);
-            if (path == Preferences::TextureBrowserIconSize.path() ||
-                document->isGamePathPreference(path))
-                reload();
-            else
-                m_view->Refresh();
-        }
-        
-        void TextureBrowser::reload() {
-            if (m_view != nullptr) {
-                updateSelectedTexture();
-                m_view->invalidate();
-                m_view->Refresh();
-            }
-        }
-
-        void TextureBrowser::updateSelectedTexture() {
-            MapDocumentSPtr document = lock(m_document);
-            const String& textureName = document->currentTextureName();
-            Assets::Texture* texture = document->textureManager().texture(textureName);
-            m_view->setSelectedTexture(texture);
-        }
-    }
+namespace View {
+TextureBrowser::TextureBrowser(
+  std::weak_ptr<MapDocument> document, GLContextManager& contextManager, QWidget* parent)
+  : QWidget(parent)
+  , m_document(std::move(document))
+  , m_sortOrderChoice(nullptr)
+  , m_groupButton(nullptr)
+  , m_usedButton(nullptr)
+  , m_filterBox(nullptr)
+  , m_scrollBar(nullptr)
+  , m_view(nullptr) {
+  createGui(contextManager);
+  bindEvents();
+  connectObservers();
+  reload();
 }
+
+const Assets::Texture* TextureBrowser::selectedTexture() const {
+  return m_view->selectedTexture();
+}
+
+void TextureBrowser::setSelectedTexture(const Assets::Texture* selectedTexture) {
+  m_view->setSelectedTexture(selectedTexture);
+}
+
+void TextureBrowser::revealTexture(const Assets::Texture* texture) {
+  setFilterText("");
+  m_view->revealTexture(texture);
+}
+
+void TextureBrowser::setSortOrder(const TextureSortOrder sortOrder) {
+  m_view->setSortOrder(sortOrder);
+  switch (sortOrder) {
+    case TextureSortOrder::Name:
+      m_sortOrderChoice->setCurrentIndex(0);
+      break;
+    case TextureSortOrder::Usage:
+      m_sortOrderChoice->setCurrentIndex(1);
+      break;
+      switchDefault();
+  }
+}
+
+void TextureBrowser::setGroup(const bool group) {
+  m_view->setGroup(group);
+  m_groupButton->setChecked(group);
+}
+
+void TextureBrowser::setHideUnused(const bool hideUnused) {
+  m_view->setHideUnused(hideUnused);
+  m_usedButton->setChecked(hideUnused);
+}
+
+void TextureBrowser::setFilterText(const std::string& filterText) {
+  m_view->setFilterText(filterText);
+  m_filterBox->setText(QString::fromStdString(filterText));
+}
+
+/**
+ * See EntityBrowser::createGui
+ */
+void TextureBrowser::createGui(GLContextManager& contextManager) {
+  auto* browserPanel = new QWidget();
+  m_scrollBar = new QScrollBar(Qt::Vertical);
+
+  auto document = kdl::mem_lock(m_document);
+  m_view = new TextureBrowserView(m_scrollBar, contextManager, document);
+
+  auto* browserPanelSizer = new QHBoxLayout();
+  browserPanelSizer->setContentsMargins(0, 0, 0, 0);
+  browserPanelSizer->setSpacing(0);
+  browserPanelSizer->addWidget(m_view, 1);
+  browserPanelSizer->addWidget(m_scrollBar, 0);
+  browserPanel->setLayout(browserPanelSizer);
+
+  m_sortOrderChoice = new QComboBox();
+  m_sortOrderChoice->addItem(tr("Name"), QVariant::fromValue(TextureSortOrder::Name));
+  m_sortOrderChoice->addItem(tr("Usage"), QVariant::fromValue(TextureSortOrder::Usage));
+  m_sortOrderChoice->setCurrentIndex(0);
+  m_sortOrderChoice->setToolTip(tr("Select ordering criterion"));
+  connect(m_sortOrderChoice, QOverload<int>::of(&QComboBox::activated), this, [=](int index) {
+    auto sortOrder = static_cast<TextureSortOrder>(m_sortOrderChoice->itemData(index).toInt());
+    m_view->setSortOrder(sortOrder);
+  });
+
+  m_groupButton = new QPushButton(tr("Group"));
+  m_groupButton->setToolTip(tr("Group textures by texture collection"));
+  m_groupButton->setCheckable(true);
+  connect(m_groupButton, &QAbstractButton::clicked, this, [=]() {
+    m_view->setGroup(m_groupButton->isChecked());
+  });
+
+  m_usedButton = new QPushButton(tr("Used"));
+  m_usedButton->setToolTip(tr("Only show textures currently in use"));
+  m_usedButton->setCheckable(true);
+  connect(m_usedButton, &QAbstractButton::clicked, this, [=]() {
+    m_view->setHideUnused(m_usedButton->isChecked());
+  });
+
+  m_filterBox = createSearchBox();
+  connect(m_filterBox, &QLineEdit::textEdited, this, [=]() {
+    m_view->setFilterText(m_filterBox->text().toStdString());
+  });
+
+  auto* controlSizer = new QHBoxLayout();
+  controlSizer->setContentsMargins(
+    LayoutConstants::NarrowHMargin, LayoutConstants::NarrowVMargin, LayoutConstants::NarrowHMargin,
+    LayoutConstants::NarrowVMargin);
+  controlSizer->setSpacing(LayoutConstants::NarrowHMargin);
+  controlSizer->addWidget(m_sortOrderChoice);
+  controlSizer->addWidget(m_groupButton);
+  controlSizer->addWidget(m_usedButton);
+  controlSizer->addWidget(m_filterBox, 1);
+
+  auto* outerSizer = new QVBoxLayout();
+  outerSizer->setContentsMargins(0, 0, 0, 0);
+  outerSizer->setSpacing(0);
+  outerSizer->addWidget(browserPanel, 1);
+  outerSizer->addLayout(controlSizer, 0);
+
+  setLayout(outerSizer);
+}
+
+void TextureBrowser::bindEvents() {
+  connect(m_view, &TextureBrowserView::textureSelected, this, &TextureBrowser::textureSelected);
+}
+
+void TextureBrowser::connectObservers() {
+  auto document = kdl::mem_lock(m_document);
+  m_notifierConnection +=
+    document->documentWasNewedNotifier.connect(this, &TextureBrowser::documentWasNewed);
+  m_notifierConnection +=
+    document->documentWasLoadedNotifier.connect(this, &TextureBrowser::documentWasLoaded);
+  m_notifierConnection +=
+    document->nodesWereAddedNotifier.connect(this, &TextureBrowser::nodesWereAdded);
+  m_notifierConnection +=
+    document->nodesWereRemovedNotifier.connect(this, &TextureBrowser::nodesWereRemoved);
+  m_notifierConnection +=
+    document->nodesDidChangeNotifier.connect(this, &TextureBrowser::nodesDidChange);
+  m_notifierConnection +=
+    document->brushFacesDidChangeNotifier.connect(this, &TextureBrowser::brushFacesDidChange);
+  m_notifierConnection += document->textureCollectionsDidChangeNotifier.connect(
+    this, &TextureBrowser::textureCollectionsDidChange);
+  m_notifierConnection += document->currentTextureNameDidChangeNotifier.connect(
+    this, &TextureBrowser::currentTextureNameDidChange);
+
+  PreferenceManager& prefs = PreferenceManager::instance();
+  m_notifierConnection +=
+    prefs.preferenceDidChangeNotifier.connect(this, &TextureBrowser::preferenceDidChange);
+}
+
+void TextureBrowser::documentWasNewed(MapDocument*) {
+  reload();
+}
+
+void TextureBrowser::documentWasLoaded(MapDocument*) {
+  reload();
+}
+
+void TextureBrowser::nodesWereAdded(const std::vector<Model::Node*>&) {
+  reload();
+}
+
+void TextureBrowser::nodesWereRemoved(const std::vector<Model::Node*>&) {
+  reload();
+}
+
+void TextureBrowser::nodesDidChange(const std::vector<Model::Node*>&) {
+  reload();
+}
+
+void TextureBrowser::brushFacesDidChange(const std::vector<Model::BrushFaceHandle>&) {
+  reload();
+}
+
+void TextureBrowser::textureCollectionsDidChange() {
+  reload();
+}
+
+void TextureBrowser::currentTextureNameDidChange(const std::string& /* textureName */) {
+  updateSelectedTexture();
+}
+
+void TextureBrowser::preferenceDidChange(const IO::Path& path) {
+  auto document = kdl::mem_lock(m_document);
+  if (path == Preferences::TextureBrowserIconSize.path() || document->isGamePathPreference(path)) {
+    reload();
+  } else {
+    m_view->update();
+  }
+}
+
+void TextureBrowser::reload() {
+  if (m_view != nullptr) {
+    updateSelectedTexture();
+    m_view->invalidate();
+    m_view->update();
+  }
+}
+
+void TextureBrowser::updateSelectedTexture() {
+  auto document = kdl::mem_lock(m_document);
+  const std::string& textureName = document->currentTextureName();
+  const Assets::Texture* texture = document->textureManager().texture(textureName);
+  m_view->setSelectedTexture(texture);
+}
+} // namespace View
+} // namespace TrenchBroom

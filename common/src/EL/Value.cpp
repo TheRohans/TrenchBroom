@@ -1,1423 +1,1201 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "Value.h"
 
-#include "CollectionUtils.h"
 #include "EL/ELExceptions.h"
+
+#include <kdl/collection_utils.h>
+#include <kdl/map_utils.h>
+#include <kdl/overload.h>
+#include <kdl/string_compare.h>
+#include <kdl/string_format.h>
+#include <kdl/vector_set.h>
+#include <kdl/vector_utils.h>
 
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <sstream>
+#include <string>
 
 namespace TrenchBroom {
-    namespace EL {
-        ValueHolder::~ValueHolder() {}
-        
-        String ValueHolder::describe() const {
-            StringStream str;
-            appendToStream(str, false, "");
-            return str.str();
-        }
-        
-        const BooleanType& ValueHolder::booleanValue() const { throw DereferenceError(describe(), type(), Type_Boolean); }
-        const StringType&  ValueHolder::stringValue()  const { throw DereferenceError(describe(), type(), Type_String); }
-        const NumberType&  ValueHolder::numberValue()  const { throw DereferenceError(describe(), type(), Type_Number); }
-              IntegerType  ValueHolder::integerValue() const { return static_cast<IntegerType>(numberValue()); }
-        const ArrayType&   ValueHolder::arrayValue()   const { throw DereferenceError(describe(), type(), Type_Array); }
-        const MapType&     ValueHolder::mapValue()     const { throw DereferenceError(describe(), type(), Type_Map); }
-        const RangeType&   ValueHolder::rangeValue()   const { throw DereferenceError(describe(), type(), Type_Range); }
-        
-        BooleanValueHolder::BooleanValueHolder(const BooleanType& value) : m_value(value) {}
-        ValueType BooleanValueHolder::type() const { return Type_Boolean; }
-        const BooleanType& BooleanValueHolder::booleanValue() const { return m_value; }
-        size_t BooleanValueHolder::length() const { return 1; }
-        
-        bool BooleanValueHolder::convertibleTo(ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                    return true;
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Undefined:
-                case Type_Null:
-                    break;
-            }
-            
-            return false;
-        }
+namespace EL {
+NullType::NullType() = default;
+const NullType NullType::Value = NullType{};
 
-        ValueHolder* BooleanValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                    return new BooleanValueHolder(m_value);
-                case Type_String:
-                    return new StringValueHolder(m_value ? "true" : "false" );
-                case Type_Number:
-                    return new NumberValueHolder(m_value ? 1.0 : 0.0);
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Undefined:
-                case Type_Null:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* BooleanValueHolder::clone() const { return new BooleanValueHolder(m_value); }
-        void BooleanValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const { str << (m_value ? "true" : "false"); }
-        
-        StringHolder::~StringHolder() {}
-        ValueType StringHolder::type() const { return Type_String; }
-        const StringType& StringHolder::stringValue() const { return doGetValue(); }
-        size_t StringHolder::length() const { return doGetValue().length(); }
-        
-        bool StringHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                case Type_String:
-                    return true;
-                case Type_Number: {
-                    if (StringUtils::isBlank(doGetValue()))
-                        return true;
-                    const char* begin = doGetValue().c_str();
-                    char* end;
-                    const NumberType value = std::strtod(begin, &end);
-                    if (value == 0.0 && end == begin)
-                        return false;
-                    return true;
-                }
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
+UndefinedType::UndefinedType() = default;
+const UndefinedType UndefinedType::Value = UndefinedType{};
 
-            return false;
-        }
-        
-        ValueHolder* StringHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                    return new BooleanValueHolder(!StringUtils::caseSensitiveEqual(doGetValue(), "false") && !doGetValue().empty());
-                case Type_String:
-                    return new StringValueHolder(doGetValue());
-                case Type_Number: {
-                    if (StringUtils::isBlank(doGetValue()))
-                        return new NumberValueHolder(0.0);
-                    const char* begin = doGetValue().c_str();
-                    char* end;
-                    const NumberType value = std::strtod(begin, &end);
-                    if (value == 0.0 && end == begin)
-                        throw ConversionError(describe(), type(), toType);
-                    return new NumberValueHolder(value);
-                }
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        void StringHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            // Unescaping happens in IO::ELParser::parseLiteral
-            str << "\"" << StringUtils::escape(doGetValue(), "\\\"") << "\"";
-        }
+const Value Value::Null = Value{NullType::Value};
+const Value Value::Undefined = Value{UndefinedType::Value};
 
-        
-        
-        StringValueHolder::StringValueHolder(const StringType& value) : m_value(value) {}
-        ValueHolder* StringValueHolder::clone() const { return new StringValueHolder(m_value); }
-        const StringType& StringValueHolder::doGetValue() const { return m_value; }
+Value::Value()
+  : m_value{std::make_shared<VariantType>(NullType::Value)} {}
 
-        
-        
-        StringReferenceHolder::StringReferenceHolder(const StringType& value) : m_value(value) {}
-        ValueHolder* StringReferenceHolder::clone() const { return new StringReferenceHolder(m_value); }
-        const StringType& StringReferenceHolder::doGetValue() const { return m_value; }
-        
-        
-        
-        NumberValueHolder::NumberValueHolder(const NumberType& value) : m_value(value) {}
-        ValueType NumberValueHolder::type() const { return Type_Number; }
-        const NumberType& NumberValueHolder::numberValue() const { return m_value; }
-        size_t NumberValueHolder::length() const { return 1; }
-        
-        bool NumberValueHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                    return true;
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
+Value::Value(const BooleanType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(value)}
+  , m_expression{std::move(expression)} {}
 
-            return false;
-        }
-        
-        ValueHolder* NumberValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                    return new BooleanValueHolder(m_value != 0.0);
-                case Type_String:
-                    return new StringValueHolder(describe());
-                case Type_Number:
-                    return new NumberValueHolder(m_value);
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* NumberValueHolder::clone() const { return new NumberValueHolder(m_value); }
+Value::Value(StringType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(std::move(value))}
+  , m_expression{std::move(expression)} {}
 
-        void NumberValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            if (std::abs(m_value - std::round(m_value)) < RoundingThreshold) {
-                str.precision(0);
-                str.setf(std::ios::fixed);
-            } else {
-                str.precision(17);
-                str.unsetf(std::ios::fixed);
-            }
-            str << m_value;
-        }
-        
-        
-        
-        ArrayValueHolder::ArrayValueHolder(const ArrayType& value) : m_value(value) {}
-        ValueType ArrayValueHolder::type() const { return Type_Array; }
-        const ArrayType& ArrayValueHolder::arrayValue() const { return m_value; }
-        size_t ArrayValueHolder::length() const { return m_value.size(); }
-        
-        bool ArrayValueHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Array:
-                    return true;
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
+Value::Value(const char* value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(StringType(value))}
+  , m_expression{std::move(expression)} {}
 
-            return false;
-        }
-        
-        ValueHolder* ArrayValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Array:
-                    return new ArrayValueHolder(m_value);
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* ArrayValueHolder::clone() const { return new ArrayValueHolder(m_value); }
-        
-        void ArrayValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            if (m_value.empty()) {
-                str << "[]";
-            } else {
-                const String childIndent = multiline ? indent + "\t" : "";
-                str << "[";
-                if (multiline)
-                    str << "\n";
-                else
-                    str << " ";
-                for (size_t i = 0; i < m_value.size(); ++i) {
-                    str << childIndent;
-                    m_value[i].appendToStream(str, multiline, childIndent);
-                    if (i < m_value.size() - 1) {
-                        str << ",";
-                        if (!multiline)
-                            str << " ";
-                    }
-                    if (multiline)
-                        str << "\n";
-                }
-                if (multiline)
-                    str << indent;
-                else
-                    str << " ";
-                str << "]";
-            }
-        }
-        
-        
-        MapValueHolder::MapValueHolder(const MapType& value) : m_value(value) {}
-        ValueType MapValueHolder::type() const { return Type_Map; }
-        const MapType& MapValueHolder::mapValue() const { return m_value; }
-        size_t MapValueHolder::length() const { return m_value.size(); }
-        
-        bool MapValueHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Map:
-                    return true;
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Array:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
+Value::Value(const NumberType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(value)}
+  , m_expression{std::move(expression)} {}
 
-            return false;
-        }
-        
-        ValueHolder* MapValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Map:
-                    return new MapValueHolder(m_value);
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Array:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* MapValueHolder::clone() const { return new MapValueHolder(m_value); }
-        
-        void MapValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            if (m_value.empty()) {
-                str << "{}";
-            } else {
-                const String childIndent = multiline ? indent + "\t" : "";
-                str << "{";
-                if (multiline)
-                    str << "\n";
-                else
-                    str << " ";
+Value::Value(const int value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(static_cast<NumberType>(value))}
+  , m_expression{std::move(expression)} {}
 
-                size_t i = 0;
-                for (const auto& entry : m_value) {
-                    str << childIndent << "\"" << entry.first << "\"" << ": ";
-                    entry.second.appendToStream(str, multiline, childIndent);
-                    if (i++ < m_value.size() - 1) {
-                        str << ",";
-                        if (!multiline)
-                            str << " ";
-                    }
-                    if (multiline)
-                        str << "\n";
-                }
-                if (multiline)
-                    str << indent;
-                else
-                    str << " ";
-                str << "}";
-            }
-        }
-        
-        
-        RangeValueHolder::RangeValueHolder(const RangeType& value) : m_value(value) {}
-        ValueType RangeValueHolder::type() const { return Type_Range; }
-        const RangeType& RangeValueHolder::rangeValue() const { return m_value; }
-        size_t RangeValueHolder::length() const { return m_value.size(); }
-        
-        bool RangeValueHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Range:
-                    return true;
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Array:
-                case Type_Map:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
+Value::Value(const long value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(static_cast<NumberType>(value))}
+  , m_expression{std::move(expression)} {}
 
-            return false;
-        }
-        
-        ValueHolder* RangeValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Range:
-                    return new RangeValueHolder(m_value);
-                case Type_Boolean:
-                case Type_String:
-                case Type_Number:
-                case Type_Array:
-                case Type_Map:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* RangeValueHolder::clone() const { return new RangeValueHolder(m_value); }
-        
-        void RangeValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            str << "[";
-            for (size_t i = 0; i < m_value.size(); ++i) {
-                str << m_value[i];
-                if (i < m_value.size() - 1)
-                    str << ", ";
-            }
-            str << "]";
-        }
-        
-        
-        ValueType NullValueHolder::type() const { return Type_Null; }
-        size_t NullValueHolder::length() const { return 0; }
-        const StringType& NullValueHolder::stringValue() const   { static const StringType result;         return result; }
-        const BooleanType& NullValueHolder::booleanValue() const { static const BooleanType result(false); return result; }
-        const NumberType& NullValueHolder::numberValue() const   { static const NumberType result(0.0);    return result; }
-        const ArrayType& NullValueHolder::arrayValue() const     { static const ArrayType result(0);       return result; }
-        const MapType& NullValueHolder::mapValue() const         { static const MapType result;            return result; }
-        
-        bool NullValueHolder::convertibleTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                case Type_Null:
-                case Type_Number:
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                    return true;
-                case Type_Range:
-                case Type_Undefined:
-                    break;
-            }
+Value::Value(const size_t value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(static_cast<NumberType>(value))}
+  , m_expression{std::move(expression)} {}
 
-            return false;
-        }
-        
-        ValueHolder* NullValueHolder::convertTo(const ValueType toType) const {
-            switch (toType) {
-                case Type_Boolean:
-                    return new BooleanValueHolder(false);
-                case Type_Null:
-                    return new NullValueHolder();
-                case Type_Number:
-                    return new NumberValueHolder(0.0);
-                case Type_String:
-                    return new StringValueHolder("");
-                case Type_Array:
-                    return new ArrayValueHolder(ArrayType(0));
-                case Type_Map:
-                    return new MapValueHolder(MapType());
-                case Type_Range:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw ConversionError(describe(), type(), toType);
-        }
-        
-        ValueHolder* NullValueHolder::clone() const { return new NullValueHolder(); }
-        void NullValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const { str << "null"; }
-        
-        
-        ValueType UndefinedValueHolder::type() const { return Type_Undefined; }
-        size_t UndefinedValueHolder::length() const { return 0; }
-        bool UndefinedValueHolder::convertibleTo(const ValueType toType) const { return false; }
-        ValueHolder* UndefinedValueHolder::convertTo(const ValueType toType) const { throw ConversionError(describe(), type(), toType); }
-        ValueHolder* UndefinedValueHolder::clone() const { return new UndefinedValueHolder(); }
-        void UndefinedValueHolder::appendToStream(std::ostream& str, const bool multiline, const String& indent) const { str << "undefined"; }
-        
-        
-        const Value Value::Null = Value(new NullValueHolder(), 0, 0);
-        const Value Value::Undefined = Value(new UndefinedValueHolder(), 0, 0);
-        
-        Value::Value(ValueHolder* holder, const size_t line, const size_t column)      : m_value(holder), m_line(line), m_column(column) {}
-        
-        Value::Value(const BooleanType& value, const size_t line, const size_t column) : m_value(new BooleanValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const BooleanType& value)                                         : m_value(new BooleanValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const StringType& value, const size_t line, const size_t column)  : m_value(new StringValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const StringType& value)                                          : m_value(new StringValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const char* value, const size_t line, const size_t column)        : m_value(new StringValueHolder(String(value))), m_line(line), m_column(column) {}
-        Value::Value(const char* value)                                                : m_value(new StringValueHolder(String(value))), m_line(0), m_column(0) {}
-        
-        Value::Value(const NumberType& value, const size_t line, const size_t column)  : m_value(new NumberValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const NumberType& value)                                          : m_value(new NumberValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const int value, const size_t line, const size_t column)          : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(line), m_column(column) {}
-        Value::Value(const int value)                                                  : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(0), m_column(0) {}
-        
-        Value::Value(const long value, const size_t line, const size_t column)         : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(line), m_column(column) {}
-        Value::Value(const long value)                                                 : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(0), m_column(0) {}
-        
-        Value::Value(const size_t value, const size_t line, const size_t column)       : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(line), m_column(column) {}
-        Value::Value(const size_t value)                                               : m_value(new NumberValueHolder(static_cast<NumberType>(value))), m_line(0), m_column(0) {}
-        
-        Value::Value(const ArrayType& value, const size_t line, const size_t column)   : m_value(new ArrayValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const ArrayType& value)                                           : m_value(new ArrayValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const MapType& value, const size_t line, const size_t column)     : m_value(new MapValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const MapType& value)                                             : m_value(new MapValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const RangeType& value, const size_t line, const size_t column)   : m_value(new RangeValueHolder(value)), m_line(line), m_column(column) {}
-        Value::Value(const RangeType& value)                                           : m_value(new RangeValueHolder(value)), m_line(0), m_column(0) {}
-        
-        Value::Value(const Value& other, const size_t line, const size_t column)       : m_value(other.m_value), m_line(line), m_column(column) {}
-        
-        Value::Value()                                                                 : m_value(new NullValueHolder()), m_line(0), m_column(0) {}
-        
-        Value Value::ref(const StringType& value, const size_t line, const size_t column) {
-            return Value(new StringReferenceHolder(value), line, column);
-        }
-        
-        Value Value::ref(const StringType& value) {
-            return ref(value, 0, 0);
-        }
+Value::Value(ArrayType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(std::move(value))}
+  , m_expression{std::move(expression)} {}
 
-        ValueType Value::type() const {
-            return m_value->type();
-        }
-        
-        String Value::typeName() const {
-            return EL::typeName(type());
-        }
-        
-        String Value::describe() const {
-            return m_value->describe();
-        }
-        
-        size_t Value::line() const {
-            return m_line;
-        }
-        
-        size_t Value::column() const {
-            return m_column;
-        }
-        
-        
-        const StringType& Value::stringValue() const {
-            return m_value->stringValue();
-        }
-        
-        const BooleanType& Value::booleanValue() const {
-            return m_value->booleanValue();
-        }
-        
-        const NumberType& Value::numberValue() const {
-            return m_value->numberValue();
-        }
-        
-        IntegerType Value::integerValue() const {
-            return m_value->integerValue();
-        }
+Value::Value(MapType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(std::move(value))}
+  , m_expression{std::move(expression)} {}
 
-        const ArrayType& Value::arrayValue() const {
-            return m_value->arrayValue();
-        }
-        
-        const MapType& Value::mapValue() const {
-            return m_value->mapValue();
-        }
-        
-        const RangeType& Value::rangeValue() const {
-            return m_value->rangeValue();
-        }
-        
-        bool Value::null() const {
-            return type() == Type_Null;
-        }
-        
-        bool Value::undefined() const {
-            return type() == Type_Undefined;
-        }
+Value::Value(RangeType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(std::move(value))}
+  , m_expression{std::move(expression)} {}
 
-        const StringList Value::asStringList() const {
-            const ArrayType& array = arrayValue();
-            StringList result;
-            result.reserve(array.size());
+Value::Value(NullType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(value)}
+  , m_expression{std::move(expression)} {}
 
-            std::transform(std::begin(array), std::end(array), std::back_inserter(result),
-                           [](const Value& entry) { return entry.convertTo(Type_String).stringValue(); });
-            
-            return result;
-        }
-        
-        const StringSet Value::asStringSet() const {
-            const ArrayType& array = arrayValue();
-            StringSet result;
-            
-            std::transform(std::begin(array), std::end(array), std::inserter(result, result.begin()),
-                           [](const Value& entry) { return entry.convertTo(Type_String).stringValue(); });
-            
-            return result;
-        }
-        
-        size_t Value::length() const {
-            return m_value->length();
-        }
-        
-        bool Value::convertibleTo(const ValueType toType) const {
-            if (type() == toType)
-                return true;
-            return m_value->convertibleTo(toType);
-        }
-        
-        Value Value::convertTo(const ValueType toType) const {
-            if (type() == toType)
-                return *this;
-            return Value(m_value->convertTo(toType), m_line, m_column);
-        }
-        
-        String Value::asString(const bool multiline) const {
-            StringStream str;
-            appendToStream(str, multiline);
-            return str.str();
-        }
+Value::Value(UndefinedType value, std::optional<Expression> expression)
+  : m_value{std::make_shared<VariantType>(value)}
+  , m_expression{std::move(expression)} {}
 
-        void Value::appendToStream(std::ostream& str, const bool multiline, const String& indent) const {
-            m_value->appendToStream(str, multiline, indent);
-        }
-        
-        std::ostream& operator<<(std::ostream& stream, const Value& value) {
-            value.appendToStream(stream);
-            return stream;
-        }
-        
-        bool Value::contains(const Value& indexValue) const {
-            switch (type()) {
-                case Type_String: {
-                    switch (indexValue.type()) {
-                        case Type_Boolean:
-                        case Type_Number: {
-                            const size_t index = computeIndex(indexValue, length());
-                            return index < length();
-                        }
-                        case Type_Array:
-                        case Type_Range: {
-                            const IndexList indices = computeIndexArray(indexValue, length());
-                            for (size_t i = 0; i < indices.size(); ++i) {
-                                const size_t index = indices[i];
-                                if (index >= length())
-                                    return false;
-                            }
-                            return true;
-                        }
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                }
-                case Type_Array:
-                    switch (indexValue.type()) {
-                        case Type_Boolean:
-                        case Type_Number: {
-                            const size_t index = computeIndex(indexValue, length());
-                            return index < length();
-                        }
-                        case Type_Array:
-                        case Type_Range: {
-                            const IndexList indices = computeIndexArray(indexValue, length());
-                            for (size_t i = 0; i < indices.size(); ++i) {
-                                const size_t index = indices[i];
-                                if (index >= length())
-                                    return false;
-                            }
-                            return true;
-                        }
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Map:
-                    switch (indexValue.type()) {
-                        case Type_String: {
-                            const MapType& map = mapValue();
-                            const String& key = indexValue.stringValue();
-                            const MapType::const_iterator it = map.find(key);
-                            return it != std::end(map);
-                        }
-                        case Type_Array: {
-                            const MapType& map = mapValue();
-                            const ArrayType& keys = indexValue.arrayValue();
-                            for (size_t i = 0; i < keys.size(); ++i) {
-                                const Value& keyValue = keys[i];
-                                if (keyValue.type() != Type_String)
-                                    throw ConversionError(keyValue.describe(), keyValue.type(), Type_String);
-                                const String& key = keyValue.stringValue();
-                                const MapType::const_iterator it = map.find(key);
-                                if (it == std::end(map))
-                                    return false;
-                            }
-                            return true;
-                        }
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Boolean:
-                case Type_Number:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            return false;
-        }
-        
-        bool Value::contains(const size_t index) const {
-            switch (type()) {
-                case Type_String:
-                case Type_Array:
-                    return index < length();
-                case Type_Map:
-                case Type_Boolean:
-                case Type_Number:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            return false;
-        }
-        
-        bool Value::contains(const String& key) const {
-            const MapType& map = mapValue();
-            const MapType::const_iterator it = map.find(key);
-            return it != std::end(map);
-        }
-        
-        StringSet Value::keys() const {
-            return MapUtils::keySet(mapValue());
-        }
-        
-        Value Value::operator[](const Value& indexValue) const {
-            switch (type()) {
-                case Type_String:
-                    switch (indexValue.type()) {
-                        case Type_Boolean:
-                        case Type_Number: {
-                            const StringType& str = stringValue();
-                            const size_t index = computeIndex(indexValue, str.length());
-                            StringStream result;
-                            if (index < str.length())
-                                result << str[index];
-                            return Value(result.str(), m_line, m_column);
-                        }
-                        case Type_Array:
-                        case Type_Range: {
-                            const StringType& str = stringValue();
-                            const IndexList indices = computeIndexArray(indexValue, str.length());
-                            StringStream result;
-                            for (size_t i = 0; i < indices.size(); ++i) {
-                                const size_t index = indices[i];
-                                if (index < str.length())
-                                    result << str[index];
-                            }
-                            return Value(result.str(), m_line, m_column);
-                        }
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Array:
-                    switch (indexValue.type()) {
-                        case Type_Boolean:
-                        case Type_Number: {
-                            const ArrayType& array = arrayValue();
-                            const size_t index = computeIndex(indexValue, array.size());
-                            if (index >= array.size())
-                                throw IndexOutOfBoundsError(*this, indexValue, index);
-                            return array[index];
-                        }
-                        case Type_Array:
-                        case Type_Range: {
-                            const ArrayType& array = arrayValue();
-                            const IndexList indices = computeIndexArray(indexValue, array.size());
-                            ArrayType result;
-                            result.reserve(indices.size());
-                            for (size_t i = 0; i < indices.size(); ++i) {
-                                const size_t index = indices[i];
-                                if (index >= array.size())
-                                    throw IndexOutOfBoundsError(*this, indexValue, index);
-                                result.push_back(array[index]);
-                            }
-                            return Value(result, m_line, m_column);
-                        }
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Map:
-                    switch (indexValue.type()) {
-                        case Type_String: {
-                            const MapType& map = mapValue();
-                            const String& key = indexValue.stringValue();
-                            const MapType::const_iterator it = map.find(key);
-                            if (it == std::end(map))
-                                return Value::Undefined;
-                            return it->second;
-                        }
-                        case Type_Array: {
-                            const MapType& map = mapValue();
-                            const ArrayType& keys = indexValue.arrayValue();
-                            MapType result;
-                            for (size_t i = 0; i < keys.size(); ++i) {
-                                const Value& keyValue = keys[i];
-                                if (keyValue.type() != Type_String)
-                                    throw ConversionError(keyValue.describe(), keyValue.type(), Type_String);
-                                const String& key = keyValue.stringValue();
-                                const MapType::const_iterator it = map.find(key);
-                                if (it != std::end(map))
-                                    result.insert(std::make_pair(key, it->second));
-                            }
-                            return Value(result, m_line, m_column);
-                        }
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Boolean:
-                case Type_Number:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw IndexError(*this, indexValue);
-        }
-        
-        Value Value::operator[](const size_t index) const {
-            switch (type()) {
-                case Type_String: {
-                    const StringType& str = stringValue();
-                    StringStream result;
-                    if (index < str.length())
-                        result << str[index];
-                    return Value(result.str());
-                }
-                case Type_Array: {
-                    const ArrayType& array = arrayValue();
-                    if (index >= array.size())
-                        throw IndexOutOfBoundsError(*this, index);
-                    return array[index];
-                }
-                case Type_Map:
-                case Type_Boolean:
-                case Type_Number:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw IndexError(*this, index);
-        }
-        
-        Value Value::operator[](const int index) const {
-            assert(index >= 0);
-            return this->operator[](static_cast<size_t>(index));
-        }
-        
-        Value Value::operator[](const String& key) const {
-            return this->operator[](key.c_str());
-        }
-        
-        Value Value::operator[](const char* key) const {
-            switch (type()) {
-                case Type_Map: {
-                    const MapType& map = mapValue();
-                    const MapType::const_iterator it = map.find(key);
-                    if (it == std::end(map))
-                        return Value::Null;
-                    return it->second;
-                }
-                case Type_String:
-                case Type_Array:
-                case Type_Boolean:
-                case Type_Number:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw IndexError(*this, key);
-        }
-        
-        Value::IndexList Value::computeIndexArray(const Value& indexValue, const size_t indexableSize) const {
-            IndexList result;
-            computeIndexArray(indexValue, indexableSize, result);
-            return result;
-        }
-        
-        void Value::computeIndexArray(const Value& indexValue, const size_t indexableSize, IndexList& result) const {
-            switch (indexValue.type()) {
-                case Type_Array: {
-                    const ArrayType& indexArray = indexValue.arrayValue();
-                    result.reserve(result.size() + indexArray.size());
-                    for (size_t i = 0; i < indexArray.size(); ++i)
-                        computeIndexArray(indexArray[i], indexableSize, result);
-                    break;
-                }
-                case Type_Range: {
-                    const RangeType& range = indexValue.rangeValue();
-                    result.reserve(result.size() + range.size());
-                    for (size_t i = 0; i < range.size(); ++i)
-                        result.push_back(computeIndex(range[i], indexableSize));
-                    break;
-                }
-                case Type_Boolean:
-                case Type_Number:
-                case Type_String:
-                case Type_Map:
-                case Type_Null:
-                case Type_Undefined:
-                    result.push_back(computeIndex(indexValue, indexableSize));
-                    break;
-            }
-        }
-        
-        size_t Value::computeIndex(const Value& indexValue, const size_t indexableSize) const {
-            return computeIndex(static_cast<long>(indexValue.convertTo(Type_Number).numberValue()), indexableSize);
-        }
-        
-        size_t Value::computeIndex(const long index, const size_t indexableSize) const {
-            const long size  = static_cast<long>(indexableSize);
-            if ((index >= 0 && index <   size) ||
-                (index <  0 && index >= -size ))
-                return static_cast<size_t>((size + index % size) % size);
-            return static_cast<size_t>(size);
-        }
-        
-        Value Value::operator+() const {
-            switch (type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    return Value(convertTo(Type_Number).numberValue());
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            throw EvaluationError("Cannot apply unary plus to value '" + describe() + "' of type '" + typeName());
-        }
-        
-        Value Value::operator-() const {
-            switch (type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    return Value(-convertTo(Type_Number).numberValue());
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            throw EvaluationError("Cannot negate value '" + describe() + "' of type '" + typeName());
-        }
-        
-        Value operator+(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                            return Value(lhs.convertTo(Type_Number).numberValue() + rhs.convertTo(Type_Number).numberValue());
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                    switch (rhs.type()) {
-                        case Type_String:
-                            return Value(lhs.convertTo(Type_String).stringValue() + rhs.convertTo(Type_String).stringValue());
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Array:
-                    switch (rhs.type()) {
-                        case Type_Array:
-                            return Value(VectorUtils::concatenate(lhs.arrayValue(), rhs.arrayValue()));
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Map:
-                    switch (rhs.type()) {
-                        case Type_Map:
-                            return Value(MapUtils::concatenate(lhs.mapValue(), rhs.mapValue()));
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw EvaluationError("Cannot add value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + " to value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + "'");
-        }
-        
-        Value operator-(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                            return Value(lhs.convertTo(Type_Number).numberValue() - rhs.convertTo(Type_Number).numberValue());
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw EvaluationError("Cannot subtract value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + " from value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + "'");
-        }
-        
-        Value operator*(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                            return Value(lhs.convertTo(Type_Number).numberValue() * rhs.convertTo(Type_Number).numberValue());
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw EvaluationError("Cannot subtract value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + " from value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + "'");
-        }
-        
-        Value operator/(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                            return Value(lhs.convertTo(Type_Number).numberValue() / rhs.convertTo(Type_Number).numberValue());
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw EvaluationError("Cannot subtract value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + " from value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + "'");
-        }
-        
-        Value operator%(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                            return Value(std::fmod(lhs.convertTo(Type_Number).numberValue(), rhs.convertTo(Type_Number).numberValue()));
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                        case Type_Null:
-                        case Type_Undefined:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            
-            throw EvaluationError("Cannot compute moduls of value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        Value::operator bool() const {
-            switch (type()) {
-                case Type_Boolean:
-                    return booleanValue();
-                case Type_Number:
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            throw ConversionError(describe(), type(), Type_Boolean);
-        }
-        
-        Value Value::operator!() const {
-            switch (type()) {
-                case Type_Boolean:
-                    return Value(!booleanValue());
-                case Type_Number:
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            throw ConversionError(describe(), type(), Type_Boolean);
-        }
-        
-        bool operator==(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) == 0;
-        }
-        
-        bool operator!=(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) != 0;
-        }
-        
-        bool operator<(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) < 0;
-        }
-        
-        bool operator<=(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) <= 0;
-        }
-        
-        bool operator>(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) > 0;
-        }
-        
-        bool operator>=(const Value& lhs, const Value& rhs) {
-            return compare(lhs, rhs) >= 0;
-        }
-        
-        int compare(const Value& lhs, const Value& rhs) {
-            switch (lhs.type()) {
-                case Type_Boolean:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                            return compareAsBooleans(lhs, rhs);
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                            break;
-                    }
-                    break;
-                case Type_Number:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                            return compareAsBooleans(lhs, rhs);
-                        case Type_Number:
-                        case Type_String:
-                            return compareAsNumbers(lhs, rhs);
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                            break;
-                    }
-                    break;
-                case Type_String:
-                    switch (rhs.type()) {
-                        case Type_Boolean:
-                            return compareAsBooleans(lhs, rhs);
-                        case Type_Number:
-                            return compareAsNumbers(lhs, rhs);
-                        case Type_String:
-                            return lhs.stringValue().compare(rhs.convertTo(Type_String).stringValue());
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Array:
-                        case Type_Map:
-                        case Type_Range:
-                            break;
-                    }
-                    break;
-                case Type_Null:
-                    if (rhs.type() == Type_Null)
-                        return 0;
-                    return -1;
-                case Type_Undefined:
-                    if (rhs.type() == Type_Undefined)
-                        return 0;
-                    return -1;
-                case Type_Array:
-                    switch (rhs.type()) {
-                        case Type_Array:
-                            return VectorUtils::compare(lhs.arrayValue(), rhs.arrayValue());
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                        case Type_Map:
-                        case Type_Range:
-                            break;
-                    }
-                    break;
-                case Type_Map:
-                    switch (rhs.type()) {
-                        case Type_Map:
-                            return MapUtils::compare(lhs.mapValue(), rhs.mapValue());
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Range:
-                            break;
-                    }
-                    break;
-                case Type_Range:
-                    switch (rhs.type()) {
-                        case Type_Range:
-                            return VectorUtils::compare(lhs.rangeValue(), rhs.rangeValue());
-                        case Type_Null:
-                        case Type_Undefined:
-                            return 1;
-                        case Type_Boolean:
-                        case Type_Number:
-                        case Type_String:
-                        case Type_Array:
-                        case Type_Map:
-                            break;
-                    }
-                    break;
-            }
-            throw EvaluationError("Cannot compare value '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " to value '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        int compareAsBooleans(const Value& lhs, const Value& rhs) {
-            const bool lhsValue = lhs.convertTo(Type_Boolean).booleanValue();
-            const bool rhsValue = rhs.convertTo(Type_Boolean).booleanValue();
-            if (lhsValue == rhsValue)
-                return 0;
-            if (lhsValue)
-                return 1;
-            return -1;
-        }
-        
-        int compareAsNumbers(const Value& lhs, const Value& rhs) {
-            const NumberType diff = lhs.convertTo(Type_Number).numberValue() - rhs.convertTo(Type_Number).numberValue();
-            if (diff < 0.0)
-                return -1;
-            else if (diff > 0.0)
-                return 1;
-            return 0;
-        }
+Value::Value(Value value, std::optional<Expression> expression)
+  : m_value{std::move(value.m_value)}
+  , m_expression{std::move(expression)} {}
 
-        Value Value::operator~() const {
-            switch (type()) {
-                case Type_Number:
-                    return Value(~integerValue());
-                case Type_Boolean:
-                case Type_String:
-                case Type_Array:
-                case Type_Map:
-                case Type_Range:
-                case Type_Null:
-                case Type_Undefined:
-                    break;
-            }
-            throw ConversionError(describe(), type(), Type_Boolean);
-        }
-        
-        Value operator&(const Value& lhs, const Value& rhs) {
-            if (lhs.convertibleTo(Type_Number) && rhs.convertibleTo(Type_Number)) {
-                const IntegerType lhsInt = lhs.convertTo(Type_Number).integerValue();
-                const IntegerType rhsInt = rhs.convertTo(Type_Number).integerValue();
-                return Value(lhsInt & rhsInt);
-            }
-            throw EvaluationError("Cannot apply operator & to '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        Value operator|(const Value& lhs, const Value& rhs) {
-            if (lhs.convertibleTo(Type_Number) && rhs.convertibleTo(Type_Number)) {
-                const IntegerType lhsInt = lhs.convertTo(Type_Number).integerValue();
-                const IntegerType rhsInt = rhs.convertTo(Type_Number).integerValue();
-                return Value(lhsInt | rhsInt);
-            }
-            throw EvaluationError("Cannot apply operator | to '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        Value operator^(const Value& lhs, const Value& rhs) {
-            if (lhs.convertibleTo(Type_Number) && rhs.convertibleTo(Type_Number)) {
-                const IntegerType lhsInt = lhs.convertTo(Type_Number).integerValue();
-                const IntegerType rhsInt = rhs.convertTo(Type_Number).integerValue();
-                return Value(lhsInt ^ rhsInt);
-            }
-            throw EvaluationError("Cannot apply operator ^ to '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        Value operator<<(const Value& lhs, const Value& rhs) {
-            if (lhs.convertibleTo(Type_Number) && rhs.convertibleTo(Type_Number)) {
-                const IntegerType lhsInt = lhs.convertTo(Type_Number).integerValue();
-                const IntegerType rhsInt = rhs.convertTo(Type_Number).integerValue();
-                return Value(lhsInt << rhsInt);
-            }
-            throw EvaluationError("Cannot apply operator << to '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-        
-        Value operator>>(const Value& lhs, const Value& rhs) {
-            if (lhs.convertibleTo(Type_Number) && rhs.convertibleTo(Type_Number)) {
-                const IntegerType lhsInt = lhs.convertTo(Type_Number).integerValue();
-                const IntegerType rhsInt = rhs.convertTo(Type_Number).integerValue();
-                return Value(lhsInt >> rhsInt);
-            }
-            throw EvaluationError("Cannot apply operator >> to '" + lhs.describe() + "' of type '" + typeName(lhs.type()) + " and '" + rhs.describe() + "' of type '" + typeName(rhs.type()) + "'");
-        }
-    }
+ValueType Value::type() const {
+  return std::visit(
+    kdl::overload(
+      [](const BooleanType&) {
+        return ValueType::Boolean;
+      },
+      [](const StringType&) {
+        return ValueType::String;
+      },
+      [](const NumberType&) {
+        return ValueType::Number;
+      },
+      [](const ArrayType&) {
+        return ValueType::Array;
+      },
+      [](const MapType&) {
+        return ValueType::Map;
+      },
+      [](const RangeType&) {
+        return ValueType::Range;
+      },
+      [](const NullType&) {
+        return ValueType::Null;
+      },
+      [](const UndefinedType&) {
+        return ValueType::Undefined;
+      }),
+    *m_value);
 }
+
+std::string Value::typeName() const {
+  return EL::typeName(type());
+}
+
+std::string Value::describe() const {
+  return asString(false);
+}
+
+const std::optional<Expression>& Value::expression() const {
+  return m_expression;
+}
+
+size_t Value::line() const {
+  return m_expression ? m_expression->line() : 0u;
+}
+
+size_t Value::column() const {
+  return m_expression ? m_expression->column() : 0u;
+}
+
+const BooleanType& Value::booleanValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType& b) -> const BooleanType& {
+        return b;
+      },
+      [&](const StringType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::String};
+      },
+      [&](const NumberType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::Number};
+      },
+      [&](const ArrayType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::Array};
+      },
+      [&](const MapType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::Map};
+      },
+      [&](const RangeType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::Range};
+      },
+      [&](const NullType&) -> const BooleanType& {
+        static const BooleanType b = false;
+        return b;
+      },
+      [&](const UndefinedType&) -> const BooleanType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+const StringType& Value::stringValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Boolean};
+      },
+      [&](const StringType& s) -> const StringType& {
+        return s;
+      },
+      [&](const NumberType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Number};
+      },
+      [&](const ArrayType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Array};
+      },
+      [&](const MapType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Map};
+      },
+      [&](const RangeType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Range};
+      },
+      [&](const NullType&) -> const StringType& {
+        static const StringType s;
+        return s;
+      },
+      [&](const UndefinedType&) -> const StringType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+const NumberType& Value::numberValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::Boolean};
+      },
+      [&](const StringType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::String};
+      },
+      [&](const NumberType& n) -> const NumberType& {
+        return n;
+      },
+      [&](const ArrayType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::Array};
+      },
+      [&](const MapType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::Map};
+      },
+      [&](const RangeType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::Range};
+      },
+      [&](const NullType&) -> const NumberType& {
+        static const NumberType n = 0.0;
+        return n;
+      },
+      [&](const UndefinedType&) -> const NumberType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+IntegerType Value::integerValue() const {
+  return static_cast<IntegerType>(numberValue());
+}
+
+const ArrayType& Value::arrayValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::Boolean};
+      },
+      [&](const StringType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::String};
+      },
+      [&](const NumberType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::Number};
+      },
+      [&](const ArrayType& a) -> const ArrayType& {
+        return a;
+      },
+      [&](const MapType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::Map};
+      },
+      [&](const RangeType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::Range};
+      },
+      [&](const NullType&) -> const ArrayType& {
+        static const ArrayType a(0);
+        return a;
+      },
+      [&](const UndefinedType&) -> const ArrayType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+const MapType& Value::mapValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::Boolean};
+      },
+      [&](const StringType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::String};
+      },
+      [&](const NumberType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::Number};
+      },
+      [&](const ArrayType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::Array};
+      },
+      [&](const MapType& m) -> const MapType& {
+        return m;
+      },
+      [&](const RangeType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::Range};
+      },
+      [&](const NullType&) -> const MapType& {
+        static const MapType m;
+        return m;
+      },
+      [&](const UndefinedType&) -> const MapType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+const RangeType& Value::rangeValue() const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Boolean};
+      },
+      [&](const StringType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::String};
+      },
+      [&](const NumberType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Number};
+      },
+      [&](const ArrayType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Array};
+      },
+      [&](const MapType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Map};
+      },
+      [&](const RangeType& r) -> const RangeType& {
+        return r;
+      },
+      [&](const NullType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Null};
+      },
+      [&](const UndefinedType&) -> const RangeType& {
+        throw DereferenceError{describe(), type(), ValueType::Undefined};
+      }),
+    *m_value);
+}
+
+const std::vector<std::string> Value::asStringList() const {
+  const ArrayType& array = arrayValue();
+  auto result = std::vector<std::string>{};
+  result.reserve(array.size());
+
+  for (const auto& entry : array) {
+    result.push_back(entry.convertTo(ValueType::String).stringValue());
+  }
+
+  return result;
+}
+
+const std::vector<std::string> Value::asStringSet() const {
+  const ArrayType& array = arrayValue();
+  auto result = kdl::vector_set<std::string>(array.size());
+
+  for (const auto& entry : array) {
+    result.insert(entry.convertTo(ValueType::String).stringValue());
+  }
+
+  return result.release_data();
+}
+
+size_t Value::length() const {
+  return std::visit(
+    kdl::overload(
+      [](const BooleanType&) -> size_t {
+        return 1u;
+      },
+      [](const StringType& s) -> size_t {
+        return s.length();
+      },
+      [](const NumberType&) -> size_t {
+        return 1u;
+      },
+      [](const ArrayType& a) -> size_t {
+        return a.size();
+      },
+      [](const MapType& m) -> size_t {
+        return m.size();
+      },
+      [](const RangeType& r) -> size_t {
+        return r.size();
+      },
+      [](const NullType&) -> size_t {
+        return 0u;
+      },
+      [](const UndefinedType&) -> size_t {
+        return 0u;
+      }),
+    *m_value);
+}
+
+bool Value::convertibleTo(const ValueType toType) const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType&) {
+        switch (toType) {
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+            return true;
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Undefined:
+          case ValueType::Null:
+            break;
+        }
+
+        return false;
+      },
+      [&](const StringType& s) {
+        switch (toType) {
+          case ValueType::Boolean:
+          case ValueType::String:
+            return true;
+          case ValueType::Number: {
+            if (kdl::str_is_blank(s)) {
+              return true;
+            }
+            const char* begin = s.c_str();
+            char* end;
+            const NumberType value = std::strtod(begin, &end);
+            if (value == 0.0 && end == begin) {
+              return false;
+            }
+            return true;
+          }
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const NumberType&) {
+        switch (toType) {
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+            return true;
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const ArrayType&) {
+        switch (toType) {
+          case ValueType::Array:
+            return true;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const MapType&) {
+        switch (toType) {
+          case ValueType::Map:
+            return true;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Array:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const RangeType&) {
+        switch (toType) {
+          case ValueType::Range:
+            return true;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const NullType&) {
+        switch (toType) {
+          case ValueType::Boolean:
+          case ValueType::Null:
+          case ValueType::Number:
+          case ValueType::String:
+          case ValueType::Array:
+          case ValueType::Map:
+            return true;
+          case ValueType::Range:
+          case ValueType::Undefined:
+            break;
+        }
+
+        return false;
+      },
+      [&](const UndefinedType&) {
+        switch (toType) {
+          case ValueType::Undefined:
+            return true;
+          case ValueType::Boolean:
+          case ValueType::Number:
+          case ValueType::String:
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+            break;
+        }
+
+        return false;
+      }),
+    *m_value);
+}
+
+Value Value::convertTo(const ValueType toType) const {
+  return std::visit(
+    kdl::overload(
+      [&](const BooleanType& b) -> Value {
+        switch (toType) {
+          case ValueType::Boolean:
+            return *this;
+          case ValueType::String:
+            return Value{b ? "true" : "false", m_expression};
+          case ValueType::Number:
+            return Value{b ? 1.0 : 0.0, m_expression};
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Undefined:
+          case ValueType::Null:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const StringType& s) -> Value {
+        switch (toType) {
+          case ValueType::Boolean:
+            return Value{!kdl::cs::str_is_equal(s, "false") && !s.empty(), m_expression};
+          case ValueType::String:
+            return *this;
+          case ValueType::Number: {
+            if (kdl::str_is_blank(s)) {
+              return Value{0.0, m_expression};
+            }
+            const char* begin = s.c_str();
+            char* end;
+            const NumberType value = std::strtod(begin, &end);
+            if (value == 0.0 && end == begin) {
+              throw ConversionError{describe(), type(), toType};
+            }
+            return Value{value, m_expression};
+          }
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const NumberType& n) -> Value {
+        switch (toType) {
+          case ValueType::Boolean:
+            return Value{n != 0.0, m_expression};
+          case ValueType::String:
+            return Value{describe(), m_expression};
+          case ValueType::Number:
+            return *this;
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const ArrayType&) -> Value {
+        switch (toType) {
+          case ValueType::Array:
+            return *this;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const MapType&) -> Value {
+        switch (toType) {
+          case ValueType::Map:
+            return *this;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Array:
+          case ValueType::Range:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const RangeType&) -> Value {
+        switch (toType) {
+          case ValueType::Range:
+            return *this;
+          case ValueType::Boolean:
+          case ValueType::String:
+          case ValueType::Number:
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Null:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const NullType&) -> Value {
+        switch (toType) {
+          case ValueType::Boolean:
+            return Value{false, m_expression};
+          case ValueType::Null:
+            return *this;
+          case ValueType::Number:
+            return Value{0.0, m_expression};
+          case ValueType::String:
+            return Value{"", m_expression};
+          case ValueType::Array:
+            return Value{ArrayType{0}, m_expression};
+          case ValueType::Map:
+            return Value{MapType{}, m_expression};
+          case ValueType::Range:
+          case ValueType::Undefined:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      },
+      [&](const UndefinedType&) -> Value {
+        switch (toType) {
+          case ValueType::Undefined:
+            return *this;
+          case ValueType::Boolean:
+          case ValueType::Number:
+          case ValueType::String:
+          case ValueType::Array:
+          case ValueType::Map:
+          case ValueType::Range:
+          case ValueType::Null:
+            break;
+        }
+
+        throw ConversionError{describe(), type(), toType};
+      }),
+    *m_value);
+}
+
+std::string Value::asString(const bool multiline) const {
+  std::stringstream str;
+  appendToStream(str, multiline);
+  return str.str();
+}
+
+void Value::appendToStream(
+  std::ostream& str, const bool multiline, const std::string& indent) const {
+  std::visit(
+    kdl::overload(
+      [&](const BooleanType& b) {
+        str << (b ? "true" : "false");
+      },
+      [&](const StringType& s) {
+        // Unescaping happens in IO::ELParser::parseLiteral
+        str << "\"" << kdl::str_escape(s, "\\\"") << "\"";
+      },
+      [&](const NumberType& n) {
+        static constexpr auto RoundingThreshold = 0.00001;
+        if (std::abs(n - std::round(n)) < RoundingThreshold) {
+          str.precision(0);
+          str.setf(std::ios::fixed);
+        } else {
+          str.precision(17);
+          str.unsetf(std::ios::fixed);
+        }
+        str << n;
+      },
+      [&](const ArrayType& a) {
+        if (a.empty()) {
+          str << "[]";
+        } else {
+          const std::string childIndent = multiline ? indent + "\t" : "";
+          str << "[";
+          if (multiline) {
+            str << "\n";
+          } else {
+            str << " ";
+          }
+          for (size_t i = 0; i < a.size(); ++i) {
+            str << childIndent;
+            a[i].appendToStream(str, multiline, childIndent);
+            if (i < a.size() - 1) {
+              str << ",";
+              if (!multiline) {
+                str << " ";
+              }
+            }
+            if (multiline) {
+              str << "\n";
+            }
+          }
+          if (multiline) {
+            str << indent;
+          } else {
+            str << " ";
+          }
+          str << "]";
+        }
+      },
+      [&](const MapType& m) {
+        if (m.empty()) {
+          str << "{}";
+        } else {
+          const std::string childIndent = multiline ? indent + "\t" : "";
+          str << "{";
+          if (multiline) {
+            str << "\n";
+          } else {
+            str << " ";
+          }
+
+          size_t i = 0;
+          for (const auto& [key, value] : m) {
+            str << childIndent << "\"" << key << "\""
+                << ": ";
+            value.appendToStream(str, multiline, childIndent);
+            if (i++ < m.size() - 1) {
+              str << ",";
+              if (!multiline) {
+                str << " ";
+              }
+            }
+            if (multiline) {
+              str << "\n";
+            }
+          }
+          if (multiline) {
+            str << indent;
+          } else {
+            str << " ";
+          }
+          str << "}";
+        }
+      },
+      [&](const RangeType& r) {
+        str << "[";
+        for (size_t i = 0; i < r.size(); ++i) {
+          str << r[i];
+          if (i < r.size() - 1) {
+            str << ", ";
+          }
+        }
+        str << "]";
+      },
+      [&](const NullType&) {
+        str << "null";
+      },
+      [&](const UndefinedType&) {
+        str << "undefined";
+      }),
+    *m_value);
+}
+
+static size_t computeIndex(const long index, const size_t indexableSize) {
+  const long size = static_cast<long>(indexableSize);
+  if ((index >= 0 && index < size) || (index < 0 && index >= -size)) {
+    return static_cast<size_t>((size + index % size) % size);
+  } else {
+    return static_cast<size_t>(size);
+  }
+}
+
+static size_t computeIndex(const Value& indexValue, const size_t indexableSize) {
+  return computeIndex(
+    static_cast<long>(indexValue.convertTo(ValueType::Number).numberValue()), indexableSize);
+}
+
+static void computeIndexArray(
+  const Value& indexValue, const size_t indexableSize, std::vector<size_t>& result) {
+  switch (indexValue.type()) {
+    case ValueType::Array: {
+      const ArrayType& indexArray = indexValue.arrayValue();
+      result.reserve(result.size() + indexArray.size());
+      for (size_t i = 0; i < indexArray.size(); ++i) {
+        computeIndexArray(indexArray[i], indexableSize, result);
+      }
+      break;
+    }
+    case ValueType::Range: {
+      const RangeType& range = indexValue.rangeValue();
+      result.reserve(result.size() + range.size());
+      for (size_t i = 0; i < range.size(); ++i) {
+        result.push_back(computeIndex(range[i], indexableSize));
+      }
+      break;
+    }
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::String:
+    case ValueType::Map:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      result.push_back(computeIndex(indexValue, indexableSize));
+      break;
+  }
+}
+
+static std::vector<size_t> computeIndexArray(const Value& indexValue, const size_t indexableSize) {
+  auto result = std::vector<size_t>{};
+  computeIndexArray(indexValue, indexableSize, result);
+  return result;
+}
+
+bool Value::contains(const Value& indexValue) const {
+  switch (type()) {
+    case ValueType::String: {
+      switch (indexValue.type()) {
+        case ValueType::Boolean:
+        case ValueType::Number: {
+          const size_t index = computeIndex(indexValue, length());
+          return index < length();
+        }
+        case ValueType::Array:
+        case ValueType::Range: {
+          const std::vector<size_t> indices = computeIndexArray(indexValue, length());
+          for (size_t i = 0; i < indices.size(); ++i) {
+            const size_t index = indices[i];
+            if (index >= length()) {
+              return false;
+            }
+          }
+          return true;
+        }
+        case ValueType::String:
+        case ValueType::Map:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    }
+    case ValueType::Array:
+      switch (indexValue.type()) {
+        case ValueType::Boolean:
+        case ValueType::Number: {
+          const size_t index = computeIndex(indexValue, length());
+          return index < length();
+        }
+        case ValueType::Array:
+        case ValueType::Range: {
+          const std::vector<size_t> indices = computeIndexArray(indexValue, length());
+          for (size_t i = 0; i < indices.size(); ++i) {
+            const size_t index = indices[i];
+            if (index >= length()) {
+              return false;
+            }
+          }
+          return true;
+        }
+        case ValueType::String:
+        case ValueType::Map:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    case ValueType::Map:
+      switch (indexValue.type()) {
+        case ValueType::String: {
+          const MapType& map = mapValue();
+          const std::string& key = indexValue.stringValue();
+          const auto it = map.find(key);
+          return it != std::end(map);
+        }
+        case ValueType::Array: {
+          const MapType& map = mapValue();
+          const ArrayType& keys = indexValue.arrayValue();
+          for (size_t i = 0; i < keys.size(); ++i) {
+            const Value& keyValue = keys[i];
+            if (keyValue.type() != ValueType::String) {
+              throw ConversionError{keyValue.describe(), keyValue.type(), ValueType::String};
+            }
+            const std::string& key = keyValue.stringValue();
+            const auto it = map.find(key);
+            if (it == std::end(map)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        case ValueType::Boolean:
+        case ValueType::Number:
+        case ValueType::Map:
+        case ValueType::Range:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::Range:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      break;
+  }
+  return false;
+}
+
+bool Value::contains(const size_t index) const {
+  switch (type()) {
+    case ValueType::String:
+    case ValueType::Array:
+      return index < length();
+    case ValueType::Map:
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::Range:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      break;
+  }
+  return false;
+}
+
+bool Value::contains(const std::string& key) const {
+  const MapType& map = mapValue();
+  const auto it = map.find(key);
+  return it != std::end(map);
+}
+
+std::vector<std::string> Value::keys() const {
+  return kdl::map_keys(mapValue());
+}
+
+Value Value::operator[](const Value& indexValue) const {
+  switch (type()) {
+    case ValueType::String:
+      switch (indexValue.type()) {
+        case ValueType::Boolean:
+        case ValueType::Number: {
+          const StringType& str = stringValue();
+          const size_t index = computeIndex(indexValue, str.length());
+          std::stringstream result;
+          if (index < str.length()) {
+            result << str[index];
+          }
+          return Value{result.str(), m_expression};
+        }
+        case ValueType::Array:
+        case ValueType::Range: {
+          const StringType& str = stringValue();
+          const std::vector<size_t> indices = computeIndexArray(indexValue, str.length());
+          std::stringstream result;
+          for (size_t i = 0; i < indices.size(); ++i) {
+            const size_t index = indices[i];
+            if (index < str.length()) {
+              result << str[index];
+            }
+          }
+          return Value{result.str(), m_expression};
+        }
+        case ValueType::String:
+        case ValueType::Map:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    case ValueType::Array:
+      switch (indexValue.type()) {
+        case ValueType::Boolean:
+        case ValueType::Number: {
+          const ArrayType& array = arrayValue();
+          const size_t index = computeIndex(indexValue, array.size());
+          if (index >= array.size()) {
+            throw IndexOutOfBoundsError{*this, indexValue, index};
+          }
+          return array[index];
+        }
+        case ValueType::Array:
+        case ValueType::Range: {
+          const ArrayType& array = arrayValue();
+          const std::vector<size_t> indices = computeIndexArray(indexValue, array.size());
+          auto result = ArrayType{};
+          result.reserve(indices.size());
+          for (size_t i = 0; i < indices.size(); ++i) {
+            const size_t index = indices[i];
+            if (index >= array.size()) {
+              throw IndexOutOfBoundsError{*this, indexValue, index};
+            }
+            result.push_back(array[index]);
+          }
+          return Value{std::move(result), m_expression};
+        }
+        case ValueType::String:
+        case ValueType::Map:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    case ValueType::Map:
+      switch (indexValue.type()) {
+        case ValueType::String: {
+          const MapType& map = mapValue();
+          const std::string& key = indexValue.stringValue();
+          const auto it = map.find(key);
+          if (it == std::end(map)) {
+            return Value{UndefinedType::Value};
+          }
+          return it->second;
+        }
+        case ValueType::Array: {
+          const MapType& map = mapValue();
+          const ArrayType& keys = indexValue.arrayValue();
+          MapType result;
+          for (size_t i = 0; i < keys.size(); ++i) {
+            const Value& keyValue = keys[i];
+            if (keyValue.type() != ValueType::String) {
+              throw ConversionError{keyValue.describe(), keyValue.type(), ValueType::String};
+            }
+            const std::string& key = keyValue.stringValue();
+            const auto it = map.find(key);
+            if (it != std::end(map)) {
+              result.insert(std::make_pair(key, it->second));
+            }
+          }
+          return Value{std::move(result), m_expression};
+        }
+        case ValueType::Boolean:
+        case ValueType::Number:
+        case ValueType::Map:
+        case ValueType::Range:
+        case ValueType::Null:
+        case ValueType::Undefined:
+          break;
+      }
+      break;
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::Range:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      break;
+  }
+
+  throw IndexError{*this, indexValue};
+}
+
+Value Value::operator[](const size_t index) const {
+  switch (type()) {
+    case ValueType::String: {
+      const StringType& str = stringValue();
+      std::stringstream result;
+      if (index < str.length()) {
+        result << str[index];
+      }
+      return Value{result.str()};
+    }
+    case ValueType::Array: {
+      const ArrayType& array = arrayValue();
+      if (index >= array.size()) {
+        throw IndexOutOfBoundsError{*this, index};
+      }
+      return array[index];
+    }
+    case ValueType::Map:
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::Range:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      break;
+  }
+
+  throw IndexError{*this, index};
+}
+
+Value Value::operator[](const int index) const {
+  assert(index >= 0);
+  return this->operator[](static_cast<size_t>(index));
+}
+
+Value Value::operator[](const std::string& key) const {
+  return this->operator[](key.c_str());
+}
+
+Value Value::operator[](const char* key) const {
+  switch (type()) {
+    case ValueType::Map: {
+      const MapType& map = mapValue();
+      const auto it = map.find(key);
+      if (it == std::end(map)) {
+        return Value{NullType::Value};
+      } else {
+        return it->second;
+      }
+    }
+    case ValueType::String:
+    case ValueType::Array:
+    case ValueType::Boolean:
+    case ValueType::Number:
+    case ValueType::Range:
+    case ValueType::Null:
+    case ValueType::Undefined:
+      break;
+  }
+
+  throw IndexError{*this, key};
+}
+
+bool operator==(const Value& lhs, const Value& rhs) {
+  return std::visit(
+    kdl::overload(
+      [](const BooleanType& lhsBool, const BooleanType& rhsBool) {
+        return lhsBool == rhsBool;
+      },
+      [](const StringType& lhsString, const StringType& rhsString) {
+        return lhsString == rhsString;
+      },
+      [](const NumberType& lhsNumber, const NumberType& rhsNumber) {
+        return lhsNumber == rhsNumber;
+      },
+      [](const ArrayType& lhsArray, const ArrayType& rhsArray) {
+        return lhsArray == rhsArray;
+      },
+      [](const MapType& lhsMap, const MapType& rhsMap) {
+        return lhsMap == rhsMap;
+      },
+      [](const RangeType& lhsRange, const RangeType& rhsRange) {
+        return lhsRange == rhsRange;
+      },
+      [](const NullType&, const NullType&) {
+        return true;
+      },
+      [](const UndefinedType&, const UndefinedType&) {
+        return true;
+      },
+      [](const auto&, const auto&) {
+        return false;
+      }),
+    *lhs.m_value, *rhs.m_value);
+}
+
+bool operator!=(const Value& lhs, const Value& rhs) {
+  return !(lhs == rhs);
+}
+
+std::ostream& operator<<(std::ostream& lhs, const Value& rhs) {
+  rhs.appendToStream(lhs);
+  return lhs;
+}
+} // namespace EL
+} // namespace TrenchBroom

@@ -1,98 +1,104 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_TextureBrowser
-#define TrenchBroom_TextureBrowser
+#pragma once
 
-#include "StringUtils.h"
-#include "Assets/TextureManager.h"
-#include "View/TextureBrowserView.h"
-#include "View/ViewTypes.h"
+#include "NotifierConnection.h"
 
-#include <wx/panel.h>
+#include <memory>
+#include <string>
+#include <vector>
 
-class wxChoice;
-class wxToggleButton;
-class wxSearchCtrl;
-class wxScrollBar;
+#include <QWidget>
+
+class QPushButton;
+class QComboBox;
+class QLineEdit;
+class QScrollBar;
 
 namespace TrenchBroom {
-    namespace Assets {
-        class Texture;
-    }
-    
-    namespace IO {
-        class Path;
-    }
-    
-    namespace View {
-        class GLContextManager;
-        class TextureBrowserView;
-        class TextureSelectedCommand;
-        
-        class TextureBrowser : public wxPanel {
-        private:
-            MapDocumentWPtr m_document;
-            wxChoice* m_sortOrderChoice;
-            wxToggleButton* m_groupButton;
-            wxToggleButton* m_usedButton;
-            wxSearchCtrl* m_filterBox;
-            wxScrollBar* m_scrollBar;
-            TextureBrowserView* m_view;
-        public:
-            TextureBrowser(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-            ~TextureBrowser();
-            
-            Assets::Texture* selectedTexture() const;
-            void setSelectedTexture(Assets::Texture* selectedTexture);
-            
-            void setSortOrder(TextureBrowserView::SortOrder sortOrder);
-            void setGroup(bool group);
-            void setHideUnused(bool hideUnused);
-            void setFilterText(const String& filterText);
-            
-            void OnSortOrderChanged(wxCommandEvent& event);
-            void OnGroupButtonToggled(wxCommandEvent& event);
-            void OnUsedButtonToggled(wxCommandEvent& event);
-            void OnFilterPatternChanged(wxCommandEvent& event);
-            void OnTextureSelected(TextureSelectedCommand& event);
-        private:
-            void createGui(GLContextManager& contextManager);
-            void bindEvents();
-            
-            void bindObservers();
-            void unbindObservers();
-            
-            void documentWasNewed(MapDocument* document);
-            void documentWasLoaded(MapDocument* document);
-            void nodesWereAdded(const Model::NodeList& nodes);
-            void nodesWereRemoved(const Model::NodeList& nodes);
-            void nodesDidChange(const Model::NodeList& nodes);
-            void brushFacesDidChange(const Model::BrushFaceList& faces);
-            void textureCollectionsDidChange();
-            void currentTextureNameDidChange(const String& textureName);
-            void preferenceDidChange(const IO::Path& path);
-
-            void reload();
-            void updateSelectedTexture();
-        };
-    }
+namespace Assets {
+class Texture;
 }
 
-#endif /* defined(TrenchBroom_TextureBrowser) */
+namespace IO {
+class Path;
+}
+
+namespace Model {
+class BrushFaceHandle;
+class Node;
+} // namespace Model
+
+namespace View {
+class GLContextManager;
+class MapDocument;
+class TextureBrowserView;
+enum class TextureSortOrder;
+
+class TextureBrowser : public QWidget {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
+  QComboBox* m_sortOrderChoice;
+  QPushButton* m_groupButton;
+  QPushButton* m_usedButton;
+  QLineEdit* m_filterBox;
+  QScrollBar* m_scrollBar;
+  TextureBrowserView* m_view;
+
+  NotifierConnection m_notifierConnection;
+
+public:
+  TextureBrowser(
+    std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    QWidget* parent = nullptr);
+
+  const Assets::Texture* selectedTexture() const;
+  void setSelectedTexture(const Assets::Texture* selectedTexture);
+  void revealTexture(const Assets::Texture* texture);
+
+  void setSortOrder(TextureSortOrder sortOrder);
+  void setGroup(bool group);
+  void setHideUnused(bool hideUnused);
+  void setFilterText(const std::string& filterText);
+signals:
+  void textureSelected(const Assets::Texture* texture);
+
+private:
+  void createGui(GLContextManager& contextManager);
+  void bindEvents();
+
+  void connectObservers();
+
+  void documentWasNewed(MapDocument* document);
+  void documentWasLoaded(MapDocument* document);
+  void nodesWereAdded(const std::vector<Model::Node*>& nodes);
+  void nodesWereRemoved(const std::vector<Model::Node*>& nodes);
+  void nodesDidChange(const std::vector<Model::Node*>& nodes);
+  void brushFacesDidChange(const std::vector<Model::BrushFaceHandle>& faces);
+  void textureCollectionsDidChange();
+  void currentTextureNameDidChange(const std::string& textureName);
+  void preferenceDidChange(const IO::Path& path);
+
+  void reload();
+  void updateSelectedTexture();
+};
+} // namespace View
+} // namespace TrenchBroom

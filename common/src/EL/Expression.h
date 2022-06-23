@@ -1,531 +1,79 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef Expression_h
-#define Expression_h
+#pragma once
 
+#include "EL/EL_Forward.h"
 #include "Macros.h"
-#include "SharedPointer.h"
-#include "EL/Value.h"
 
-#include <list>
+#include <iosfwd>
 #include <memory>
+#include <string>
 
 namespace TrenchBroom {
-    namespace EL {
-        class EvaluationContext;
-        class ExpressionBase;
-        
-        class Expression {
-        private:
-            using ExpressionPtr = std::shared_ptr<ExpressionBase>;
-            ExpressionPtr m_expression;
-        public:
-            Expression(ExpressionBase* expression);
-            
-            bool optimize();
-            Value evaluate(const EvaluationContext& context) const;
-            ExpressionBase* clone() const;
-            
-            size_t line() const;
-            size_t column() const;
-            String asString() const;
-            friend std::ostream& operator<<(std::ostream& stream, const Expression& expression);
-        };
-        
-        class BinaryOperator;
-        
-        class ExpressionBase {
-        public:
-            using Ptr = std::unique_ptr<ExpressionBase>;
-            using List = std::list<ExpressionBase*>;
-            using Map = std::map<String, ExpressionBase*>;
-            
-            friend class Expression;
-        protected:
-            size_t m_line;
-            size_t m_column;
-        protected:
-            static void replaceExpression(ExpressionBase*& oldExpression, ExpressionBase* newExpression);
-        public:
-            ExpressionBase(size_t line, size_t column);
-            virtual ~ExpressionBase();
-            
-            ExpressionBase* reorderByPrecedence();
-            ExpressionBase* reorderByPrecedence(BinaryOperator* parent);
-            
-            ExpressionBase* clone() const;
-            ExpressionBase* optimize();
-            Value evaluate(const EvaluationContext& context) const;
-            
-            String asString() const;
-            void appendToStream(std::ostream& str) const;
-            friend std::ostream& operator<<(std::ostream& stream, const ExpressionBase& expression);
-        private:
-            virtual ExpressionBase* doReorderByPrecedence();
-            virtual ExpressionBase* doReorderByPrecedence(BinaryOperator* parent);
-            virtual ExpressionBase* doClone() const = 0;
-            virtual ExpressionBase* doOptimize() = 0;
-            virtual Value doEvaluate(const EvaluationContext& context) const = 0;
-            virtual void doAppendToStream(std::ostream& str) const = 0;
-            
-            deleteCopyAndMove(ExpressionBase)
-        };
-        
-        class LiteralExpression : public ExpressionBase {
-        private:
-            Value m_value;
-        private:
-            LiteralExpression(const Value& value, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(const Value& value, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(LiteralExpression)
-        };
-        
-        class VariableExpression : public ExpressionBase {
-        private:
-            String m_variableName;
-        private:
-            VariableExpression(const String& variableName, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(const String& variableName, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(VariableExpression)
-        };
-        
-        class ArrayExpression : public ExpressionBase {
-        private:
-            ExpressionBase::List m_elements;
-        private:
-            ArrayExpression(const ExpressionBase::List& elements, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(const ExpressionBase::List& elements, size_t line, size_t column);
-            ~ArrayExpression() override;
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(ArrayExpression)
-        };
-        
-        class MapExpression : public ExpressionBase {
-        private:
-            ExpressionBase::Map m_elements;
-        private:
-            MapExpression(const ExpressionBase::Map& elements, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(const ExpressionBase::Map& elements, size_t line, size_t column);
-            ~MapExpression() override;
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(MapExpression)
-        };
-        
-        class UnaryOperator : public ExpressionBase {
-        protected:
-            ExpressionBase* m_operand;
-        protected:
-            UnaryOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            virtual ~UnaryOperator() override;
-        private:
-            ExpressionBase* doOptimize() override;
-            deleteCopyAndMove(UnaryOperator)
-        };
-        
-        class UnaryPlusOperator : public UnaryOperator {
-        private:
-            UnaryPlusOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* operand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(UnaryPlusOperator)
-        };
-        
-        class UnaryMinusOperator : public UnaryOperator {
-        private:
-            UnaryMinusOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* operand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(UnaryMinusOperator)
-        };
-        
-        class LogicalNegationOperator : public UnaryOperator {
-        private:
-            LogicalNegationOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* operand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(LogicalNegationOperator)
-        };
-        
-        class BitwiseNegationOperator : public UnaryOperator {
-        private:
-            BitwiseNegationOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* operand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(BitwiseNegationOperator)
-        };
-        
-        class GroupingOperator : public UnaryOperator {
-        private:
-            GroupingOperator(ExpressionBase* operand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* operand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(GroupingOperator)
-        };
-        
-        class SubscriptOperator : public ExpressionBase {
-        private:
-            ExpressionBase* m_indexableOperand;
-            ExpressionBase* m_indexOperand;
-        private:
-            SubscriptOperator(ExpressionBase* indexableOperand, ExpressionBase* indexOperand, size_t line, size_t column);
-        public:
-            ~SubscriptOperator() override;
-        public:
-            static ExpressionBase* create(ExpressionBase* indexableOperand, ExpressionBase* indexOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            
-            deleteCopyAndMove(SubscriptOperator)
-        };
-        
-        class BinaryOperator : public ExpressionBase {
-        protected:
-            ExpressionBase* m_leftOperand;
-            ExpressionBase* m_rightOperand;
-        protected:
-            BinaryOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            virtual ~BinaryOperator() override;
-        private:
-            ExpressionBase* doReorderByPrecedence() override;
-            ExpressionBase* doReorderByPrecedence(BinaryOperator* parent) override;
-            BinaryOperator* rotateLeftUp(BinaryOperator* leftOperand);
-            BinaryOperator* rotateRightUp(BinaryOperator* rightOperand);
-        private:
-            ExpressionBase* doOptimize() override;
-        protected:
-            struct Traits;
-        private:
-            Traits traits() const;
-            virtual Traits doGetTraits() const = 0;
-        public:
-            size_t precedence() const;
-            bool associative() const;
-            bool commutative() const;
-        private:
-            
-            deleteCopyAndMove(BinaryOperator)
-        };
-        
-        class AdditionOperator : public BinaryOperator {
-        private:
-            AdditionOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(AdditionOperator)
-        };
-        
-        class SubtractionOperator : public BinaryOperator {
-        private:
-            SubtractionOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(SubtractionOperator)
-        };
-        
-        class MultiplicationOperator : public BinaryOperator {
-        private:
-            MultiplicationOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(MultiplicationOperator)
-        };
-        
-        class DivisionOperator : public BinaryOperator {
-        private:
-            DivisionOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(DivisionOperator)
-        };
-        
-        class ModulusOperator : public BinaryOperator {
-        private:
-            ModulusOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(ModulusOperator)
-        };
-        
-        class LogicalAndOperator : public BinaryOperator {
-        private:
-            LogicalAndOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(LogicalAndOperator)
-        };
-        
-        class LogicalOrOperator : public BinaryOperator {
-        private:
-            LogicalOrOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(LogicalOrOperator)
-        };
-        
-        class BitwiseAndOperator : public BinaryOperator {
-        private:
-            BitwiseAndOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(BitwiseAndOperator)
-        };
-        
-        class BitwiseXorOperator : public BinaryOperator {
-        private:
-            BitwiseXorOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(BitwiseXorOperator)
-        };
-        
-        class BitwiseOrOperator : public BinaryOperator {
-        private:
-            BitwiseOrOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(BitwiseOrOperator)
-        };
-        
-        class BitwiseShiftLeftOperator : public BinaryOperator {
-        private:
-            BitwiseShiftLeftOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(BitwiseShiftLeftOperator)
-        };
-        
-        class BitwiseShiftRightOperator : public BinaryOperator {
-        private:
-            BitwiseShiftRightOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(BitwiseShiftRightOperator)
-        };
-        
-        class ComparisonOperator : public BinaryOperator {
-        private:
-            typedef enum {
-                Op_Less,
-                Op_LessOrEqual,
-                Op_Equal,
-                Op_Inequal,
-                Op_GreaterOrEqual,
-                Op_Greater
-            } Op;
-            Op m_op;
-        private:
-            ComparisonOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, Op op, size_t line, size_t column);
-        public:
-            static ExpressionBase* createLess(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createLessOrEqual(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createEqual(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createInequal(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createGreaterOrEqual(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createGreater(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(ComparisonOperator)
-        };
-        
-        class RangeOperator : public BinaryOperator {
-        public:
-            static const String& AutoRangeParameterName();
-        private:
-            RangeOperator(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* leftOperand, ExpressionBase* rightOperand, size_t line, size_t column);
-            static ExpressionBase* createAutoRangeWithLeftOperand(ExpressionBase* leftOperand, size_t line, size_t column);
-            static ExpressionBase* createAutoRangeWithRightOperand(ExpressionBase* rightOperand, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(RangeOperator)
-        };
+namespace EL {
+class ExpressionImpl;
 
-        class CaseOperator : public BinaryOperator {
-        private:
-            CaseOperator(ExpressionBase* premise, ExpressionBase* conclusion, size_t line, size_t column);
-        public:
-            static ExpressionBase* create(ExpressionBase* premise, ExpressionBase* conclusion, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            void doAppendToStream(std::ostream& str) const override;
-            Traits doGetTraits() const override;
-            
-            deleteCopyAndMove(CaseOperator)
-        };
-        
-        class SwitchOperator : public ExpressionBase {
-        private:
-            ExpressionBase::List m_cases;
-        private:
-            SwitchOperator(const ExpressionBase::List& cases, size_t line, size_t column);
-        public:
-            ~SwitchOperator() override;
-        public:
-            static ExpressionBase* create(const ExpressionBase::List& cases, size_t line, size_t column);
-        private:
-            ExpressionBase* doClone() const override;
-            ExpressionBase* doOptimize() override;
-            void doAppendToStream(std::ostream& str) const override;
-            Value doEvaluate(const EvaluationContext& context) const override;
-            
-            deleteCopyAndMove(SwitchOperator)
-        };
-    }
-}
+class LiteralExpression;
+class VariableExpression;
 
-#endif /* Expression_h */
+class ArrayExpression;
+class MapExpression;
+
+class UnaryExpression;
+class BinaryExpression;
+class SubscriptExpression;
+class SwitchExpression;
+
+class Expression {
+private:
+  std::shared_ptr<ExpressionImpl> m_expression;
+  size_t m_line;
+  size_t m_column;
+
+  Expression(std::unique_ptr<ExpressionImpl> expression, size_t line, size_t column);
+
+public:
+  Expression(LiteralExpression expression, size_t line, size_t column);
+  Expression(VariableExpression expression, size_t line, size_t column);
+  Expression(ArrayExpression expression, size_t line, size_t column);
+  Expression(MapExpression expression, size_t line, size_t column);
+  Expression(UnaryExpression expression, size_t line, size_t column);
+  Expression(BinaryExpression expression, size_t line, size_t column);
+  Expression(SubscriptExpression expression, size_t line, size_t column);
+  Expression(SwitchExpression expression, size_t line, size_t column);
+
+  Value evaluate(const EvaluationContext& context) const;
+  Expression optimize() const;
+
+  size_t line() const;
+  size_t column() const;
+
+  std::string asString() const;
+
+  friend bool operator==(const Expression& lhs, const Expression& rhs);
+  friend bool operator!=(const Expression& lhs, const Expression& rhs);
+  friend std::ostream& operator<<(std::ostream& str, const Expression& exp);
+
+private:
+  void rebalanceByPrecedence();
+  size_t precedence() const;
+};
+} // namespace EL
+} // namespace TrenchBroom

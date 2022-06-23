@@ -1,63 +1,82 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapFileSerializer
-#define TrenchBroom_MapFileSerializer
+#pragma once
 
 #include "IO/NodeSerializer.h"
 #include "Model/MapFormat.h"
-#include "Model/Brush.h"
-#include "Model/Node.h"
 
-#include <cstdio>
+#include <iosfwd>
+#include <memory>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace IO {
-        class Path;
-        
-        class MapFileSerializer : public NodeSerializer {
-        private:
-            using LineStack = std::vector<size_t>;
-            LineStack m_startLineStack;
-            size_t m_line;
-            FILE* m_stream;
-        public:
-            static Ptr create(Model::MapFormat format, FILE* stream);
-        protected:
-            MapFileSerializer(FILE* file);
-        private:
-            void doBeginFile() override;
-            void doEndFile() override;
-            
-            void doBeginEntity(const Model::Node* node) override;
-            void doEndEntity(Model::Node* node) override;
-            void doEntityAttribute(const Model::EntityAttribute& attribute) override;
-            void doBeginBrush(const Model::Brush* brush) override;
-            void doEndBrush(Model::Brush* brush) override;
-            void doBrushFace(Model::BrushFace* face) override;
-        private:
-            void setFilePosition(Model::Node* node);
-            size_t startLine();
-        private:
-            virtual size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) = 0;
-        };
-    }
-}
+namespace Model {
+class BezierPatch;
+class Brush;
+class BrushNode;
+class BrushFace;
+class EntityProperty;
+class Node;
+class PatchNode;
+} // namespace Model
 
-#endif /* defined(TrenchBroom_MapFileSerializer) */
+namespace IO {
+class MapFileSerializer : public NodeSerializer {
+private:
+  using LineStack = std::vector<size_t>;
+  LineStack m_startLineStack;
+  size_t m_line;
+  std::ostream& m_stream;
+
+  struct PrecomputedString {
+    std::string string;
+    size_t lineCount;
+  };
+  std::unordered_map<const Model::Node*, PrecomputedString> m_nodeToPrecomputedString;
+
+public:
+  static std::unique_ptr<NodeSerializer> create(Model::MapFormat format, std::ostream& stream);
+
+protected:
+  explicit MapFileSerializer(std::ostream& stream);
+
+private:
+  void doBeginFile(const std::vector<const Model::Node*>& rootNodes) override;
+  void doEndFile() override;
+
+  void doBeginEntity(const Model::Node* node) override;
+  void doEndEntity(const Model::Node* node) override;
+  void doEntityProperty(const Model::EntityProperty& attribute) override;
+  void doBrush(const Model::BrushNode* brush) override;
+  void doBrushFace(const Model::BrushFace& face) override;
+
+  void doPatch(const Model::PatchNode* patchNode) override;
+
+private:
+  void setFilePosition(const Model::Node* node);
+  size_t startLine();
+
+private: // threadsafe
+  virtual void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const = 0;
+  PrecomputedString writeBrushFaces(const Model::Brush& brush) const;
+  PrecomputedString writePatch(const Model::BezierPatch& patch) const;
+};
+} // namespace IO
+} // namespace TrenchBroom

@@ -1,74 +1,65 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "BorderPanel.h"
 
+#include <QPainter>
+#include <QPalette>
+
 #include "View/ViewConstants.h"
 
-#include <wx/dcbuffer.h>
-
 namespace TrenchBroom {
-    namespace View {
-        wxIMPLEMENT_DYNAMIC_CLASS(BorderPanel, wxPanel)
-
-        BorderPanel::BorderPanel() :
-        wxPanel(),
-        m_borders(0),
-        m_thickness(1) {}
-        
-        BorderPanel::BorderPanel(wxWindow* parent, const int borders, const int thickness) :
-        wxPanel(),
-        m_borders(0),
-        m_thickness(1) {
-            Create(parent, borders, thickness);
-        }
-        
-        BorderPanel::~BorderPanel() {}
-
-        void BorderPanel::Create(wxWindow* parent, int borders, int thickness) {
-            wxPanel::Create(parent);
-            m_borders = borders;
-            m_thickness = thickness;
-            SetBackgroundStyle(wxBG_STYLE_PAINT);
-            Bind(wxEVT_PAINT, &BorderPanel::OnPaint, this);
-        }
-
-        void BorderPanel::OnPaint(wxPaintEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxAutoBufferedPaintDC dc(this);
-            dc.SetPen(wxPen(GetBackgroundColour()));
-            dc.SetBrush(wxBrush(GetBackgroundColour()));
-            dc.DrawRectangle(GetClientRect());
-
-            dc.SetPen(wxPen(Colors::borderColor()));
-            
-            wxRect rect = GetClientRect();
-            if ((m_borders & wxLEFT) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetTop(), rect.GetLeft(), rect.GetBottom());
-            if ((m_borders & wxTOP) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetTop(), rect.GetRight(), rect.GetTop());
-            if ((m_borders & wxRIGHT) != 0)
-                dc.DrawLine(rect.GetRight(), rect.GetTop(), rect.GetRight(), rect.GetBottom());
-            if ((m_borders & wxBOTTOM) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetBottom(), rect.GetRight(), rect.GetBottom());
-            event.Skip();
-        }
-    }
+namespace View {
+BorderPanel::BorderPanel(const Sides borders, const int thickness, QWidget* parent)
+  : QWidget(parent)
+  , m_borders(borders)
+  , m_thickness(thickness) {
+  setForegroundRole(QPalette::Mid);
 }
+
+void BorderPanel::paintEvent(QPaintEvent* /*event*/) {
+  QPainter painter(this);
+
+  const QRectF r = QRectF(rect());
+  const qreal thickness = static_cast<qreal>(m_thickness);
+
+  painter.setRenderHint(QPainter::Antialiasing, false);
+
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(palette().color(backgroundRole()));
+  painter.drawRect(r);
+
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(palette().color(foregroundRole()));
+  if ((m_borders & LeftSide) != 0) {
+    painter.drawRect(QRectF(r.topLeft(), QSizeF(thickness, r.height())));
+  }
+  if ((m_borders & TopSide) != 0) {
+    painter.drawRect(QRectF(r.topLeft(), QSizeF(r.width(), thickness)));
+  }
+  if ((m_borders & RightSide) != 0) {
+    painter.drawRect(QRectF(r.topRight() - QPointF(thickness, 0.0), QSizeF(thickness, r.height())));
+  }
+  if ((m_borders & BottomSide) != 0) {
+    painter.drawRect(
+      QRectF(r.bottomLeft() - QPointF(0.0, thickness), QSizeF(r.width(), thickness)));
+  }
+}
+} // namespace View
+} // namespace TrenchBroom

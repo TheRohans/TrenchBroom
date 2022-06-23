@@ -17,43 +17,46 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRENCHBROOM_ZIPFILESYSTEM_H
-#define TRENCHBROOM_ZIPFILESYSTEM_H
+#pragma once
 
-#include "StringUtils.h"
 #include "IO/ImageFileSystem.h"
-#include "IO/Path.h"
 
 #include <memory>
 
 #include <miniz/miniz.h>
 
 namespace TrenchBroom {
-    namespace IO {
-        class ZipFileSystem : public ImageFileSystem {
-        private:
-            mz_zip_archive m_archive;
-        private:
-            class ZipCompressedFile : public File {
-            private:
-                ZipFileSystem* m_owner;
-                mz_uint m_fileIndex;
-            public:
-                ZipCompressedFile(ZipFileSystem* owner, mz_uint fileIndex);
-            private:
-                MappedFile::Ptr doOpen() const override;
-            };
-            friend class ZipCompressedFile;
-        public:
-            ZipFileSystem(const Path& path, MappedFile::Ptr file);
-            ZipFileSystem(std::shared_ptr<FileSystem> next, const Path& path, MappedFile::Ptr file);
-            ~ZipFileSystem() override;
-        private:
-            void doReadDirectory() override;
-        private:
-            std::string filename(mz_uint fileIndex);
-        };
-    }
-}
+namespace IO {
+class Path;
 
-#endif //TRENCHBROOM_ZIPFILESYSTEM_H
+class ZipFileSystem : public ImageFileSystem {
+private:
+  mz_zip_archive m_archive;
+
+private:
+  class ZipCompressedFile : public FileEntry {
+  private:
+    ZipFileSystem* m_owner;
+    mz_uint m_fileIndex;
+
+  public:
+    ZipCompressedFile(ZipFileSystem* owner, mz_uint fileIndex);
+
+  private:
+    std::shared_ptr<File> doOpen() const override;
+  };
+  friend class ZipCompressedFile;
+
+public:
+  explicit ZipFileSystem(const Path& path);
+  ZipFileSystem(std::shared_ptr<FileSystem> next, const Path& path);
+  ~ZipFileSystem() override;
+
+private:
+  void doReadDirectory() override;
+
+private:
+  std::string filename(mz_uint fileIndex);
+};
+} // namespace IO
+} // namespace TrenchBroom

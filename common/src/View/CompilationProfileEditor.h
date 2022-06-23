@@ -1,75 +1,91 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CompilationProfileEditor_h
-#define CompilationProfileEditor_h
+#pragma once
 
-#include "View/ViewTypes.h"
+#include <QWidget>
 
-#include <wx/panel.h>
+#include <memory>
 
-class wxSimplebook;
-class wxTextCtrl;
+class QAbstractButton;
+class QLineEdit;
+class QStackedWidget;
 
 namespace TrenchBroom {
-    namespace Model {
-        class CompilationProfile;
-    }
+namespace Model {
+class CompilationProfile;
+class CompilationTask;
+} // namespace Model
 
-    namespace View {
-        class AutoCompleteTextControl;
-        class CompilationTaskList;
-        
-        class CompilationProfileEditor : public wxPanel {
-        private:
-            MapDocumentWPtr m_document;
-            Model::CompilationProfile* m_profile;
-            wxSimplebook* m_book;
-            wxTextCtrl* m_nameTxt;
-            AutoCompleteTextControl* m_workDirTxt;
-            CompilationTaskList* m_taskList;
-        public:
-            CompilationProfileEditor(wxWindow* parent, MapDocumentWPtr document);
-            ~CompilationProfileEditor();
-        private:
-            wxWindow* createEditorPage(wxWindow* parent);
-            
-            void OnNameChanged(wxCommandEvent& event);
-            void OnWorkDirChanged(wxCommandEvent& event);
-            
-            void OnAddTask(wxCommandEvent& event);
-            void OnRemoveTask(wxCommandEvent& event);
-            void OnMoveTaskUp(wxCommandEvent& event);
-            void OnMoveTaskDown(wxCommandEvent& event);
-            
-            void OnUpdateAddTaskButtonUI(wxUpdateUIEvent& event);
-            void OnUpdateRemoveTaskButtonUI(wxUpdateUIEvent& event);
-            void OnUpdateMoveTaskUpButtonUI(wxUpdateUIEvent& event);
-            void OnUpdateMoveTaskDownButtonUI(wxUpdateUIEvent& event);
-        public:
-            void setProfile(Model::CompilationProfile* profile);
-        private:
-            void profileWillBeRemoved();
-            void profileDidChange();
-            void refresh();
-        };
-    }
-}
+namespace View {
+class CompilationTaskListBox;
+class MapDocument;
+class MultiCompletionLineEdit;
 
-#endif /* CompilationProfileEditor_h */
+/**
+ * Editor UI for a single compilation profile.
+ */
+class CompilationProfileEditor : public QWidget {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
+  Model::CompilationProfile* m_profile;
+  QStackedWidget* m_stackedWidget;
+  QLineEdit* m_nameTxt;
+  MultiCompletionLineEdit* m_workDirTxt;
+  CompilationTaskListBox* m_taskList;
+  QAbstractButton* m_addTaskButton;
+  QAbstractButton* m_removeTaskButton;
+  QAbstractButton* m_moveTaskUpButton;
+  QAbstractButton* m_moveTaskDownButton;
+
+public:
+  explicit CompilationProfileEditor(std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
+
+private:
+  QWidget* createEditorPage(QWidget* parent);
+
+private slots:
+  void nameChanged(const QString& text);
+  void workDirChanged(const QString& text);
+
+  void addTask();
+  void removeTask();
+  void removeTask(int index);
+  void duplicateTask(int index);
+  void moveTaskUp();
+  void moveTaskUp(int index);
+  void moveTaskDown();
+  void moveTaskDown(int index);
+
+  void taskSelectionChanged();
+
+public:
+  void setProfile(Model::CompilationProfile* profile);
+
+private:
+  void refresh();
+signals:
+  /**
+   * Emitted when the profile name/working directory change, or tasks are added/removed/reordered.
+   */
+  void profileChanged();
+};
+} // namespace View
+} // namespace TrenchBroom

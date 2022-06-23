@@ -17,51 +17,51 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CompilationVariables_h
-#define CompilationVariables_h
+#pragma once
 
-#include "EL.h"
-#include "StringUtils.h"
-#include "View/ViewTypes.h"
+#include "EL/VariableStore.h"
+
+#include <memory>
+#include <string>
 
 namespace TrenchBroom {
-    namespace View {
-        namespace CompilationVariableNames {
-            extern const String WORK_DIR_PATH;
-            extern const String MAP_DIR_PATH;
-            extern const String MAP_BASE_NAME;
-            extern const String MAP_FULL_NAME;
-            extern const String CPU_COUNT;
-            extern const String GAME_DIR_PATH;
-            extern const String MODS;
-            extern const String APP_DIR_PATH;
-        }
+namespace View {
+class MapDocument;
 
-        class CommonVariables : public EL::VariableTable {
-        protected:
-            CommonVariables(MapDocumentSPtr document);
-        };
-        
-        class CommonCompilationVariables : public CommonVariables {
-        protected:
-            CommonCompilationVariables(MapDocumentSPtr document);
-        };
-        
-        class CompilationWorkDirVariables : public CommonCompilationVariables {
-        public:
-            CompilationWorkDirVariables(MapDocumentSPtr document);
-        };
-        
-        class CompilationVariables : public CommonCompilationVariables {
-        public:
-            CompilationVariables(MapDocumentSPtr document, const String& workDir);
-        };
-        
-        class LaunchGameEngineVariables : public CommonVariables {
-        public:
-            LaunchGameEngineVariables(MapDocumentSPtr document);
-        };
-    }
-}
+namespace CompilationVariableNames {
+extern const std::string WORK_DIR_PATH;
+extern const std::string MAP_DIR_PATH;
+extern const std::string MAP_BASE_NAME;
+extern const std::string MAP_FULL_NAME;
+extern const std::string CPU_COUNT;
+extern const std::string GAME_DIR_PATH;
+extern const std::string MODS;
+extern const std::string APP_DIR_PATH;
+} // namespace CompilationVariableNames
 
-#endif /* CompilationVariables_h */
+class CommonVariables : public EL::VariableTable {
+protected:
+  explicit CommonVariables(std::shared_ptr<MapDocument> document);
+};
+
+class CommonCompilationVariables : public CommonVariables {
+protected:
+  explicit CommonCompilationVariables(std::shared_ptr<MapDocument> document);
+};
+
+class CompilationWorkDirVariables : public CommonCompilationVariables {
+public:
+  explicit CompilationWorkDirVariables(std::shared_ptr<MapDocument> document);
+};
+
+class CompilationVariables : public CommonCompilationVariables {
+public:
+  CompilationVariables(std::shared_ptr<MapDocument> document, const std::string& workDir);
+};
+
+class LaunchGameEngineVariables : public CommonVariables {
+public:
+  explicit LaunchGameEngineVariables(std::shared_ptr<MapDocument> document);
+};
+} // namespace View
+} // namespace TrenchBroom

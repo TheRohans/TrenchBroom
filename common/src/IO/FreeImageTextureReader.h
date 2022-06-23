@@ -17,24 +17,26 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#pragma once
 
-#ifndef FREEIMAGETEXTUREREADER_H
-#define FREEIMAGETEXTUREREADER_H
-
-#include "IO/MappedFile.h"
 #include "IO/TextureReader.h"
 
+#include <memory>
+
 namespace TrenchBroom {
-    namespace IO {
-        class Path;
+class Logger;
 
-        class FreeImageTextureReader : public TextureReader {
-        public:
-            FreeImageTextureReader(const NameStrategy& nameStrategy);
-        private:
-            Assets::Texture* doReadTexture(MappedFile::Ptr file) const override;
-        };
-    }
-}
+namespace IO {
+class File;
+class FileSystem;
 
-#endif // FREEIMAGETEXTUREREADER_H
+class FreeImageTextureReader : public TextureReader {
+public:
+  explicit FreeImageTextureReader(
+    const NameStrategy& nameStrategy, const FileSystem& fs, Logger& logger);
+
+private:
+  Assets::Texture doReadTexture(std::shared_ptr<File> file) const override;
+};
+} // namespace IO
+} // namespace TrenchBroom

@@ -1,57 +1,59 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_EntityInspector
-#define TrenchBroom_EntityInspector
+#pragma once
 
 #include "View/TabBook.h"
-#include "View/ViewTypes.h"
 
-class wxButton;
-class wxCollapsiblePaneEvent;
+#include <memory>
+
+class QSplitter;
 
 namespace TrenchBroom {
-    namespace Model {
-        class Object;
-        class SelectionResult;
-    }
-    
-    namespace View {
-        class EntityBrowser;
-        class EntityDefinitionFileChooser;
-        class EntityAttributeEditor;
-        class GLContextManager;
-        
-        class EntityInspector : public TabBookPage {
-        private:
-            EntityAttributeEditor* m_attributeEditor;
-            EntityBrowser* m_entityBrowser;
-            EntityDefinitionFileChooser* m_entityDefinitionFileChooser;
-        public:
-            EntityInspector(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-        private:
-            void createGui(MapDocumentWPtr document, GLContextManager& contextManager);
-            wxWindow* createAttributeEditor(wxWindow* parent, MapDocumentWPtr document);
-            wxWindow* createEntityBrowser(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-            wxWindow* createEntityDefinitionFileChooser(wxWindow* parent, MapDocumentWPtr document);
-        };
-    }
-}
+namespace View {
+class CollapsibleTitledPanel;
+class EntityBrowser;
+class EntityPropertyEditor;
+class GLContextManager;
+class MapDocument;
 
-#endif /* defined(TrenchBroom_EntityInspector) */
+class EntityInspector : public TabBookPage {
+  Q_OBJECT
+private:
+  QSplitter* m_splitter;
+  EntityPropertyEditor* m_attributeEditor;
+  EntityBrowser* m_entityBrowser;
+  CollapsibleTitledPanel* m_entityDefinitionFileChooser;
+
+public:
+  EntityInspector(
+    std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    QWidget* parent = nullptr);
+  ~EntityInspector() override;
+
+private:
+  void createGui(std::weak_ptr<MapDocument> document, GLContextManager& contextManager);
+  QWidget* createAttributeEditor(QWidget* parent, std::weak_ptr<MapDocument> document);
+  QWidget* createEntityBrowser(
+    QWidget* parent, std::weak_ptr<MapDocument> document, GLContextManager& contextManager);
+  CollapsibleTitledPanel* createEntityDefinitionFileChooser(
+    QWidget* parent, std::weak_ptr<MapDocument> document);
+};
+} // namespace View
+} // namespace TrenchBroom

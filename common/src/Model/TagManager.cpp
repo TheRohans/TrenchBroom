@@ -19,80 +19,95 @@
 
 #include "TagManager.h"
 
+#include "Ensure.h"
 #include "Model/Tag.h"
+#include "Model/TagType.h"
 
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 
 namespace TrenchBroom {
-    namespace Model {
-        class TagManager::TagCmp {
-        public:
-            bool operator()(const SmartTag& lhs, const SmartTag& rhs) const {
-                return lhs.name() < rhs.name();
-            }
-
-            bool operator()(const String& lhs, const SmartTag& rhs) const {
-                return lhs < rhs.name();
-            }
-
-            bool operator()(const SmartTag& lhs, const String& rhs) const {
-                return lhs.name() < rhs;
-            }
-
-            bool operator()(const String& lhs, const String& rhs) const {
-                return lhs < rhs;
-            }
-        };
-
-        TagManager::TagManager() :
-        m_currentTagTypeIndex(0) {}
-
-        const std::vector<SmartTag>& TagManager::smartTags() const {
-            return m_smartTags;
-        }
-
-        bool TagManager::isRegisteredSmartTag(const String& name) const {
-            const auto it = std::lower_bound(std::begin(m_smartTags), std::end(m_smartTags), name, TagCmp());
-            return it != std::end(m_smartTags) && !(it->name() < name || name < it->name());
-        }
-
-        const SmartTag& TagManager::smartTag(const String& name) const {
-            const auto it = std::lower_bound(std::begin(m_smartTags), std::end(m_smartTags), name, TagCmp());
-            if (it == std::end(m_smartTags) || (it->name() < name || name < it->name())) {
-                throw std::logic_error("Smart tag not registered");
-            }
-            return *it;
-        }
-
-        void TagManager::registerSmartTag(SmartTag tag) {
-            const auto it = std::lower_bound(std::begin(m_smartTags), std::end(m_smartTags), tag, TagCmp());
-            if (it == std::end(m_smartTags)) {
-                tag.setType(freeTagType());
-                m_smartTags.push_back(std::move(tag));
-            } else if (*it < tag || tag < *it) {
-                tag.setType(freeTagType());
-                m_smartTags.insert(it, std::move(tag));
-            } else {
-                throw std::logic_error("Smart tag already registered");
-            }
-        }
-
-        void TagManager::clearSmartTags() {
-            m_smartTags.clear();
-        }
-
-        void TagManager::updateTags(Taggable& taggable) const {
-            for (const auto& tag : m_smartTags) {
-                tag.update(taggable);
-            }
-        }
-
-        Tag::TagType TagManager::freeTagType() {
-            static const size_t Bits = (sizeof(Tag::TagType) * 8);
-
-            ensure(m_currentTagTypeIndex <= Bits, "no more tag types");
-            return 1u << m_currentTagTypeIndex++;
-        }
-    }
+namespace Model {
+bool TagManager::TagCmp::operator()(const SmartTag& lhs, const SmartTag& rhs) const {
+  return lhs.name() < rhs.name();
 }
+
+bool TagManager::TagCmp::operator()(const std::string& lhs, const SmartTag& rhs) const {
+  return lhs < rhs.name();
+}
+
+bool TagManager::TagCmp::operator()(const SmartTag& lhs, const std::string& rhs) const {
+  return lhs.name() < rhs;
+}
+
+bool TagManager::TagCmp::operator()(const std::string& lhs, const std::string& rhs) const {
+  return lhs < rhs;
+}
+
+const std::vector<SmartTag>& TagManager::smartTags() const {
+  return m_smartTags.get_data();
+}
+
+bool TagManager::isRegisteredSmartTag(const std::string& name) const {
+  return m_smartTags.count(name) > 0u;
+}
+
+const SmartTag& TagManager::smartTag(const std::string& name) const {
+  const auto it = m_smartTags.find(name);
+  if (it == std::end(m_smartTags)) {
+    throw std::logic_error("Smart tag not registered");
+  }
+  return *it;
+}
+
+bool TagManager::isRegisteredSmartTag(const size_t index) const {
+  for (const auto& tag : m_smartTags) {
+    if (tag.index() == index) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const SmartTag& TagManager::smartTag(const size_t index) const {
+  for (const auto& tag : m_smartTags) {
+    if (tag.index() == index) {
+      return tag;
+    }
+  }
+  throw std::logic_error("Smart tag not registered");
+}
+
+void TagManager::registerSmartTags(const std::vector<SmartTag>& tags) {
+  m_smartTags = kdl::vector_set<SmartTag, TagCmp>(tags.size());
+  for (const auto& tag : tags) {
+    const size_t nextIndex = freeTagIndex();
+    auto [it, inserted] = m_smartTags.insert(tag);
+
+    if (!inserted) {
+      throw std::logic_error("Smart tag '" + tag.name() + "' already registered");
+    }
+
+    it->setIndex(nextIndex);
+  }
+}
+
+void TagManager::clearSmartTags() {
+  m_smartTags.clear();
+}
+
+void TagManager::updateTags(Taggable& taggable) const {
+  for (const auto& tag : m_smartTags) {
+    tag.update(taggable);
+  }
+}
+
+size_t TagManager::freeTagIndex() {
+  static const size_t Bits = (sizeof(TagType::Type) * 8);
+  const auto index = m_smartTags.size();
+  ensure(index <= Bits, "no more tag types");
+  return index;
+}
+} // namespace Model
+} // namespace TrenchBroom

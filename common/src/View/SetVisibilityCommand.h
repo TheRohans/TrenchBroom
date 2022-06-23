@@ -1,64 +1,73 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_SetVisibilityCommand
-#define TrenchBroom_SetVisibilityCommand
+#pragma once
 
-#include "SharedPointer.h"
-#include "Model/ModelTypes.h"
+#include "Macros.h"
 #include "View/UndoableCommand.h"
 
 #include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace View {
-        class SetVisibilityCommand : public UndoableCommand {
-        public:
-            static const CommandType Type;
-            using Ptr = std::shared_ptr<SetVisibilityCommand>;
-        private:
-            typedef enum {
-                Action_Reset,
-                Action_Hide,
-                Action_Show,
-                Action_Ensure
-            } Action;
-            
-            Model::NodeList m_nodes;
-            CommandType m_action;
-            Model::VisibilityMap m_oldState;
-        public:
-            static Ptr show(const Model::NodeList& nodes);
-            static Ptr hide(const Model::NodeList& nodes);
-            static Ptr ensureVisible(const Model::NodeList& nodes);
-            static Ptr reset(const Model::NodeList& nodes);
-        private:
-            SetVisibilityCommand(const Model::NodeList& nodes, Action action);
-            static String makeName(Action action);
-        private:
-            bool doPerformDo(MapDocumentCommandFacade* document) override;
-            bool doPerformUndo(MapDocumentCommandFacade* document) override;
-            
-            bool doCollateWith(UndoableCommand::Ptr command) override;
-            bool doIsRepeatable(MapDocumentCommandFacade* document) const override;
-        };
-    }
-}
+namespace Model {
+class Node;
+enum class VisibilityState;
+} // namespace Model
 
-#endif /* defined(TrenchBroom_SetVisibilityCommand) */
+namespace View {
+class SetVisibilityCommand : public UndoableCommand {
+public:
+  static const CommandType Type;
+
+private:
+  enum class Action {
+    Reset,
+    Hide,
+    Show,
+    Ensure
+  };
+
+  std::vector<Model::Node*> m_nodes;
+  Action m_action;
+  std::map<Model::Node*, Model::VisibilityState> m_oldState;
+
+public:
+  static std::unique_ptr<SetVisibilityCommand> show(const std::vector<Model::Node*>& nodes);
+  static std::unique_ptr<SetVisibilityCommand> hide(const std::vector<Model::Node*>& nodes);
+  static std::unique_ptr<SetVisibilityCommand> ensureVisible(
+    const std::vector<Model::Node*>& nodes);
+  static std::unique_ptr<SetVisibilityCommand> reset(const std::vector<Model::Node*>& nodes);
+
+  SetVisibilityCommand(const std::vector<Model::Node*>& nodes, Action action);
+
+private:
+  static std::string makeName(Action action);
+
+  std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
+  std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade* document) override;
+
+  bool doCollateWith(UndoableCommand* command) override;
+
+  deleteCopyAndMove(SetVisibilityCommand);
+};
+} // namespace View
+} // namespace TrenchBroom

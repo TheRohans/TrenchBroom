@@ -17,21 +17,26 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRENCHBROOM_SKINLOADER_H
-#define TRENCHBROOM_SKINLOADER_H
+#pragma once
 
-#include "IO/MappedFile.h"
+#include <memory>
 
 namespace TrenchBroom {
-    namespace Assets {
-        class Palette;
-        class Texture;
-    }
+class Logger;
 
-    namespace IO {
-        Assets::Texture* loadSkin(const IO::MappedFile::Ptr file);
-        Assets::Texture* loadSkin(const IO::MappedFile::Ptr file, const Assets::Palette& palette);
-    }
-}
+namespace Assets {
+class Palette;
+class Texture;
+} // namespace Assets
 
-#endif //TRENCHBROOM_SKINLOADER_H
+namespace IO {
+class FileSystem;
+class Path;
+
+Assets::Texture loadSkin(const Path& path, const FileSystem& fs, Logger& logger);
+Assets::Texture loadSkin(
+  const Path& path, const FileSystem& fs, Logger& logger, const Assets::Palette& palette);
+
+Assets::Texture loadShader(const Path& path, const FileSystem& fs, Logger& logger);
+} // namespace IO
+} // namespace TrenchBroom

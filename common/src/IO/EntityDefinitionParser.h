@@ -1,40 +1,68 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_EntityDefinitionParser_h
-#define TrenchBroom_EntityDefinitionParser_h
+#pragma once
 
-#include "Assets/AssetTypes.h"
+#include "Color.h"
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace IO {
-        class ParserStatus;
-        class Path;
-        
-        class EntityDefinitionParser {
-        public:
-            virtual ~EntityDefinitionParser();
-            Assets::EntityDefinitionList parseDefinitions(ParserStatus& status);
-        private:
-            virtual Assets::EntityDefinitionList doParseDefinitions(ParserStatus& status) = 0;
-        };
-    }
-}
+namespace Assets {
+class PropertyDefinition;
+class EntityDefinition;
+} // namespace Assets
 
-#endif
+namespace IO {
+struct EntityDefinitionClassInfo;
+class ParserStatus;
+
+// exposed for testing
+std::vector<EntityDefinitionClassInfo> resolveInheritance(
+  ParserStatus& status, const std::vector<EntityDefinitionClassInfo>& classInfos);
+
+class EntityDefinitionParser {
+private:
+  Color m_defaultEntityColor;
+
+protected:
+  using EntityDefinitionList = std::vector<Assets::EntityDefinition*>;
+  using PropertyDefinitionPtr = std::shared_ptr<Assets::PropertyDefinition>;
+  using PropertyDefinitionList = std::vector<PropertyDefinitionPtr>;
+  using PropertyDefinitionMap = std::unordered_map<std::string, PropertyDefinitionPtr>;
+
+public:
+  EntityDefinitionParser(const Color& defaultEntityColor);
+  virtual ~EntityDefinitionParser();
+
+  EntityDefinitionList parseDefinitions(ParserStatus& status);
+
+private:
+  std::unique_ptr<Assets::EntityDefinition> createDefinition(
+    const EntityDefinitionClassInfo& classInfo) const;
+  std::vector<Assets::EntityDefinition*> createDefinitions(
+    ParserStatus& status, const std::vector<EntityDefinitionClassInfo>& classInfos) const;
+
+  virtual std::vector<EntityDefinitionClassInfo> parseClassInfos(ParserStatus& status) = 0;
+};
+} // namespace IO
+} // namespace TrenchBroom

@@ -1,69 +1,88 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DirectoryTextureCollectionEditor_h
-#define DirectoryTextureCollectionEditor_h
+#pragma once
 
-#include "IO/Path.h"
-#include "View/ViewTypes.h"
+#include "NotifierConnection.h"
 
-#include <wx/panel.h>
+#include <memory>
+#include <vector>
 
-class wxListBox;
+#include <QWidget>
+
+class QListWidget;
+class QAbstractButton;
 
 namespace TrenchBroom {
-    namespace View {
-        class DirectoryTextureCollectionEditor : public wxPanel {
-        private:
-            MapDocumentWPtr m_document;
-            
-            wxListBox* m_availableCollectionsList;
-            wxListBox* m_enabledCollectionsList;
-        public:
-            DirectoryTextureCollectionEditor(wxWindow* parent, MapDocumentWPtr document);
-			~DirectoryTextureCollectionEditor();
-        private:
-            void OnAddTextureCollections(wxCommandEvent& event);
-            void OnRemoveTextureCollections(wxCommandEvent& event);
-            void OnReloadTextureCollections(wxCommandEvent& event);
-            void OnUpdateAddTextureCollections(wxUpdateUIEvent& event);
-            void OnUpdateRemoveTextureCollections(wxUpdateUIEvent& event);
-            void OnUpdateReloadTextureCollections(wxUpdateUIEvent& event);
-        private:
-            void createGui();
-            
-            void bindObservers();
-            void unbindObservers();
-            
-            void textureCollectionsDidChange();
-            void modsDidChange();
-            void preferenceDidChange(const IO::Path& path);
-
-            void update();
-            void updateAvailableTextureCollections();
-            void updateEnabledTextureCollections();
-            void updateListBox(wxListBox* box, const IO::Path::List& paths);
-            
-            IO::Path::List availableTextureCollections() const;
-            IO::Path::List enabledTextureCollections() const;
-        };
-    }
+namespace IO {
+class Path;
 }
 
-#endif /* DirectoryTextureCollectionEditor_h */
+namespace View {
+class MapDocument;
+
+class DirectoryTextureCollectionEditor : public QWidget {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
+
+  QListWidget* m_availableCollectionsList;
+  QListWidget* m_enabledCollectionsList;
+
+  QAbstractButton* m_addCollectionsButton;
+  QAbstractButton* m_removeCollectionsButton;
+  QAbstractButton* m_reloadCollectionsButton;
+
+  NotifierConnection m_notifierConnection;
+
+public:
+  explicit DirectoryTextureCollectionEditor(
+    std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
+
+private:
+  void addSelectedTextureCollections();
+  void removeSelectedTextureCollections();
+  void reloadTextureCollections();
+  void availableTextureCollectionSelectionChanged();
+  void enabledTextureCollectionSelectionChanged();
+
+  bool canAddTextureCollections() const;
+  bool canRemoveTextureCollections() const;
+  bool canReloadTextureCollections() const;
+
+private:
+  void createGui();
+  void updateButtons();
+
+  void connectObservers();
+
+  void textureCollectionsDidChange();
+  void modsDidChange();
+  void preferenceDidChange(const IO::Path& path);
+
+  void updateAllTextureCollections();
+  void updateAvailableTextureCollections();
+  void updateEnabledTextureCollections();
+  void updateListBox(QListWidget* box, const std::vector<IO::Path>& paths);
+
+  std::vector<IO::Path> availableTextureCollections() const;
+  std::vector<IO::Path> enabledTextureCollections() const;
+};
+} // namespace View
+} // namespace TrenchBroom

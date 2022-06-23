@@ -1,38 +1,43 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_TitledPanel
-#define TrenchBroom_TitledPanel
+#pragma once
 
-#include <wx/panel.h>
+#include <QWidget>
 
 namespace TrenchBroom {
-    namespace View {
-        class TitledPanel : public wxPanel {
-        private:
-            wxWindow* m_panel;
-        public:
-            TitledPanel(wxWindow* parent, const wxString& title, bool showDivider = true, bool boldTitle = true);
-            
-            wxWindow* getPanel() const;
-        };
-    }
-}
+namespace View {
+class TitleBar;
 
-#endif /* defined(TrenchBroom_TitledPanel) */
+class TitledPanel : public QWidget {
+  Q_OBJECT
+private:
+  TitleBar* m_titleBar;
+  QWidget* m_panel;
+
+public:
+  TitledPanel(
+    const QString& title, QWidget* parent, bool showDivider = true, bool boldTitle = true);
+  explicit TitledPanel(const QString& title, bool showDivider = true, bool boldTitle = true);
+
+  TitleBar* getTitleBar() const;
+  QWidget* getPanel() const;
+};
+} // namespace View
+} // namespace TrenchBroom

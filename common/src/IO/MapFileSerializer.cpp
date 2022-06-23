@@ -1,284 +1,426 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "MapFileSerializer.h"
 
+#include "Ensure.h"
 #include "Exceptions.h"
 #include "Macros.h"
-#include "IO/DiskFileSystem.h"
-#include "IO/Path.h"
+#include "Model/BezierPatch.h"
 #include "Model/BrushFace.h"
+#include "Model/BrushNode.h"
+#include "Model/EntityNode.h"
+#include "Model/EntityProperties.h"
+#include "Model/GroupNode.h"
+#include "Model/LayerNode.h"
+#include "Model/PatchNode.h"
+#include "Model/WorldNode.h"
+
+#include <kdl/overload.h>
+#include <kdl/parallel.h>
+#include <kdl/string_format.h>
+#include <kdl/vector_utils.h>
+
+#include <fmt/format.h>
+
+#include <iterator> // for std::ostreambuf_iterator
+#include <memory>
+#include <sstream>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace IO {
-        class QuakeFileSerializer : public MapFileSerializer {
-        private:
-            String FacePointFormat;
-            String TextureInfoFormat;
-        public:
-            QuakeFileSerializer(FILE* stream) :
-            MapFileSerializer(stream) {
-                StringStream str;
-                str <<
-                "( %." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g ) " <<
-                "( %." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g ) " <<
-                "( %." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g " <<
-                "%." << FloatPrecision << "g )";
+namespace IO {
+class QuakeFileSerializer : public MapFileSerializer {
+public:
+  explicit QuakeFileSerializer(std::ostream& stream)
+    : MapFileSerializer(stream) {}
 
-                FacePointFormat = str.str();
-                TextureInfoFormat = " %s %.6g %.6g %.6g %.6g %.6g";
-            }
-        private:
-            size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) override {
-                writeFacePoints(stream, face);
-                writeTextureInfo(stream, face);
-                std::fprintf(stream, "\n");
-                return 1;
-            }
-        protected:
-            void writeFacePoints(FILE* stream, Model::BrushFace* face) {
-                const Model::BrushFace::Points& points = face->points();
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeTextureInfo(stream, face);
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+  }
 
-                std::fprintf(stream, FacePointFormat.c_str(),
-                             points[0].x(),
-                             points[0].y(),
-                             points[0].z(),
-                             points[1].x(),
-                             points[1].y(),
-                             points[1].z(),
-                             points[2].x(),
-                             points[2].y(),
-                             points[2].z());
-            }
+protected:
+  void writeFacePoints(std::ostream& stream, const Model::BrushFace& face) const {
+    const Model::BrushFace::Points& points = face.points();
 
-            void writeTextureInfo(FILE* stream, Model::BrushFace* face) {
-                const String& textureName = face->textureName().empty() ? Model::BrushFace::NoTextureName : face->textureName();
-                std::fprintf(stream, TextureInfoFormat.c_str(),
-                             textureName.c_str(),
-                             face->xOffset(),
-                             face->yOffset(),
-                             face->rotation(),
-                             face->xScale(),
-                             face->yScale());
-            }
-        };
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(stream), "( {} {} {} ) ( {} {} {} ) ( {} {} {} )",
+      points[0].x(), points[0].y(), points[0].z(), points[1].x(), points[1].y(), points[1].z(),
+      points[2].x(), points[2].y(), points[2].z());
+  }
 
-        class Quake2FileSerializer : public QuakeFileSerializer {
-        private:
-            String SurfaceAttributesFormat;
-        public:
-            Quake2FileSerializer(FILE* stream) :
-            QuakeFileSerializer(stream) {
-                SurfaceAttributesFormat = " %d %d %.6g";
-            }
-        private:
-            size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) override {
-                writeFacePoints(stream, face);
-                writeTextureInfo(stream, face);
+  static bool shouldQuoteTextureName(const std::string& textureName) {
+    return textureName.empty() || textureName.find_first_of("\"\\ \t") != std::string::npos;
+  }
 
-                if (face->hasSurfaceAttributes()) {
-                    writeSurfaceAttributes(stream, face);
-                }
+  static std::string quoteTextureName(const std::string& textureName) {
+    return "\"" + kdl::str_escape(textureName, "\"") + "\"";
+  }
 
-                std::fprintf(stream, "\n");
-                return 1;
-            }
-        protected:
-            void writeSurfaceAttributes(FILE* stream, Model::BrushFace* face) {
-                std::fprintf(stream, SurfaceAttributesFormat.c_str(),
-                             face->surfaceContents(),
-                             face->surfaceFlags(),
-                             face->surfaceValue());
-            }
-        };
+  void writeTextureInfo(std::ostream& stream, const Model::BrushFace& face) const {
+    const std::string& textureName = face.attributes().textureName().empty()
+                                       ? Model::BrushFaceAttributes::NoTextureName
+                                       : face.attributes().textureName();
 
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(stream), " {} {} {} {} {} {}",
+      shouldQuoteTextureName(textureName) ? quoteTextureName(textureName) : textureName,
+      face.attributes().xOffset(), face.attributes().yOffset(), face.attributes().rotation(),
+      face.attributes().xScale(), face.attributes().yScale());
+  }
 
-        class DaikatanaFileSerializer : public Quake2FileSerializer {
-        private:
-            String SurfaceColorFormat;
-        public:
-            DaikatanaFileSerializer(FILE* stream) :
-            Quake2FileSerializer(stream) {
-                SurfaceColorFormat = " %d %d %d";
-            }
-        private:
-            size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) override {
-                writeFacePoints(stream, face);
-                writeTextureInfo(stream, face);
+  void writeValveTextureInfo(std::ostream& stream, const Model::BrushFace& face) const {
+    const std::string& textureName = face.attributes().textureName().empty()
+                                       ? Model::BrushFaceAttributes::NoTextureName
+                                       : face.attributes().textureName();
+    const vm::vec3 xAxis = face.textureXAxis();
+    const vm::vec3 yAxis = face.textureYAxis();
 
-                if (face->hasSurfaceAttributes() || face->hasColor()) {
-                    writeSurfaceAttributes(stream, face);
-                }
-                if (face->hasColor()) {
-                    writeSurfaceColor(stream, face);
-                }
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(stream), " {} [ {} {} {} {} ] [ {} {} {} {} ] {} {} {}",
+      shouldQuoteTextureName(textureName) ? quoteTextureName(textureName) : textureName,
 
-                std::fprintf(stream, "\n");
-                return 1;
-            }
-        protected:
-            void writeSurfaceColor(FILE* stream, Model::BrushFace* face) {
-                std::fprintf(stream, SurfaceColorFormat.c_str(),
-                             static_cast<int>(face->color().r()),
-                             static_cast<int>(face->color().g()),
-                             static_cast<int>(face->color().b()));
-            }
-        };
+      xAxis.x(), xAxis.y(), xAxis.z(), face.attributes().xOffset(),
 
-        class Hexen2FileSerializer : public QuakeFileSerializer {
-        public:
-            Hexen2FileSerializer(FILE* stream):
-            QuakeFileSerializer(stream) {}
-        private:
-            size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) override {
-                writeFacePoints(stream, face);
-                writeTextureInfo(stream, face);
-                std::fprintf(stream, " 0\n"); // extra value written here
-                return 1;
-            }
-        };
-        
-        class ValveFileSerializer : public QuakeFileSerializer {
-        private:
-            String ValveTextureInfoFormat;
-        public:
-            ValveFileSerializer(FILE* stream) :
-            QuakeFileSerializer(stream),
-            ValveTextureInfoFormat(" %s [ %.6g %.6g %.6g %.6g ] [ %.6g %.6g %.6g %.6g ] %.6g %.6g %.6g") {}
-        private:
-            size_t doWriteBrushFace(FILE* stream, Model::BrushFace* face) override {
-                writeFacePoints(stream, face);
-                writeValveTextureInfo(stream, face);
-                std::fprintf(stream, "\n");
-                return 1;
-            }
-        private:
-            void writeValveTextureInfo(FILE* stream, Model::BrushFace* face) {
-                const String& textureName = face->textureName().empty() ? Model::BrushFace::NoTextureName : face->textureName();
-                const vm::vec3 xAxis = face->textureXAxis();
-                const vm::vec3 yAxis = face->textureYAxis();
+      yAxis.x(), yAxis.y(), yAxis.z(), face.attributes().yOffset(),
 
-                std::fprintf(stream, ValveTextureInfoFormat.c_str(),
-                             textureName.c_str(),
+      face.attributes().rotation(), face.attributes().xScale(), face.attributes().yScale());
+  }
+};
 
-                             xAxis.x(),
-                             xAxis.y(),
-                             xAxis.z(),
-                             face->xOffset(),
+class Quake2FileSerializer : public QuakeFileSerializer {
+public:
+  explicit Quake2FileSerializer(std::ostream& stream)
+    : QuakeFileSerializer(stream) {}
 
-                             yAxis.x(),
-                             yAxis.y(),
-                             yAxis.z(),
-                             face->yOffset(),
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeTextureInfo(stream, face);
 
-                             face->rotation(),
-                             face->xScale(),
-                             face->yScale());
-            }
-        };
-
-        NodeSerializer::Ptr MapFileSerializer::create(const Model::MapFormat format, FILE* stream) {
-            switch (format) {
-                case Model::MapFormat::Standard:
-                    return NodeSerializer::Ptr(new QuakeFileSerializer(stream));
-                case Model::MapFormat::Quake2:
-                    // TODO 2427: Implement Quake3 serializers and use them
-                case Model::MapFormat::Quake3:
-                case Model::MapFormat::Quake3_Legacy:
-                    return NodeSerializer::Ptr(new Quake2FileSerializer(stream));
-                case Model::MapFormat::Daikatana:
-                    return NodeSerializer::Ptr(new DaikatanaFileSerializer(stream));
-                case Model::MapFormat::Valve:
-                    return NodeSerializer::Ptr(new ValveFileSerializer(stream));
-                case Model::MapFormat::Hexen2:
-                    return NodeSerializer::Ptr(new Hexen2FileSerializer(stream));
-                case Model::MapFormat::Unknown:
-                    throw FileFormatException("Unknown map file format");
-                switchDefault()
-            }
-        }
-        
-        MapFileSerializer::MapFileSerializer(FILE* stream) :
-        m_line(1),
-        m_stream(stream) {
-            ensure(m_stream != nullptr, "stream is null");
-        }
-        
-        void MapFileSerializer::doBeginFile() {}
-        void MapFileSerializer::doEndFile() {}
-
-        void MapFileSerializer::doBeginEntity(const Model::Node* node) {
-            std::fprintf(m_stream, "// entity %u\n", entityNo());
-            ++m_line;
-            m_startLineStack.push_back(m_line);
-            std::fprintf(m_stream, "{\n");
-            ++m_line;
-        }
-        
-        void MapFileSerializer::doEndEntity(Model::Node* node) {
-            std::fprintf(m_stream, "}\n");
-            ++m_line;
-            setFilePosition(node);
-        }
-        
-        void MapFileSerializer::doEntityAttribute(const Model::EntityAttribute& attribute) { 
-            std::fprintf(m_stream, "\"%s\" \"%s\"\n",
-                         escapeEntityAttribute( attribute.name()).c_str(),
-                         escapeEntityAttribute(attribute.value()).c_str());
-            ++m_line;
-        }
-        
-        void MapFileSerializer::doBeginBrush(const Model::Brush* brush) {
-            std::fprintf(m_stream, "// brush %u\n", brushNo());
-            ++m_line;
-            m_startLineStack.push_back(m_line);
-            std::fprintf(m_stream, "{\n");
-            ++m_line;
-        }
-        
-        void MapFileSerializer::doEndBrush(Model::Brush* brush) {
-            std::fprintf(m_stream, "}\n");
-            ++m_line;
-            setFilePosition(brush);
-        }
-        
-        void MapFileSerializer::doBrushFace(Model::BrushFace* face) {
-            const size_t lines = doWriteBrushFace(m_stream, face);
-            face->setFilePosition(m_line, lines);
-            m_line += lines;
-        }
-        
-        void MapFileSerializer::setFilePosition(Model::Node* node) {
-            const size_t start = startLine();
-            node->setFilePosition(start, m_line - start);
-        }
-
-        size_t MapFileSerializer::startLine() {
-            assert(!m_startLineStack.empty());
-            const size_t result = m_startLineStack.back();
-            m_startLineStack.pop_back();
-            return result;
-        }
+    if (face.attributes().hasSurfaceAttributes()) {
+      writeSurfaceAttributes(stream, face);
     }
+
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+  }
+
+protected:
+  void writeSurfaceAttributes(std::ostream& stream, const Model::BrushFace& face) const {
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(stream), " {} {} {}", face.resolvedSurfaceContents(),
+      face.resolvedSurfaceFlags(), face.resolvedSurfaceValue());
+  }
+};
+
+class Quake2ValveFileSerializer : public Quake2FileSerializer {
+public:
+  explicit Quake2ValveFileSerializer(std::ostream& stream)
+    : Quake2FileSerializer(stream) {}
+
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeValveTextureInfo(stream, face);
+
+    if (face.attributes().hasSurfaceAttributes()) {
+      writeSurfaceAttributes(stream, face);
+    }
+
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+  }
+};
+
+class DaikatanaFileSerializer : public Quake2FileSerializer {
+private:
+  std::string SurfaceColorFormat;
+
+public:
+  explicit DaikatanaFileSerializer(std::ostream& stream)
+    : Quake2FileSerializer(stream)
+    , SurfaceColorFormat(" %d %d %d") {}
+
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeTextureInfo(stream, face);
+
+    if (face.attributes().hasSurfaceAttributes() || face.attributes().hasColor()) {
+      writeSurfaceAttributes(stream, face);
+    }
+    if (face.attributes().hasColor()) {
+      writeSurfaceColor(stream, face);
+    }
+
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+  }
+
+protected:
+  void writeSurfaceColor(std::ostream& stream, const Model::BrushFace& face) const {
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(stream), " {} {} {}",
+      static_cast<int>(face.resolvedColor().r()), static_cast<int>(face.resolvedColor().g()),
+      static_cast<int>(face.resolvedColor().b()));
+  }
+};
+
+class Hexen2FileSerializer : public QuakeFileSerializer {
+public:
+  explicit Hexen2FileSerializer(std::ostream& stream)
+    : QuakeFileSerializer(stream) {}
+
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeTextureInfo(stream, face);
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), " 0\n"); // extra value written here
+  }
+};
+
+class ValveFileSerializer : public QuakeFileSerializer {
+public:
+  explicit ValveFileSerializer(std::ostream& stream)
+    : QuakeFileSerializer(stream) {}
+
+private:
+  void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+    writeFacePoints(stream, face);
+    writeValveTextureInfo(stream, face);
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+  }
+};
+
+std::unique_ptr<NodeSerializer> MapFileSerializer::create(
+  const Model::MapFormat format, std::ostream& stream) {
+  switch (format) {
+    case Model::MapFormat::Standard:
+      return std::make_unique<QuakeFileSerializer>(stream);
+    case Model::MapFormat::Quake2:
+      // TODO 2427: Implement Quake3 serializers and use them
+    case Model::MapFormat::Quake3:
+    case Model::MapFormat::Quake3_Legacy:
+      return std::make_unique<Quake2FileSerializer>(stream);
+    case Model::MapFormat::Quake2_Valve:
+    case Model::MapFormat::Quake3_Valve:
+      return std::make_unique<Quake2ValveFileSerializer>(stream);
+    case Model::MapFormat::Daikatana:
+      return std::make_unique<DaikatanaFileSerializer>(stream);
+    case Model::MapFormat::Valve:
+      return std::make_unique<ValveFileSerializer>(stream);
+    case Model::MapFormat::Hexen2:
+      return std::make_unique<Hexen2FileSerializer>(stream);
+    case Model::MapFormat::Unknown:
+      throw FileFormatException("Unknown map file format");
+      switchDefault();
+  }
 }
+
+MapFileSerializer::MapFileSerializer(std::ostream& stream)
+  : m_line(1)
+  , m_stream(stream) {}
+
+void MapFileSerializer::doBeginFile(const std::vector<const Model::Node*>& rootNodes) {
+  ensure(m_nodeToPrecomputedString.empty(), "MapFileSerializer may not be reused");
+
+  // collect nodes
+  std::vector<std::variant<const Model::BrushNode*, const Model::PatchNode*>> nodesToSerialize;
+  nodesToSerialize.reserve(rootNodes.size());
+
+  Model::Node::visitAll(
+    rootNodes, kdl::overload(
+                 [](auto&& thisLambda, const Model::WorldNode* world) {
+                   world->visitChildren(thisLambda);
+                 },
+                 [](auto&& thisLambda, const Model::LayerNode* layer) {
+                   layer->visitChildren(thisLambda);
+                 },
+                 [](auto&& thisLambda, const Model::GroupNode* group) {
+                   group->visitChildren(thisLambda);
+                 },
+                 [](auto&& thisLambda, const Model::EntityNode* entity) {
+                   entity->visitChildren(thisLambda);
+                 },
+                 [&](const Model::BrushNode* brush) {
+                   nodesToSerialize.push_back(brush);
+                 },
+                 [&](const Model::PatchNode* patchNode) {
+                   nodesToSerialize.push_back(patchNode);
+                 }));
+
+  // serialize brushes to strings in parallel
+  using Entry = std::pair<const Model::Node*, PrecomputedString>;
+  std::vector<Entry> result =
+    kdl::vec_parallel_transform(std::move(nodesToSerialize), [&](const auto& node) {
+      return std::visit(
+        kdl::overload(
+          [&](const Model::BrushNode* brushNode) {
+            return Entry{brushNode, writeBrushFaces(brushNode->brush())};
+          },
+          [&](const Model::PatchNode* patchNode) {
+            return Entry{patchNode, writePatch(patchNode->patch())};
+          }),
+        node);
+    });
+
+  // move strings into a map
+  for (auto& entry : result) {
+    m_nodeToPrecomputedString.insert(std::move(entry));
+  }
+}
+
+void MapFileSerializer::doEndFile() {}
+
+void MapFileSerializer::doBeginEntity(const Model::Node* /* node */) {
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "// entity {}\n", entityNo());
+  ++m_line;
+  m_startLineStack.push_back(m_line);
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "{{\n");
+  ++m_line;
+}
+
+void MapFileSerializer::doEndEntity(const Model::Node* node) {
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "}}\n");
+  ++m_line;
+  setFilePosition(node);
+}
+
+void MapFileSerializer::doEntityProperty(const Model::EntityProperty& attribute) {
+  fmt::format_to(
+    std::ostreambuf_iterator<char>(m_stream), "\"{}\" \"{}\"\n",
+    escapeEntityProperties(attribute.key()), escapeEntityProperties(attribute.value()));
+  ++m_line;
+}
+
+void MapFileSerializer::doBrush(const Model::BrushNode* brush) {
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "// brush {}\n", brushNo());
+  ++m_line;
+  m_startLineStack.push_back(m_line);
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "{{\n");
+  ++m_line;
+
+  // write pre-serialized brush faces
+  auto it = m_nodeToPrecomputedString.find(brush);
+  ensure(
+    it != std::end(m_nodeToPrecomputedString),
+    "attempted to serialize a brush which was not passed to doBeginFile");
+  const PrecomputedString& precomputedString = it->second;
+  m_stream << precomputedString.string;
+  m_line += precomputedString.lineCount;
+
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "}}\n");
+  ++m_line;
+  setFilePosition(brush);
+}
+
+void MapFileSerializer::doBrushFace(const Model::BrushFace& face) {
+  const size_t lines = 1u;
+  doWriteBrushFace(m_stream, face);
+  face.setFilePosition(m_line, lines);
+  m_line += lines;
+}
+
+void MapFileSerializer::doPatch(const Model::PatchNode* patchNode) {
+  fmt::format_to(std::ostreambuf_iterator<char>(m_stream), "// brush {}\n", brushNo());
+  ++m_line;
+  m_startLineStack.push_back(m_line);
+
+  // write pre-serialized patch
+  auto it = m_nodeToPrecomputedString.find(patchNode);
+  ensure(
+    it != std::end(m_nodeToPrecomputedString),
+    "attempted to serialize a patch which was not passed to doBeginFile");
+  const PrecomputedString& precomputedString = it->second;
+  m_stream << precomputedString.string;
+  m_line += precomputedString.lineCount;
+
+  setFilePosition(patchNode);
+}
+
+void MapFileSerializer::setFilePosition(const Model::Node* node) {
+  const size_t start = startLine();
+  node->setFilePosition(start, m_line - start);
+}
+
+size_t MapFileSerializer::startLine() {
+  assert(!m_startLineStack.empty());
+  const size_t result = m_startLineStack.back();
+  m_startLineStack.pop_back();
+  return result;
+}
+
+/**
+ * Threadsafe
+ */
+MapFileSerializer::PrecomputedString MapFileSerializer::writeBrushFaces(
+  const Model::Brush& brush) const {
+  std::stringstream stream;
+  for (const Model::BrushFace& face : brush.faces()) {
+    doWriteBrushFace(stream, face);
+  }
+  return PrecomputedString{stream.str(), brush.faces().size()};
+}
+
+MapFileSerializer::PrecomputedString MapFileSerializer::writePatch(
+  const Model::BezierPatch& patch) const {
+  size_t lineCount = 0u;
+  std::stringstream stream;
+
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "{{\n");
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "patchDef2\n");
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "{{\n");
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "{}\n", patch.textureName());
+  ++lineCount;
+  fmt::format_to(
+    std::ostreambuf_iterator<char>(stream), "( {} {} 0 0 0 )\n", patch.pointRowCount(),
+    patch.pointColumnCount());
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "(\n");
+  ++lineCount;
+
+  for (size_t row = 0u; row < patch.pointRowCount(); ++row) {
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), "( ");
+    for (size_t col = 0u; col < patch.pointColumnCount(); ++col) {
+      const auto& p = patch.controlPoint(row, col);
+      fmt::format_to(
+        std::ostreambuf_iterator<char>(stream), "( {} {} {} {} {} ) ", p[0], p[1], p[2], p[3],
+        p[4]);
+    }
+    fmt::format_to(std::ostreambuf_iterator<char>(stream), ")\n");
+    ++lineCount;
+  }
+
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), ")\n");
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "}}\n");
+  ++lineCount;
+  fmt::format_to(std::ostreambuf_iterator<char>(stream), "}}\n");
+  ++lineCount;
+
+  return PrecomputedString{stream.str(), lineCount};
+}
+} // namespace IO
+} // namespace TrenchBroom

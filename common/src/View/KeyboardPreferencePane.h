@@ -17,35 +17,34 @@
  along with TrenchBroom.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_KeyboardPreferencePane
-#define TrenchBroom_KeyboardPreferencePane
+#pragma once
 
 #include "View/PreferencePane.h"
 
-#include <wx/grid.h>
+class QWidget;
+class QTableView;
+class QSortFilterProxyModel;
 
 namespace TrenchBroom {
-    namespace View {
-        class KeyboardShortcutGridTable;
-        
-        class KeyboardPreferencePane : public PreferencePane {
-        private:
-            wxGrid* m_grid;
-            KeyboardShortcutGridTable* m_table;
-            
-        public:
-            KeyboardPreferencePane(wxWindow* parent);
-        private:
-            void OnGridSize(wxSizeEvent& event);
-            
-            wxWindow* createMenuShortcutGrid();
-            
-            bool doCanResetToDefaults() override;
-            void doResetToDefaults() override;
-            void doUpdateControls() override;
-            bool doValidate() override;
-        };
-    }
-}
+namespace View {
+class KeyboardShortcutModel;
+class MapDocument;
 
-#endif /* defined(TrenchBroom_KeyboardPreferencePane) */
+class KeyboardPreferencePane : public PreferencePane {
+  Q_OBJECT
+private:
+  QTableView* m_table;
+  KeyboardShortcutModel* m_model;
+  QSortFilterProxyModel* m_proxy;
+
+public:
+  explicit KeyboardPreferencePane(MapDocument* document, QWidget* parent = nullptr);
+
+private:
+  bool doCanResetToDefaults() override;
+  void doResetToDefaults() override;
+  void doUpdateControls() override;
+  bool doValidate() override;
+};
+} // namespace View
+} // namespace TrenchBroom

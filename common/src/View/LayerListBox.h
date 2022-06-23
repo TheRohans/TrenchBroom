@@ -17,82 +17,100 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_LayerListBox
-#define TrenchBroom_LayerListBox
+#pragma once
 
-#include "Model/ModelTypes.h"
+#include "NotifierConnection.h"
 #include "View/ControlListBox.h"
-#include "View/ViewTypes.h"
 
+#include <memory>
 #include <vector>
 
-class wxScrolledWindow;
+class QLabel;
+class QAbstractButton;
+class QListWidget;
 
 namespace TrenchBroom {
-    namespace View {
-        class LayerCommand;
-    }
-}
+namespace Model {
+class LayerNode;
+class Node;
+} // namespace Model
 
-using LayerCommandFunction = void(wxEvtHandler::*)(TrenchBroom::View::LayerCommand&);
+namespace View {
+class MapDocument;
 
-wxDECLARE_EVENT(LAYER_SELECTED_EVENT, TrenchBroom::View::LayerCommand);
-#define LayerSelectedHandler(func) wxEVENT_HANDLER_CAST(LayerCommandFunction, func)
+class LayerListBoxWidget : public ControlListBoxItemRenderer {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
+  Model::LayerNode* m_layer;
+  QAbstractButton* m_activeButton;
+  QLabel* m_nameText;
+  QLabel* m_infoText;
+  QAbstractButton* m_omitFromExportButton;
+  QAbstractButton* m_hiddenButton;
+  QAbstractButton* m_lockButton;
 
-wxDECLARE_EVENT(LAYER_SET_CURRENT_EVENT, TrenchBroom::View::LayerCommand);
-#define LayerSetCurrentHandler(func) wxEVENT_HANDLER_CAST(LayerCommandFunction, func)
+public:
+  LayerListBoxWidget(
+    std::weak_ptr<MapDocument> document, Model::LayerNode* layer, QWidget* parent = nullptr);
 
-wxDECLARE_EVENT(LAYER_RIGHT_CLICK_EVENT, TrenchBroom::View::LayerCommand);
-#define LayerRightClickHandler(func) wxEVENT_HANDLER_CAST(LayerCommandFunction, func)
+  void updateItem() override;
 
-wxDECLARE_EVENT(LAYER_TOGGLE_VISIBLE_EVENT, TrenchBroom::View::LayerCommand);
-#define LayerToggleVisibleHandler(func) wxEVENT_HANDLER_CAST(LayerCommandFunction, func)
+private:
+  void updateLayerItem();
 
-wxDECLARE_EVENT(LAYER_TOGGLE_LOCKED_EVENT, TrenchBroom::View::LayerCommand);
-#define LayerToggleLockedHandler(func) wxEVENT_HANDLER_CAST(LayerCommandFunction, func)
+public:
+  Model::LayerNode* layer() const;
 
-namespace TrenchBroom {
-    namespace View {
-        class LayerCommand : public wxCommandEvent {
-        protected:
-            Model::Layer* m_layer;
-        public:
-            LayerCommand(wxEventType commandType, int id = 0);
-            
-            Model::Layer* layer() const;
-            void setLayer(Model::Layer* layer);
+private:
+  bool eventFilter(QObject* target, QEvent* event) override;
+signals:
+  void layerActiveClicked(Model::LayerNode* layer);
+  void layerOmitFromExportToggled(Model::LayerNode* layer);
+  void layerVisibilityToggled(Model::LayerNode* layer);
+  void layerLockToggled(Model::LayerNode* layer);
+  void layerDoubleClicked(Model::LayerNode* layer);
+  void layerRightClicked(Model::LayerNode* layer);
+};
 
-            virtual wxEvent* Clone() const override;
-        };
+class LayerListBox : public ControlListBox {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
 
-        class LayerListBox : public ControlListBox {
-        private:
-            class LayerItem;
+  NotifierConnection m_notifierConnection;
 
-            MapDocumentWPtr m_document;
-        public:
-            LayerListBox(wxWindow* parent, MapDocumentWPtr document);
-            ~LayerListBox() override;
+public:
+  explicit LayerListBox(std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
 
-            Model::Layer* selectedLayer() const;
-            void setSelectedLayer(Model::Layer* layer);
+  Model::LayerNode* selectedLayer() const;
+  void setSelectedLayer(Model::LayerNode* layer);
 
-            void OnSelectionChanged(wxCommandEvent& event);
-            void OnDoubleClick(wxCommandEvent& event);
-            void OnRightClick(wxCommandEvent& event);
-        private:
-            void bindObservers();
-            void unbindObservers();
+private:
+  size_t itemCount() const override;
 
-            void documentDidChange(MapDocument* document);
-            void nodesDidChange(const Model::NodeList& nodes);
-            void currentLayerDidChange(const Model::Layer* layer);
+  ControlListBoxItemRenderer* createItemRenderer(QWidget* parent, size_t index) override;
 
-            void bindEvents();
-        private:
-            Item* createItem(wxWindow* parent, const wxSize& margins, size_t index) override;
-        };
-    }
-}
+  void selectedRowChanged(int index) override;
 
-#endif /* defined(TrenchBroom_LayerListBox) */
+private:
+  void connectObservers();
+
+  void documentDidChange(MapDocument* document);
+  void nodesDidChange(const std::vector<Model::Node*>& nodes);
+  void currentLayerDidChange(const Model::LayerNode* layer);
+
+  const LayerListBoxWidget* widgetAtRow(int row) const;
+  Model::LayerNode* layerForRow(int row) const;
+
+  std::vector<Model::LayerNode*> layers() const;
+signals:
+  void layerSelected(Model::LayerNode* layer);
+  void layerSetCurrent(Model::LayerNode* layer);
+  void layerRightClicked(Model::LayerNode* layer);
+  void layerOmitFromExportToggled(Model::LayerNode* layer);
+  void layerVisibilityToggled(Model::LayerNode* layer);
+  void layerLockToggled(Model::LayerNode* layer);
+};
+} // namespace View
+} // namespace TrenchBroom

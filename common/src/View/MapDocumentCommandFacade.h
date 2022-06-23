@@ -1,145 +1,154 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapDocumentCommandFacade
-#define TrenchBroom_MapDocumentCommandFacade
+#pragma once
 
-#include "TrenchBroom.h"
-#include "Model/EntityAttributeSnapshot.h"
-#include "Model/EntityColor.h"
-#include "Model/Node.h"
-#include "Model/TexCoordSystem.h"
-#include "View/CommandProcessor.h"
+#include "FloatType.h"
+#include "Model/NodeContents.h"
+#include "NotifierConnection.h"
 #include "View/MapDocument.h"
-#include "View/UndoableCommand.h"
+
+#include <vecmath/forward.h>
+
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace Model {
-        class ChangeBrushFaceAttributesRequest;
-        class Snapshot;
-    }
-    
-    namespace View {
-        class MapDocumentCommandFacade : public MapDocument {
-        private:
-            CommandProcessor m_commandProcessor;
-        public:
-            static MapDocumentSPtr newMapDocument();
-        private:
-            MapDocumentCommandFacade();
-        public: // selection modification
-            void performSelect(const Model::NodeList& nodes);
-            void performSelect(const Model::BrushFaceList& faces);
-            void performSelectAllNodes();
-            void performSelectAllBrushFaces();
-            void performConvertToBrushFaceSelection();
-            
-            void performDeselect(const Model::NodeList& nodes);
-            void performDeselect(const Model::BrushFaceList& faces);
-            void performDeselectAll();
-        private:
-            void deselectAllNodes();
-            void deselectAllBrushFaces();
-        public: // adding and removing nodes
-            void performAddNodes(const Model::ParentChildrenMap& nodes);
-            void performRemoveNodes(const Model::ParentChildrenMap& nodes);
-        public: // Node Visibility
-            Model::VisibilityMap setVisibilityState(const Model::NodeList& nodes, Model::VisibilityState visibilityState);
-            Model::VisibilityMap setVisibilityEnsured(const Model::NodeList& nodes);
-            void restoreVisibilityState(const Model::VisibilityMap& nodes);
-            Model::LockStateMap setLockState(const Model::NodeList& nodes, Model::LockState lockState);
-            void restoreLockState(const Model::LockStateMap& nodes);
-        private:  // groups
-            class RenameGroupsVisitor;
-            class UndoRenameGroupsVisitor;
-        public:
-            Model::GroupNameMap performRenameGroups(const String& newName);
-            void performUndoRenameGroups(const Model::GroupNameMap& newNames);
-            
-            void performPushGroup(Model::Group* group);
-            void performPopGroup();
-        public: // transformation
-            /**
-             * @return true if the transform was applied, false if can't be applied
-             *         to everything in the selection (in which case nothing is modified).
-             */
-            bool performTransform(const vm::mat4x4& transform, bool lockTextures);
-        public: // entity attributes
-            Model::EntityAttributeSnapshot::Map performSetAttribute(const Model::AttributeName& name, const Model::AttributeValue& value);
-            Model::EntityAttributeSnapshot::Map performRemoveAttribute(const Model::AttributeName& name);
-            Model::EntityAttributeSnapshot::Map performUpdateSpawnflag(const Model::AttributeName& name, const size_t flagIndex, const bool setFlag);
-            Model::EntityAttributeSnapshot::Map performConvertColorRange(const Model::AttributeName& name, Assets::ColorRange::Type colorRange);
-            Model::EntityAttributeSnapshot::Map performRenameAttribute(const Model::AttributeName& oldName, const Model::AttributeName& newName);
-            void restoreAttributes(const Model::EntityAttributeSnapshot::Map& attributes);
-        public: // brush resizing
-            std::vector<vm::polygon3> performResizeBrushes(const std::vector<vm::polygon3>& polygons, const vm::vec3& delta);
-        public: // brush face attributes
-            void performMoveTextures(const vm::vec3f& cameraUp, const vm::vec3f& cameraRight, const vm::vec2f& delta);
-            void performRotateTextures(float angle);
-            void performShearTextures(const vm::vec2f& factors);
-            void performCopyTexCoordSystemFromFace(const Model::TexCoordSystemSnapshot& coordSystemSnapshot, const Model::BrushFaceAttributes& attribs, const vm::plane3& sourceFacePlane, const Model::WrapStyle wrapStyle);
-            void performChangeBrushFaceAttributes(const Model::ChangeBrushFaceAttributesRequest& request);
-        public: // vertices
-            bool performFindPlanePoints();
-            bool performSnapVertices(FloatType snapTo);
-            std::vector<vm::vec3> performMoveVertices(const Model::BrushVerticesMap& vertices, const vm::vec3& delta);
-            std::vector<vm::segment3> performMoveEdges(const Model::BrushEdgesMap& edges, const vm::vec3& delta);
-            std::vector<vm::polygon3> performMoveFaces(const Model::BrushFacesMap& faces, const vm::vec3& delta);
-            void performAddVertices(const Model::VertexToBrushesMap& vertices);
-            void performRemoveVertices(const Model::BrushVerticesMap& vertices);
-        private: // implement MapDocument operations
-            void performRebuildBrushGeometry(const Model::BrushList& brushes) override;
-        public: // snapshots and restoration
-            void restoreSnapshot(Model::Snapshot* snapshot);
-        public: // entity definition file management
-            void performSetEntityDefinitionFile(const Assets::EntityDefinitionFileSpec& spec);
-        public: // texture collection management
-            void performSetTextureCollections(const IO::Path::List& paths);
-        public: // mods management
-            void performSetMods(const StringList& mods);
-        private:
-            void doSetIssueHidden(Model::Issue* issue, bool hidden) override;
-        public: // modification count
-            void incModificationCount(size_t delta = 1);
-            void decModificationCount(size_t delta = 1);
-        private: // notification
-            void bindObservers();
-            void documentWasNewed(MapDocument* document);
-            void documentWasLoaded(MapDocument* document);
-        private: // implement MapDocument interface
-            bool doCanUndoLastCommand() const override;
-            bool doCanRedoNextCommand() const override;
-            const String& doGetLastCommandName() const override;
-            const String& doGetNextCommandName() const override;
-            void doUndoLastCommand() override;
-            void doRedoNextCommand() override;
-            bool doRepeatLastCommands() override;
-            void doClearRepeatableCommands() override;
-            
-            void doBeginTransaction(const String& name) override;
-            void doEndTransaction() override;
-            void doRollbackTransaction() override;
+namespace Model {
+enum class LockState;
+enum class VisibilityState;
+} // namespace Model
 
-            bool doSubmit(Command::Ptr command) override;
-            bool doSubmitAndStore(UndoableCommand::Ptr command) override;
-        };
-    }
-}
+namespace View {
+class CommandProcessor;
 
-#endif /* defined(TrenchBroom_MapDocumentCommandFacade) */
+/**
+ * MapDocument API that is private to Command classes.
+ *
+ * These `performSomething()` methods will actually do an action, where
+ * the corresponding `something()` in MapDocument would create and execute a
+ * Command object which then calls `performSomething()`.
+ */
+class MapDocumentCommandFacade : public MapDocument {
+private:
+  std::unique_ptr<CommandProcessor> m_commandProcessor;
+
+  NotifierConnection m_notifierConnection;
+
+public:
+  static std::shared_ptr<MapDocument> newMapDocument();
+
+private:
+  MapDocumentCommandFacade();
+
+public:
+  ~MapDocumentCommandFacade() override;
+
+public: // selection modification
+  void performSelect(const std::vector<Model::Node*>& nodes);
+  void performSelect(const std::vector<Model::BrushFaceHandle>& faces);
+  void performSelectAllNodes();
+  void performSelectAllBrushFaces();
+  void performConvertToBrushFaceSelection();
+
+  void performDeselect(const std::vector<Model::Node*>& nodes);
+  void performDeselect(const std::vector<Model::BrushFaceHandle>& faces);
+  void performDeselectAll();
+
+public: // adding and removing nodes
+  void performAddNodes(const std::map<Model::Node*, std::vector<Model::Node*>>& nodes);
+  void performRemoveNodes(const std::map<Model::Node*, std::vector<Model::Node*>>& nodes);
+
+  std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>
+  performReplaceChildren(
+    std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>> nodes);
+
+public: // swapping node contents
+  void performSwapNodeContents(
+    std::vector<std::pair<Model::Node*, Model::NodeContents>>& nodesToSwap);
+
+public: // Node Visibility
+  std::map<Model::Node*, Model::VisibilityState> setVisibilityState(
+    const std::vector<Model::Node*>& nodes, Model::VisibilityState visibilityState);
+  std::map<Model::Node*, Model::VisibilityState> setVisibilityEnsured(
+    const std::vector<Model::Node*>& nodes);
+  void restoreVisibilityState(const std::map<Model::Node*, Model::VisibilityState>& nodes);
+  std::map<Model::Node*, Model::LockState> setLockState(
+    const std::vector<Model::Node*>& nodes, Model::LockState lockState);
+  void restoreLockState(const std::map<Model::Node*, Model::LockState>& nodes);
+
+public: // layers
+  using MapDocument::performSetCurrentLayer;
+
+public:
+  void performPushGroup(Model::GroupNode* group);
+  void performPopGroup();
+
+public: // brush face attributes
+  void performMoveTextures(
+    const vm::vec3f& cameraUp, const vm::vec3f& cameraRight, const vm::vec2f& delta);
+  void performRotateTextures(float angle);
+  void performShearTextures(const vm::vec2f& factors);
+  void performCopyTexCoordSystemFromFace(
+    const Model::TexCoordSystemSnapshot& coordSystemSnapshot,
+    const Model::BrushFaceAttributes& attribs, const vm::plane3& sourceFacePlane,
+    const Model::WrapStyle wrapStyle);
+
+public: // entity definition file management
+  void performSetEntityDefinitionFile(const Assets::EntityDefinitionFileSpec& spec);
+
+public: // texture collection management
+  void performSetTextureCollections(const std::vector<IO::Path>& paths);
+
+public: // mods management
+  void performSetMods(const std::vector<std::string>& mods);
+
+private:
+  void doSetIssueHidden(Model::Issue* issue, bool hidden) override;
+
+public: // modification count
+  void incModificationCount(size_t delta = 1);
+  void decModificationCount(size_t delta = 1);
+
+private: // notification
+  void connectObservers();
+  void documentWasNewed(MapDocument* document);
+  void documentWasLoaded(MapDocument* document);
+
+private: // implement MapDocument interface
+  bool doCanUndoCommand() const override;
+  bool doCanRedoCommand() const override;
+  const std::string& doGetUndoCommandName() const override;
+  const std::string& doGetRedoCommandName() const override;
+  void doUndoCommand() override;
+  void doRedoCommand() override;
+
+  void doClearCommandProcessor() override;
+  void doStartTransaction(const std::string& name) override;
+  void doCommitTransaction() override;
+  void doRollbackTransaction() override;
+
+  std::unique_ptr<CommandResult> doExecute(std::unique_ptr<Command>&& command) override;
+  std::unique_ptr<CommandResult> doExecuteAndStore(
+    std::unique_ptr<UndoableCommand>&& command) override;
+};
+} // namespace View
+} // namespace TrenchBroom

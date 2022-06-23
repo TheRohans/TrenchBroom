@@ -1,75 +1,67 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_SmartColorEditor
-#define TrenchBroom_SmartColorEditor
+#pragma once
 
-#include "SharedPointer.h"
-#include "StringUtils.h"
-#include "Model/ModelTypes.h"
-#include "View/SmartAttributeEditor.h"
-#include "View/ViewTypes.h"
+#include "View/SmartPropertyEditor.h"
 
-#include <wx/colour.h>
+#include <memory>
+#include <vector>
 
-class wxColourPickerCtrl;
-class wxColourPickerEvent;
-class wxCommandEvent;
-class wxPanel;
-class wxRadioButton;
-class wxWindow;
+class QColor;
+class QWidget;
+class QPushButton;
+class QRadioButton;
 
 namespace TrenchBroom {
-    namespace View {
-        class ColorTable;
-        class ColorTableSelectedCommand;
-        
-        class SmartColorEditor : public SmartAttributeEditor {
-        private:
-            static const size_t ColorHistoryCellSize = 15;
-            using wxColorList = std::vector<wxColour>;
-            
-            wxPanel* m_panel;
-            wxRadioButton* m_floatRadio;
-            wxRadioButton* m_byteRadio;
-            wxColourPickerCtrl* m_colorPicker;
-            ColorTable* m_colorHistory;
-        public:
-            SmartColorEditor(View::MapDocumentWPtr document);
-            
-            void OnFloatRangeRadioButton(wxCommandEvent& event);
-            void OnByteRangeRadioButton(wxCommandEvent& event);
-            void OnColorPickerChanged(wxColourPickerEvent& event);
-            void OnColorTableSelected(ColorTableSelectedCommand& event);
-        private:
-            wxWindow* doCreateVisual(wxWindow* parent) override;
-            void doDestroyVisual() override;
-            void doUpdateVisual(const Model::AttributableNodeList& attributables) override;
+namespace View {
+class ColorButton;
+class ColorTable;
+class MapDocument;
 
-            class CollectColorsVisitor;
-            
-            void updateColorRange(const Model::AttributableNodeList& attributables);
-            void updateColorHistory();
+class SmartColorEditor : public SmartPropertyEditor {
+  Q_OBJECT
+private:
+  static const size_t ColorHistoryCellSize = 15;
+  using wxColorList = std::vector<QColor>;
 
-            void setColor(const wxColor& wxColor) const;
-        };
-    }
-}
+  QRadioButton* m_floatRadio;
+  QRadioButton* m_byteRadio;
+  ColorButton* m_colorPicker;
+  ColorTable* m_colorHistory;
 
-#endif /* defined(TrenchBroom_SmartColorEditor) */
+public:
+  explicit SmartColorEditor(std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
+
+private:
+  void createGui();
+  void doUpdateVisual(const std::vector<Model::EntityNodeBase*>& nodes) override;
+
+  void updateColorRange(const std::vector<Model::EntityNodeBase*>& nodes);
+  void updateColorHistory();
+
+  void setColor(const QColor& wxColor) const;
+
+  void floatRangeRadioButtonClicked();
+  void byteRangeRadioButtonClicked();
+  void colorPickerChanged(const QColor& color);
+  void colorTableSelected(QColor color);
+};
+} // namespace View
+} // namespace TrenchBroom

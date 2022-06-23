@@ -17,20 +17,13 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRENCHBROOM_TAGATTRIBUTE_H
-#define TRENCHBROOM_TAGATTRIBUTE_H
-
-#include <map>
-#include <string>
+#pragma once
 
 namespace TrenchBroom {
-    namespace Model {
-        class TagAttribute;
-        namespace TagAttributes {
-            extern const TagAttribute Transparency;
-        }
-    }
+namespace Model {
+class TagAttribute;
+namespace TagAttributes {
+extern const TagAttribute Transparency;
 }
-
-
-#endif //TRENCHBROOM_TAGATTRIBUTE_H
+} // namespace Model
+} // namespace TrenchBroom

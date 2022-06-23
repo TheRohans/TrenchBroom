@@ -1,80 +1,83 @@
-var platform = "windows";
-if (navigator.platform.indexOf("Win")!=-1)   platform = "windows";
-if (navigator.platform.indexOf("Mac")!=-1)   platform = "mac";
-if (navigator.platform.indexOf("X11")!=-1)   platform = "linux";
-if (navigator.platform.indexOf("Linux")!=-1) platform = "linux";
-//platform = "mac"; //debug
-
-console.log(`Platform detected as ${platform} with navigator.platform=${navigator.platform}`);
-
-function key_str(key) {
-	if (keys[platform][key])
-		return "<span class=\"shortcut\">" + keys[platform][key] + "</span>";
-	return null;
+// handles the string in a #key() macro
+const key_str = (key) => {
+    if (keys[key]) {
+        return "<span class=\"shortcut\">" + keys[key] + "</span>";
+    } else {
+        console.error("unknown key ", key);
+        return undefined;
+    }
 }
 
-function shortcut_str(shortcut) {
-	var result = "";
-	if (shortcut) {
-		if (shortcut.key == 0) {
-			result = null;
-		} else {
-			for (i = 0; i < shortcut.modifiers.length; ++i)
-				result += key_str(shortcut.modifiers[i]);
-			result += key_str(shortcut.key);
-		}
-	} else {
-		result += "&laquo;unknown shortcut&raquo;";
-	}
+// Pandoc smart typography converts three periods to …, but this breaks
+// our menu item lookups.
+const fix_ellipsis = (path) => path.replace("…", "...");
 
-	return result;
+const shortcut_str = (shortcut) => {
+    let result = "";
+
+    if (shortcut) {
+        if (shortcut.key == "") {
+            result = undefined;
+        } else {
+            for (i = 0; i < shortcut.modifiers.length; ++i) {
+                result += key_str(shortcut.modifiers[i]);
+            }
+            result += key_str(shortcut.key);
+        }
+    } else {
+        console.error("unknown shortcut ", shortcut);
+        result += "&laquo;unknown shortcut&raquo;";
+    }
+
+    return result;
 }
 
-function menu_path_str(path) {
-	var result = "";
-	for (i = 0; i < path.length; ++i) {
-		result += path[i];
-		if (i < path.length - 1)
-			result += " &raquo; ";
-	}
-	return result;
+const menu_path_str = (path) => path.join(" &raquo; ");
+
+// handles the string in a #menu() macro
+const menu_item_str = (key) => {
+    key = fix_ellipsis(key);
+    let result = "<b>";
+    const item = menu[key];
+
+    if (item) {
+        result += menu_path_str(item.path);
+        const shortcut = shortcut_str(item.shortcut);
+        if (shortcut) {
+            result += " (" + shortcut + ")";
+        }
+    } else {
+        console.error("unknown menu item ", key);
+        result += "unknown menu item \"" + key + "\"";
+    }
+
+    result += "</b>";
+    return result;
 }
 
-function menu_item_str(key) {
-	var result = "<b>";
-	var item = menu[key];
-	if (item) {
-		result += menu_path_str(item.path);
-		var shortcut = shortcut_str(item.shortcut);
-		if (shortcut)
-			result += " (" + shortcut + ")";
-	} else {
-		result += "unknown menu item \"" + key + "\"";
-	}
-	result += "</b>";
-	return result;
+// handles the string in an #action() macro
+const action_str = (key) => {
+    key = fix_ellipsis(key);
+
+    let result = "<b>";
+    const item = actions[key];
+
+    if (item) {
+        result += shortcut_str(item);
+    } else {
+        console.error("unknown action ", key);
+        result += "unknown action \"" + key + "\"";
+    }
+
+    result += "</b>";
+    return result;
 }
 
-function action_str(key) {
-	var result = "<b>";
-	var item = actions[key];
-	if (item) {
-		result += shortcut_str(item);
-	} else {
-		result += "unknown action \"" + key + "\"";
-	}
-	result += "</b>";
-	return result;
-}
+// #key() macros expand into calls to this
+const print_key = (key) => document.write(key_str(key));
 
-function print_key(key) {
-	document.write(key_str(key));
-}
+// #menu() macros expand into calls to this
+const print_menu_item = (key) => document.write(menu_item_str(key));
 
-function print_menu_item(key) {
-	document.write(menu_item_str(key));
-}
-
-function print_action(key) {
-	document.write(action_str(key));
-}
+// #action() macros expand into calls to this
+const print_action = (key) => document.write(action_str(key));

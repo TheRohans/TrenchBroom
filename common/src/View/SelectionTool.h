@@ -1,72 +1,71 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_SelectionTool
-#define TrenchBroom_SelectionTool
+#pragma once
 
-#include "Model/Hit.h"
-#include "Model/ModelTypes.h"
+#include "Model/HitType.h"
 #include "View/Tool.h"
 #include "View/ToolController.h"
-#include "View/ViewTypes.h"
+
+#include <memory>
+#include <vector>
 
 namespace TrenchBroom {
-    namespace Renderer {
-        class RenderContext;
-    }
-    
-    namespace View {
-        class InputState;
-        
-        class SelectionTool : public ToolControllerBase<NoPickingPolicy, NoKeyPolicy, MousePolicy, MouseDragPolicy, RenderPolicy, NoDropPolicy>, public Tool {
-        private:
-            MapDocumentWPtr m_document;
-        public:
-            SelectionTool(MapDocumentWPtr document);
-        private:
-            Tool* doGetTool() override;
-            
-            bool doMouseClick(const InputState& inputState) override;
-            bool doMouseDoubleClick(const InputState& inputState) override;
-            
-            bool handleClick(const InputState& inputState) const;
-            bool isFaceClick(const InputState& inputState) const;
-            bool isMultiClick(const InputState& inputState) const;
-            
-            const Model::Hit& firstHit(const InputState& inputState, Model::Hit::HitType type) const;
-
-            Model::NodeList collectSelectableChildren(const Model::EditorContext& editorContext, const Model::Node* node) const;
-            
-            void doMouseScroll(const InputState& inputState) override;
-            void adjustGrid(const InputState& inputState);
-            void drillSelection(const InputState& inputState);
-
-            bool doStartMouseDrag(const InputState& inputState) override;
-            bool doMouseDrag(const InputState& inputState) override;
-            void doEndMouseDrag(const InputState& inputState) override;
-            void doCancelMouseDrag() override;
-
-            void doSetRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const override;
-            
-            bool doCancel() override;
-        };
-    }
+namespace Model {
+class Node;
 }
 
-#endif /* defined(TrenchBroom_SelectionTool) */
+namespace Renderer {
+class RenderContext;
+}
+
+namespace View {
+class DragTracker;
+class MapDocument;
+
+/**
+ * Applies the group picking logic of findOutermostClosedGroupOrNode() to a list of hits.
+ * The order of the hits is preserved, but if multiple hits map to the same group, that group
+ * will only be listed once in the output.
+ */
+std::vector<Model::Node*> hitsToNodesWithGroupPicking(const std::vector<Model::Hit>& hits);
+
+class SelectionTool : public ToolController, public Tool {
+private:
+  std::weak_ptr<MapDocument> m_document;
+
+public:
+  explicit SelectionTool(std::weak_ptr<MapDocument> document);
+
+  Tool& tool() override;
+  const Tool& tool() const override;
+
+  bool mouseClick(const InputState& inputState) override;
+  bool mouseDoubleClick(const InputState& inputState) override;
+  void mouseScroll(const InputState& inputState) override;
+
+  std::unique_ptr<DragTracker> acceptMouseDrag(const InputState& inputState) override;
+
+  void setRenderOptions(
+    const InputState& inputState, Renderer::RenderContext& renderContext) const override;
+
+  bool cancel() override;
+};
+} // namespace View
+} // namespace TrenchBroom

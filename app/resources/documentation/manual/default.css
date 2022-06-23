@@ -1,238 +1,136 @@
-a, abbr, acronym, address, applet, article, aside, audio, b, big, blockquote, body, canvas, caption, center, cite, code, dd, del, details, dfn, div, dl, dt, em, embed, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, kbd, label, legend, li, mark, menu, nav, object, ol, output, p, pre, q, ruby, s, samp, section, small, span, strike, strong, sub, summary, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, u, ul, var, video {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-	vertical-align: baseline;
-}
+/* ##### Default ########## */
+
+/* Body */
 
 body {
-	line-height: 1;
+    font-family: var(--typography-font-family-base);
+    font-size: var(--typography-font-size-x10000);
+    font-weight: var(--typography-font-weight-regular);
+    line-height: var(--typography-line-height-normal);
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-20);
 }
 
-ol, ul {
-	list-style: none;
+body.toc_toggled {
+    overflow: hidden;
 }
 
-blockquote, q {
-	quotes: none;
+/* Table of Contents and Content */
+
+body #toc_toggler, body #toc, body #content {
+    padding: var(--spacing-x20000);
 }
 
-blockquote:after, blockquote:before, q:after, q:before {
-	content: "";
-	content: none;
+/* Table of Contents */
+
+body #toc_toggler, body #toc {
+    background-color: var(--color-gray-97);
 }
 
-table {
-	border-collapse: collapse;
-	border-spacing: 0;
+body #toc_toggler {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    min-width: 50px;
+    max-width: 50px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
 }
 
-pre {
-	padding: 20px;
-	overflow-x: auto;
-	overflow-y: hidden;
-	background-color: #eee;
-	border: 1px solid #ccc;
-	border-radius: 4px;
+body #toc_toggler img {
+    width: var(--sizing-x12500);
+    height: var(--sizing-x12500);
 }
 
-pre > div {
-	padding: 20px 20px 0;
+body #toc_toggler > a[href="#"] {
+    margin-top: auto;
 }
 
-code {
-	font-size: .75rem;
-	font-family: Lucida Console, Monaco, monospace;
+body #toc {
+    min-width: var(--toc-width);
+    max-width: var(--toc-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    overflow-y: auto;
 }
 
-h1, h2, h3, h4 {
-	font-weight: 700;
+body #toc #toc_inner > ul {
+    margin-top: var(--spacing-x05000);
+    margin-bottom: 0;
+    margin-left: 0;
+    list-style-type: none;
 }
 
-h1 {
-	font-size: 2rem;
+body #toc #toc_inner > ul > li > a {
+    font-weight: var(--typography-font-weight-bold);
 }
 
-h2 {
-	font-size: 1.5rem;
+/* Content Version */
+
+body #content_version {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--spacing-x10000);
+    padding-bottom: var(--spacing-x05000);
+    font-size: var(--typography-font-size-x08750);
+    color: var(--color-gray-60);
+    border-bottom: var(--border);
 }
 
-h3, h4 {
-	font-size: 1.125rem;
+body #content_version #content_version_details {
+    display: flex;
+    align-items: center;
 }
 
-p {
-	line-height: 1.5;
-	text-align: justify;
+body #content_version #content_version_details img {
+    max-width: var(--sizing-x30000);
+    margin: 0;
+    margin-right: var(--spacing-x05000);
 }
 
-b, strong {
-	font-weight: 700;
+body #content_version #content_version_details div {
+    display: flex;
+    flex-direction: column;
 }
 
-em, i {
-	font-style: italic;
+body #content_version #content_version_details div #content_version_heading {
+    font-size: var(--typography-font-size-x10000);
+    font-weight: var(--typography-font-weight-bold);
+    color: var(--color-gray-40);
 }
 
-dl {
-	line-height: 1.5;
+body #content_version #content_version_links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: auto;
 }
 
-dl dt {
-	font-weight: 700;
+/* Content */
+
+body #content {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding-left: calc(var(--toc-width) + var(--sizing-x20000));
 }
 
-dl dd {
-	margin-left: 40px;
+body #content > :last-child {
+    margin-bottom: 0;
 }
 
-ol {
-	list-style-type: decimal;
+body #content h1, body #content h2, body #content h3, body #content h4 {
+    display: inline-block;
+    width: 100%;
+    margin-top: var(--spacing-x05000);
 }
 
-ol, ul {
-	margin-left: 40px;
-	line-height: 1.5;
-}
+/* Back to Top */
 
-ul {
-	list-style-type: disc;
-}
-
-ul li ul {
-	margin-bottom: 0;
-}
-
-ul li ul li {
-	list-style-type: circle;
-}
-
-ul li ul li ul li {
-	list-style-type: square;
-}
-
-a {
-	text-decoration: none;
-	color: #07e;
-}
-
-figure {
-	border-radius: 4px;
-	background-color: #ccc;
-	box-sizing: border-box;
-}
-
-figure figcaption {
-	padding: 10px 0;
-	text-align: center;
-	font-size: .75rem;
-	font-weight: 700;
-	color: #333;
-}
-
-img {
-	max-width: 100%;
-	border-radius: 4px;
-	padding: 1px;
-	box-sizing: border-box;
-	background-color: #eee;
-}
-
-figure {
-	display: inline-block;
-	margin-left: 20px;
-	margin-right: 20px;
-}
-
-figure img {
-	margin: 0;
-	background-color: inherit;
-}
-
-p img {
-	float: left;
-	margin: 0 20px 20px 0;
-}
-
-table {
-	display: block;
-	overflow-x: auto;
-	white-space: nowrap;
-}
-
-table thead tr th {
-	font-weight: 700;
-	text-align: left;
-}
-
-table tbody tr td, table thead tr th {
-	border: 1px solid #ccc;
-	padding: 5px 10px;
-	vertical-align: middle;
-}
-
-.shortcut {
-	font-size: .75rem;
-	font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-	font-weight: 700;
-	border: 1px solid #ccc;
-	margin: 0 2px;
-	padding: 2px 4px;
-	background-color: #eee;
-	border-radius: 4px;
-}
-
-dl, figure, h1, h2, h3, h4, img, ol, p, pre, table, ul {
-	margin-bottom: 20px;
-}
-
-body {
-	display: grid;
-	grid-template-columns: auto auto;
-	color: #333;
-}
-
-body > main, body > section {
-	padding: 20px 20px 0;
-}
-
-body #TOC {
-	box-sizing: border-box;
-	font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-	font-size: 16px;
-	background-color: #eee;
-	user-select: none;
-}
-
-body #TOC #TOC_INNER #TOC_HEADER {
-	text-align: center;
-}
-
-body #TOC #TOC_INNER img {
-	display: inline-block;
-	margin-bottom: 10px;
-}
-
-body #TOC #TOC_INNER > ul {
-	margin-top: 10px;
-	margin-left: 0;
-	list-style-type: none;
-}
-
-body #TOC #TOC_INNER > ul > li > a {
-	font-weight: 700;
-}
-
-body #CONTENT {
-	overflow: auto;
-	box-sizing: border-box;
-	font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-	font-size: 16px;
-}
-
-body #CONTENT h1, body #CONTENT h2, body #CONTENT h3, body #CONTENT h4 {
-	width: 100%;
-	display: inline-block;
+body #content a[href="#"] {
+    position: fixed;
+    right: var(--spacing-x20000);
+    bottom: var(--spacing-x20000);
 }

@@ -1,98 +1,47 @@
 /*
- Copyright (C) 2010-2017 Kristian Duske
- 
+ Copyright (C) 2021 Kristian Duske
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_HitFilter
-#define TrenchBroom_HitFilter
+#pragma once
 
-#include "Hit.h"
-#include "SharedPointer.h"
+#include "FloatType.h"
+#include "Model/HitType.h"
+
+#include <functional>
 
 namespace TrenchBroom {
-    namespace Model {
-        class HitFilter {
-        private:
-            class Always;
-            class Never;
-        public:
-            static HitFilter* always();
-            static HitFilter* never();
-            
-            virtual ~HitFilter();
-            
-            HitFilter* clone() const;
-            
-            bool matches(const Hit& hit) const;
-        private:
-            virtual HitFilter* doClone() const = 0;
-            virtual bool doMatches(const Hit& hit) const = 0;
-        };
-        
-        class HitFilterChain : public HitFilter {
-        private:
-            const HitFilter* m_filter;
-            const HitFilter* m_next;
-        public:
-            HitFilterChain(const HitFilter* filter, const HitFilter* next);
-            ~HitFilterChain() override;
-        private:
-            HitFilter* doClone() const override;
-            bool doMatches(const Hit& hit) const override;
-        };
-        
-        class TypedHitFilter : public HitFilter {
-        private:
-            Hit::HitType m_typeMask;
-        public:
-            TypedHitFilter(Hit::HitType typeMask);
-        private:
-            HitFilter* doClone() const override;
-            bool doMatches(const Hit& hit) const override;
-        };
+namespace Model {
+class Hit;
 
-        class SelectionHitFilter : public HitFilter {
-        private:
-            HitFilter* doClone() const override;
-            bool doMatches(const Hit& hit) const override;
-        };
-        
-        class MinDistanceHitFilter : public HitFilter {
-        private:
-            FloatType m_minDistance;
-        public:
-            MinDistanceHitFilter(FloatType minDistance);
-        private:
-            HitFilter* doClone() const override;
-            bool doMatches(const Hit& hit) const override;
-        };
-        
-        class EditorContext;
+using HitFilter = std::function<bool(const Hit& hit)>;
 
-        class ContextHitFilter : public HitFilter {
-        private:
-            const EditorContext& m_context;
-        public:
-            ContextHitFilter(const EditorContext& context);
-        private:
-            HitFilter* doClone() const override;
-            bool doMatches(const Hit& hit) const override;
-        };
-    }
-}
+namespace HitFilters {
+HitFilter any();
+HitFilter none();
 
-#endif /* defined(TrenchBroom_HitFilter) */
+HitFilter type(HitType::Type typeMask = HitType::AnyType);
+HitFilter selected();
+HitFilter transitivelySelected();
+HitFilter minDistance(FloatType minDistance);
+} // namespace HitFilters
+
+HitFilter operator&&(HitFilter lhs, HitFilter rhs);
+HitFilter operator||(HitFilter lhs, HitFilter rhs);
+HitFilter operator!(HitFilter filter);
+} // namespace Model
+} // namespace TrenchBroom

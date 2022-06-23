@@ -1,63 +1,61 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_PointHandleRenderer
-#define TrenchBroom_PointHandleRenderer
+#pragma once
 
-#include "TrenchBroom.h"
 #include "Color.h"
 #include "Renderer/Circle.h"
 #include "Renderer/Renderable.h"
 
 #include <vecmath/forward.h>
-#include <vecmath/vec.h>
 
 #include <map>
 
 namespace TrenchBroom {
-    namespace Renderer {
-        class ActiveShader;
-        class RenderContext;
-        class Vbo;
-        
-        class PointHandleRenderer : public DirectRenderable {
-        private:
-            using HandleMap = std::map<Color, std::vector<vm::vec3f>>;
-            
-            HandleMap m_pointHandles;
-            HandleMap m_highlights;
+namespace Renderer {
+class ActiveShader;
+class RenderContext;
+class VboManager;
 
-            Circle m_handle;
-            Circle m_highlight;
-        public:
-            PointHandleRenderer();
-            
-            void addPoint(const Color& color, const vm::vec3f& position);
-            void addHighlight(const Color& color, const vm::vec3f& position);
-        private:
-            void doPrepareVertices(Vbo& vertexVbo) override;
-            void doRender(RenderContext& renderContext) override;
-            void renderHandles(RenderContext& renderContext, const HandleMap& map, Circle& circle);
-            
-            void clear();
-        };
-    }
-}
+class PointHandleRenderer : public DirectRenderable {
+private:
+  using HandleMap = std::map<Color, std::vector<vm::vec3f>>;
 
-#endif /* defined(TrenchBroom_PointHandleRenderer) */
+  HandleMap m_pointHandles;
+  HandleMap m_highlights;
+
+  Circle m_handle;
+  Circle m_highlight;
+
+public:
+  PointHandleRenderer();
+
+  void addPoint(const Color& color, const vm::vec3f& position);
+  void addHighlight(const Color& color, const vm::vec3f& position);
+
+private:
+  void doPrepareVertices(VboManager& vboManager) override;
+  void doRender(RenderContext& renderContext) override;
+  void renderHandles(
+    RenderContext& renderContext, const HandleMap& map, Circle& circle, float opacity);
+
+  void clear();
+};
+} // namespace Renderer
+} // namespace TrenchBroom

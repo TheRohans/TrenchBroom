@@ -17,70 +17,72 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRENCHBROOM_QUAKE3SHADER_H
-#define TRENCHBROOM_QUAKE3SHADER_H
+#pragma once
 
-#include "StringUtils.h"
 #include "IO/Path.h"
 
+#include <set>
+#include <string>
 #include <vector>
 
 namespace TrenchBroom {
-    namespace Assets {
-        class Quake3ShaderStage {
-        public:
-            struct BlendFunc {
-                String srcFactor;
-                String destFactor;
+namespace Assets {
+class Quake3ShaderStage {
+public:
+  struct BlendFunc {
+    std::string srcFactor;
+    std::string destFactor;
 
-                static const String One;
-                static const String Zero;
-                static const String SrcColor;
-                static const String DestColor;
-                static const String OneMinusSrcColor;
-                static const String OneMinusDestColor;
-                static const String SrcAlpha;
-                static const String DestAlpha;
-                static const String OneMinusSrcAlpha;
-                static const String OneMinusDestAlpha;
-                static const String SrcAlphaSaturate;
+    static const std::string One;
+    static const std::string Zero;
+    static const std::string SrcColor;
+    static const std::string DestColor;
+    static const std::string OneMinusSrcColor;
+    static const std::string OneMinusDestColor;
+    static const std::string SrcAlpha;
+    static const std::string DestAlpha;
+    static const std::string OneMinusSrcAlpha;
+    static const std::string OneMinusDestAlpha;
+    static const std::string SrcAlphaSaturate;
 
-                bool enable() const;
-                bool validateSrcFactor() const;
-                bool validateDestFactor() const;
-                void reset();
-                
-                bool operator==(const BlendFunc& other) const;
-            };
-        public:
-            IO::Path map;
-            BlendFunc blendFunc;
-        public:
-            bool operator==(const Quake3ShaderStage& other) const;
-        };
+    bool enable() const;
+    bool validateSrcFactor() const;
+    bool validateDestFactor() const;
+    void reset();
+  };
 
-        class Quake3Shader {
-        public:
-            enum class Culling {
-                Front,
-                Back,
-                None
-            };
-        public:
-            IO::Path shaderPath;
-            IO::Path editorImage;
-            IO::Path lightImage;
-            Culling culling = Culling::Front;
-            StringSet surfaceParms;
-            std::vector<Quake3ShaderStage> stages;
-        public:
-            bool operator==(const Quake3Shader& other) const;
-            friend bool isEqual(const Quake3Shader& lhs, const Quake3Shader& rhs);
+public:
+  IO::Path map;
+  BlendFunc blendFunc;
+};
 
-            Quake3ShaderStage& addStage();
-        };
-    }
-}
+bool operator==(const Quake3ShaderStage::BlendFunc& lhs, const Quake3ShaderStage::BlendFunc& rhs);
+bool operator!=(const Quake3ShaderStage::BlendFunc& lhs, const Quake3ShaderStage::BlendFunc& rhs);
 
+bool operator==(const Quake3ShaderStage& lhs, const Quake3ShaderStage& rhs);
+bool operator!=(const Quake3ShaderStage& lhs, const Quake3ShaderStage& rhs);
 
-#endif //TRENCHBROOM_QUAKE3SHADER_H
+class Quake3Shader {
+public:
+  enum class Culling {
+    Front,
+    Back,
+    None
+  };
+
+public:
+  IO::Path shaderPath;
+  IO::Path editorImage;
+  IO::Path lightImage;
+  Culling culling = Culling::Front;
+  std::set<std::string> surfaceParms;
+  std::vector<Quake3ShaderStage> stages;
+
+public:
+  Quake3ShaderStage& addStage();
+};
+
+bool operator==(const Quake3Shader& lhs, const Quake3Shader& rhs);
+bool operator!=(const Quake3Shader& lhs, const Quake3Shader& rhs);
+} // namespace Assets
+} // namespace TrenchBroom

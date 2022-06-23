@@ -1,71 +1,80 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_RotateObjectsToolPage
-#define TrenchBroom_RotateObjectsToolPage
+#pragma once
 
-#include "TrenchBroom.h"
-#include "View/ViewTypes.h"
+#include "FloatType.h"
+#include "NotifierConnection.h"
 
-#include <vecmath/vec.h>
+#include <vecmath/forward.h>
 #include <vecmath/util.h>
 
-#include <wx/panel.h>
+#include <memory>
 
-class wxButton;
-class wxChoice;
-class wxComboBox;
+#include <QWidget>
+
+class QAbstractButton;
+class QComboBox;
 
 namespace TrenchBroom {
-    namespace View {
-        class RotateObjectsTool;
-        class SpinControl;
-        class SpinControlEvent;
-        
-        class RotateObjectsToolPage : public wxPanel {
-        private:
-            MapDocumentWPtr m_document;
-            RotateObjectsTool* m_tool;
+namespace View {
+class MapDocument;
+class RotateObjectsTool;
+class Selection;
+class SpinControl;
 
-            wxComboBox* m_recentlyUsedCentersList;
-            wxButton* m_resetCenterButton;
-            
-            SpinControl* m_angle;
-            wxChoice* m_axis;
-            wxButton* m_rotateButton;
-        public:
-            RotateObjectsToolPage(wxWindow* parent, MapDocumentWPtr document, RotateObjectsTool* tool);
-            void setAxis(vm::axis::type axis);
-            void setRecentlyUsedCenters(const std::vector<vm::vec3>& centers);
-            void setCurrentCenter(const vm::vec3& center);
-        private:
-            void createGui();
-            
-            void OnIdle(wxIdleEvent& event);
-            void OnCenterChanged(wxCommandEvent& event);
-            void OnResetCenter(wxCommandEvent& event);
-            void OnAngleChanged(SpinControlEvent& event);
-            void OnUpdateRotateButton(wxUpdateUIEvent& event);
-            void OnRotate(wxCommandEvent& event);
-            vm::vec3 getAxis() const;
-        };
-    }
-}
+class RotateObjectsToolPage : public QWidget {
+  Q_OBJECT
+private:
+  std::weak_ptr<MapDocument> m_document;
+  RotateObjectsTool& m_tool;
 
-#endif /* defined(TrenchBroom_RotateObjectsToolPage) */
+  QComboBox* m_recentlyUsedCentersList;
+  QAbstractButton* m_resetCenterButton;
+
+  SpinControl* m_angle;
+  QComboBox* m_axis;
+  QAbstractButton* m_rotateButton;
+
+  NotifierConnection m_notifierConnection;
+
+public:
+  RotateObjectsToolPage(
+    std::weak_ptr<MapDocument> document, RotateObjectsTool& tool, QWidget* parent = nullptr);
+
+  void setAxis(vm::axis::type axis);
+  void setRecentlyUsedCenters(const std::vector<vm::vec3>& centers);
+  void setCurrentCenter(const vm::vec3& center);
+
+private:
+  void connectObservers();
+
+  void createGui();
+  void updateGui();
+
+  void selectionDidChange(const Selection& selection);
+
+  void centerChanged();
+  void resetCenterClicked();
+  void angleChanged(double value);
+  void rotateClicked();
+  vm::vec3 getAxis() const;
+};
+} // namespace View
+} // namespace TrenchBroom

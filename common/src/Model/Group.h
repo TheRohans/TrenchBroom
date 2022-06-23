@@ -1,113 +1,56 @@
 /*
- Copyright (C) 2010-2017 Kristian Duske
- 
+ Copyright (C) 2020 Kristian Duske
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_Group
-#define TrenchBroom_Group
+#pragma once
 
-#include "TrenchBroom.h"
-#include "StringUtils.h"
-#include "Hit.h"
-#include "Model/ModelTypes.h"
-#include "Model/Node.h"
-#include "Model/Object.h"
+#include "FloatType.h"
 
-#include <vecmath/bbox.h>
+#include <vecmath/mat.h>
+
+#include <optional>
+#include <string>
 
 namespace TrenchBroom {
-    namespace Model {
-        class PickResult;
-        
-        class Group : public Node, public Object {
-        public:
-            static const Hit::HitType GroupHit;
-        private:
-            typedef enum {
-                Edit_Open,
-                Edit_Closed,
-                Edit_DescendantOpen
-            } EditState;
-            
-            String m_name;
-            EditState m_editState;
-            mutable vm::bbox3 m_bounds;
-            mutable bool m_boundsValid;
-        public:
-            Group(const String& name);
-            
-            void setName(const String& name);
-            
-            bool opened() const;
-            void open();
-            void close();
-        private:
-            void setEditState(EditState editState);
-            
-            class SetEditStateVisitor;
-            void openAncestors();
-            void closeAncestors();
-            
-            bool hasOpenedDescendant() const;
-        private: // implement methods inherited from Node
-            const String& doGetName() const override;
-            const vm::bbox3& doGetBounds() const override;
-            
-            Node* doClone(const vm::bbox3& worldBounds) const override;
-            NodeSnapshot* doTakeSnapshot() override;
+namespace Model {
+class Group {
+private:
+  std::string m_name;
+  std::optional<std::string> m_linkedGroupId;
 
-            bool doCanAddChild(const Node* child) const override;
-            bool doCanRemoveChild(const Node* child) const override;
-            bool doRemoveIfEmpty() const override;
+  vm::mat4x4 m_transformation;
 
-            bool doShouldAddToSpacialIndex() const override;
+public:
+  explicit Group(std::string name);
 
-            void doChildWasAdded(Node* node) override;
-            void doChildWasRemoved(Node* node) override;
+  const std::string& name() const;
+  void setName(std::string name);
 
-            void doNodeBoundsDidChange(const vm::bbox3& oldBounds) override;
-            void doChildBoundsDidChange(Node* node, const vm::bbox3& oldBounds) override;
+  std::optional<std::string> linkedGroupId() const;
+  void setLinkedGroupId(std::string linkedGroupId);
+  void resetLinkedGroupId();
 
-            bool doSelectable() const override;
-            
-            void doPick(const vm::ray3& ray, PickResult& pickResult) const override;
-            void doFindNodesContaining(const vm::vec3& point, NodeList& result) override;
-            FloatType doIntersectWithRay(const vm::ray3& ray) const override;
+  const vm::mat4x4& transformation() const;
+  void setTransformation(const vm::mat4x4& transformation);
+  void transform(const vm::mat4x4& transformation);
 
-            void doGenerateIssues(const IssueGenerator* generator, IssueList& issues) override;
-            void doAccept(NodeVisitor& visitor) override;
-            void doAccept(ConstNodeVisitor& visitor) const override;
-        private: // implement methods inherited from Object
-            Node* doGetContainer() const override;
-            Layer* doGetLayer() const override;
-            Group* doGetGroup() const override;
-            
-            void doTransform(const vm::mat4x4& transformation, bool lockTextures, const vm::bbox3& worldBounds) override;
-            bool doContains(const Node* node) const override;
-            bool doIntersects(const Node* node) const override;
-        private:
-            void invalidateBounds();
-            void validateBounds() const;
-        private: // implement Taggable interface
-            bool doEvaluateTagMatcher(const TagMatcher& matcher) const override;
-        private:
-            deleteCopyAndMove(Group)
-        };
-    }
-}
-
-#endif /* defined(TrenchBroom_Group) */
+  friend bool operator==(const Group& lhs, const Group& rhs);
+  friend bool operator!=(const Group& lhs, const Group& rhs);
+};
+} // namespace Model
+} // namespace TrenchBroom

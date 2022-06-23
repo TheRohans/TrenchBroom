@@ -18,78 +18,82 @@ You should have received a copy of the GNU General Public License
 along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TrenchBroom_ScaleObjectsToolController
-#define TrenchBroom_ScaleObjectsToolController
+#pragma once
 
-#include "Model/Hit.h"
-#include "Renderer/EdgeRenderer.h"
 #include "View/ToolController.h"
-#include "View/ViewTypes.h"
+
+#include <vecmath/forward.h>
+
+#include <memory>
 
 namespace TrenchBroom {
-    namespace Model {
-        class PickResult;
-    }
-    
-    namespace Renderer {
-        class RenderBatch;
-        class RenderContext;
-    }
-    
-    namespace View {
-        class InputState;
-        class ScaleObjectsTool;
-        
-        class ScaleObjectsToolController : public ToolControllerBase<PickingPolicy, KeyPolicy, MousePolicy, RestrictedDragPolicy, RenderPolicy, NoDropPolicy> {
-        protected:
-            ScaleObjectsTool* m_tool;
-        private:
-            MapDocumentWPtr m_document;
+namespace Renderer {
+class Camera;
+class RenderBatch;
+class RenderContext;
+} // namespace Renderer
 
-        public:
-            explicit ScaleObjectsToolController(ScaleObjectsTool* tool, MapDocumentWPtr document);
-            ~ScaleObjectsToolController() override;
-        private:
-            Tool* doGetTool() override;
+namespace View {
+class MapDocument;
+class ScaleObjectsTool;
 
-            void doPick(const InputState& inputState, Model::PickResult& pickResult) override;
-            virtual void doPick(const vm::ray3 &pickRay, const Renderer::Camera &camera, Model::PickResult &pickResult) = 0;
+class ScaleObjectsToolController : public ToolController {
+protected:
+  ScaleObjectsTool& m_tool;
 
-            void doModifierKeyChange(const InputState& inputState) override;
-            
-            void doMouseMove(const InputState& inputState) override;
+private:
+  std::weak_ptr<MapDocument> m_document;
 
-            // RestrictedDragPolicy
-            DragInfo doStartDrag(const InputState& inputState) override;
-            DragResult doDrag(const InputState& inputState, const vm::vec3& lastHandlePosition, const vm::vec3& nextHandlePosition) override;
-            void doEndDrag(const InputState& inputState) override;
-            void doCancelDrag() override;
+public:
+  explicit ScaleObjectsToolController(ScaleObjectsTool& tool, std::weak_ptr<MapDocument> document);
+  ~ScaleObjectsToolController() override;
 
-            void doSetRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const override;
+private:
+  Tool& tool() override;
+  const Tool& tool() const override;
 
-            void doRender(const InputState& inputState, Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) override;
+  void pick(const InputState& inputState, Model::PickResult& pickResult) override;
 
-            bool doCancel() override;
+  void modifierKeyChange(const InputState& inputState) override;
 
-        protected:
-            bool handleInput(const InputState& inputState) const;
-        };
-        
-        class ScaleObjectsToolController2D : public ScaleObjectsToolController {
-        public:
-            explicit ScaleObjectsToolController2D(ScaleObjectsTool* tool, MapDocumentWPtr document);
-        private:
-            void doPick(const vm::ray3& pickRay, const Renderer::Camera& camera, Model::PickResult& pickResult) override;
-        };
-        
-        class ScaleObjectsToolController3D : public ScaleObjectsToolController {
-        public:
-            explicit ScaleObjectsToolController3D(ScaleObjectsTool* tool, MapDocumentWPtr document);
-        private:
-            void doPick(const vm::ray3& pickRay, const Renderer::Camera& camera, Model::PickResult& pickResult) override;
-        };
-    }
-}
+  void mouseMove(const InputState& inputState) override;
 
-#endif /* defined(TrenchBroom_ScaleObjectsToolController) */
+  std::unique_ptr<DragTracker> acceptMouseDrag(const InputState& inputState) override;
 
+  void setRenderOptions(
+    const InputState& inputState, Renderer::RenderContext& renderContext) const override;
+  void render(
+    const InputState& inputState, Renderer::RenderContext& renderContext,
+    Renderer::RenderBatch& renderBatch) override;
+
+  bool cancel() override;
+
+private:
+  virtual void doPick(
+    const vm::ray3& pickRay, const Renderer::Camera& camera,
+    Model::PickResult& pickResult) const = 0;
+};
+
+class ScaleObjectsToolController2D : public ScaleObjectsToolController {
+public:
+  explicit ScaleObjectsToolController2D(
+    ScaleObjectsTool& tool, std::weak_ptr<MapDocument> document);
+
+private:
+  void doPick(
+    const vm::ray3& pickRay, const Renderer::Camera& camera,
+    Model::PickResult& pickResult) const override;
+};
+
+class ScaleObjectsToolController3D : public ScaleObjectsToolController {
+public:
+  explicit ScaleObjectsToolController3D(
+    ScaleObjectsTool& tool, std::weak_ptr<MapDocument> document);
+
+private:
+  void doPick(
+    const vm::ray3& pickRay, const Renderer::Camera& camera,
+    Model::PickResult& pickResult) const override;
+};
+} // namespace View
+} // namespace TrenchBroom

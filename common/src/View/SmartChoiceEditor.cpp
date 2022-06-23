@@ -1,110 +1,109 @@
 /*
  Copyright (C) 2010-2017 Kristian Duske
- 
+
  This file is part of TrenchBroom.
- 
+
  TrenchBroom is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  TrenchBroom is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "SmartChoiceEditor.h"
-#include "Assets/AttributeDefinition.h"
-#include "Model/AttributableNode.h"
+#include "Assets/PropertyDefinition.h"
+#include "Model/EntityNodeBase.h"
 #include "View/MapDocument.h"
+#include "View/QtUtils.h"
 #include "View/ViewConstants.h"
 
-#include <wx/combobox.h>
-#include <wx/panel.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/wupdlock.h>
+#include <kdl/set_temp.h>
+
+#include <QComboBox>
+#include <QDebug>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QtGlobal>
 
 #include <cassert>
 
 namespace TrenchBroom {
-    namespace View {
-        SmartChoiceEditor::SmartChoiceEditor(View::MapDocumentWPtr document) :
-        SmartAttributeEditor(document),
-        m_panel(nullptr),
-        m_comboBox(nullptr) {}
-
-        void SmartChoiceEditor::OnComboBox(wxCommandEvent& event) {
-            if (m_panel->IsBeingDeleted()) return;
-
-            const String valueDescStr = m_comboBox->GetValue().ToStdString();
-            const String valueStr = valueDescStr.substr(0, valueDescStr.find_first_of(':') - 1);
-            document()->setAttribute(name(), valueStr);
-        }
-        
-        void SmartChoiceEditor::OnTextEnter(wxCommandEvent& event) {
-            if (m_panel->IsBeingDeleted()) return;
-
-            document()->setAttribute(name(), m_comboBox->GetValue().ToStdString());
-        }
-
-        wxWindow* SmartChoiceEditor::doCreateVisual(wxWindow* parent) {
-            assert(m_panel == nullptr);
-            assert(m_comboBox == nullptr);
-            
-            m_panel = new wxPanel(parent);
-            wxStaticText* infoText = new wxStaticText(m_panel, wxID_ANY, "Select a choice option:");
-#if defined __APPLE__
-            infoText->SetFont(*wxSMALL_FONT);
-#endif
-            m_comboBox = new wxComboBox(m_panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxTE_PROCESS_ENTER);
-            m_comboBox->Bind(wxEVT_COMBOBOX, &SmartChoiceEditor::OnComboBox, this);
-            m_comboBox->Bind(wxEVT_TEXT_ENTER, &SmartChoiceEditor::OnTextEnter, this);
-            
-            wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-            sizer->AddSpacer(LayoutConstants::WideVMargin);
-            sizer->Add(infoText, 0, wxLEFT | wxRIGHT, LayoutConstants::WideHMargin);
-            sizer->AddSpacer(LayoutConstants::WideVMargin);
-            sizer->Add(m_comboBox, 0, wxEXPAND | wxLEFT | wxRIGHT, LayoutConstants::WideHMargin);
-            sizer->AddStretchSpacer();
-            
-            m_panel->SetSizer(sizer);
-            return m_panel;
-        }
-        
-        void SmartChoiceEditor::doDestroyVisual() {
-            ensure(m_panel != nullptr, "panel is null");
-            ensure(m_comboBox != nullptr, "comboBox is null");
-            
-            m_panel->Destroy();
-            m_panel = nullptr;
-            m_comboBox= nullptr;
-        }
-        
-        void SmartChoiceEditor::doUpdateVisual(const Model::AttributableNodeList& attributables) {
-            ensure(m_panel != nullptr, "panel is null");
-            ensure(m_comboBox != nullptr, "comboBox is null");
-            
-            wxWindowUpdateLocker locker(m_panel);
-            m_comboBox->Clear();
-
-            const Assets::AttributeDefinition* attrDef = Model::AttributableNode::selectAttributeDefinition(name(), attributables);
-            if (attrDef == nullptr || attrDef->type() != Assets::AttributeDefinition::Type_ChoiceAttribute) {
-                m_comboBox->Disable();
-            } else {
-                const Assets::ChoiceAttributeDefinition* choiceDef = static_cast<const Assets::ChoiceAttributeDefinition*>(attrDef);
-                const Assets::ChoiceAttributeOption::List& options = choiceDef->options();
-                
-                for (const Assets::ChoiceAttributeOption& option : options)
-                    m_comboBox->Append(option.value() + " : " + option.description());
-                
-                const Model::AttributeValue value = Model::AttributableNode::selectAttributeValue(name(), attributables);
-                m_comboBox->SetValue(value);
-            }
-        }
-    }
+namespace View {
+SmartChoiceEditor::SmartChoiceEditor(std::weak_ptr<MapDocument> document, QWidget* parent)
+  : SmartPropertyEditor(std::move(document), parent)
+  , m_comboBox(nullptr)
+  , m_ignoreEditTextChanged(false) {
+  createGui();
 }
+
+void SmartChoiceEditor::comboBoxActivated(const int /* index */) {
+  const kdl::set_temp ignoreTextChanged(m_ignoreEditTextChanged);
+
+  const auto valueDescStr = mapStringFromUnicode(document()->encoding(), m_comboBox->currentText());
+  const auto valueStr = valueDescStr.substr(0, valueDescStr.find_first_of(':') - 1);
+  document()->setProperty(propertyKey(), valueStr);
+}
+
+void SmartChoiceEditor::comboBoxEditTextChanged(const QString& text) {
+  if (!m_ignoreEditTextChanged) {
+    document()->setProperty(propertyKey(), mapStringFromUnicode(document()->encoding(), text));
+  }
+}
+
+void SmartChoiceEditor::createGui() {
+  assert(m_comboBox == nullptr);
+
+  auto* infoText = new QLabel(tr("Select a choice option:"));
+
+  m_comboBox = new QComboBox();
+  m_comboBox->setEditable(true);
+  connect(
+    m_comboBox, QOverload<int>::of(&QComboBox::activated), this,
+    &SmartChoiceEditor::comboBoxActivated);
+  connect(
+    m_comboBox, &QComboBox::editTextChanged, this, &SmartChoiceEditor::comboBoxEditTextChanged);
+
+  auto* layout = new QVBoxLayout();
+  layout->setContentsMargins(
+    LayoutConstants::WideHMargin, LayoutConstants::WideVMargin, LayoutConstants::WideHMargin,
+    LayoutConstants::WideVMargin);
+  layout->setSpacing(LayoutConstants::NarrowVMargin);
+  layout->addWidget(infoText);
+  layout->addWidget(m_comboBox);
+  layout->addStretch(1);
+
+  setLayout(layout);
+}
+
+void SmartChoiceEditor::doUpdateVisual(const std::vector<Model::EntityNodeBase*>& nodes) {
+  ensure(m_comboBox != nullptr, "comboBox is null");
+
+  const kdl::set_temp ignoreTextChanged(m_ignoreEditTextChanged);
+  m_comboBox->clear();
+
+  const auto* propDef = Model::selectPropertyDefinition(propertyKey(), nodes);
+  if (propDef == nullptr || propDef->type() != Assets::PropertyDefinitionType::ChoiceProperty) {
+    m_comboBox->setDisabled(true);
+  } else {
+    m_comboBox->setDisabled(false);
+    const auto* choiceDef = static_cast<const Assets::ChoicePropertyDefinition*>(propDef);
+    const auto& options = choiceDef->options();
+
+    for (const Assets::ChoicePropertyOption& option : options) {
+      m_comboBox->addItem(
+        mapStringToUnicode(document()->encoding(), option.value() + " : " + option.description()));
+    }
+
+    const auto value = Model::selectPRopertyValue(propertyKey(), nodes);
+    m_comboBox->setCurrentText(mapStringToUnicode(document()->encoding(), value));
+  }
+}
+} // namespace View
+} // namespace TrenchBroom
