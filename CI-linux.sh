@@ -11,15 +11,15 @@ pandoc --version
 
 mkdir build
 cd build
-cmake .. -GNinja -DCMAKE_PREFIX_PATH="cmake/packages" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Werror" -DTB_SUPPRESS_PCH=1 -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake" || exit 1
+cmake .. -GNinja -DCMAKE_PREFIX_PATH="cmake/packages" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_EXE_LINKER_FLAGS="-Wl,--fatal-warnings" -DTB_SUPPRESS_PCH=1 || exit 1
 cmake --build . --config Release || exit 1
 
 # Run tests (wxgtk needs an X server running for the app to initialize)
 
 BUILD_DIR=$(pwd)
 
-cd "$BUILD_DIR/lib/vecmath/test"
-./vecmath-test || exit 1
+cd "$BUILD_DIR/lib/vm/test"
+./vm-test || exit 1
 
 cd "$BUILD_DIR/lib/kdl/test"
 ./kdl-test || exit 1
@@ -35,13 +35,11 @@ else
     echo "Skipping common-benmchark because this is a debug build"
 fi
 
-
 cd "$BUILD_DIR"
 
 cpack || exit 1
 
 ./app/generate_checksum_deb.sh
-./app/generate_checksum_rpm.sh
 
 echo "Shared libraries used:"
 ldd --verbose ./app/trenchbroom

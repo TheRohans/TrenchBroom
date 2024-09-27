@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Color.h"
+#include "Macros.h"
 #include "Model/BrushGeometry.h"
 #include "Renderer/AllocationTracker.h"
 #include "Renderer/EdgeRenderer.h"
@@ -31,24 +32,30 @@
 #include <unordered_set>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushNode;
 class BrushFace;
 class EditorContext;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
-class BrushRenderer {
+namespace TrenchBroom::Renderer
+{
+
+class BrushRenderer
+{
 public:
-  class Filter {
+  class Filter
+  {
   public:
-    enum class FaceRenderPolicy {
+    enum class FaceRenderPolicy
+    {
       RenderMarked,
       RenderNone
     };
 
-    enum class EdgeRenderPolicy {
+    enum class EdgeRenderPolicy
+    {
       RenderAll,
       RenderIfEitherFaceMarked,
       RenderIfBothFacesMarked,
@@ -58,21 +65,18 @@ public:
     using RenderSettings = std::tuple<FaceRenderPolicy, EdgeRenderPolicy>;
 
     Filter();
-    Filter(const Filter& other);
     virtual ~Filter();
-
-    Filter& operator=(const Filter& other);
 
     /**
      * Classifies whether the brush will be rendered, and which faces/edges.
      *
-     * If both FaceRenderPolicy::RenderNone and EdgeRenderPolicy::RenderNone are returned, the brush
-     * is skipped (not added to the vertex array or index arrays at all).
+     * If both FaceRenderPolicy::RenderNone and EdgeRenderPolicy::RenderNone are returned,
+     * the brush is skipped (not added to the vertex array or index arrays at all).
      *
-     * Otherwise, markFaces() should call BrushFace::setMarked() on *all* faces, passing true or
-     * false as needed to select the faces to be rendered.
+     * Otherwise, markFaces() should call BrushFace::setMarked() on *all* faces, passing
+     * true or false as needed to select the faces to be rendered.
      */
-    virtual RenderSettings markFaces(const Model::BrushNode* brush) const = 0;
+    virtual RenderSettings markFaces(const Model::BrushNode& brush) const = 0;
 
   protected:
     /**
@@ -81,7 +85,8 @@ public:
     static RenderSettings renderNothing();
   };
 
-  class DefaultFilter : public Filter {
+  class DefaultFilter : public Filter
+  {
   private:
     const Model::EditorContext& m_context;
 
@@ -90,49 +95,42 @@ public:
 
   protected:
     explicit DefaultFilter(const Model::EditorContext& context);
-    DefaultFilter(const DefaultFilter& other);
 
-    bool visible(const Model::BrushNode* brush) const;
-    bool visible(const Model::BrushNode* brush, const Model::BrushFace& face) const;
-    bool visible(const Model::BrushNode* brush, const Model::BrushEdge* edge) const;
+    bool visible(const Model::BrushNode& brush) const;
+    bool visible(const Model::BrushNode& brush, const Model::BrushFace& face) const;
+    bool visible(const Model::BrushNode& brush, const Model::BrushEdge& edge) const;
 
-    bool editable(const Model::BrushNode* brush) const;
-    bool editable(const Model::BrushNode* brush, const Model::BrushFace& face) const;
+    bool editable(const Model::BrushNode& brush) const;
+    bool editable(const Model::BrushNode& brush, const Model::BrushFace& face) const;
 
-    bool selected(const Model::BrushNode* brush) const;
-    bool selected(const Model::BrushNode* brush, const Model::BrushFace& face) const;
-    bool selected(const Model::BrushNode* brush, const Model::BrushEdge* edge) const;
-    bool hasSelectedFaces(const Model::BrushNode* brush) const;
-
-  private:
-    DefaultFilter& operator=(const DefaultFilter& other);
+    bool selected(const Model::BrushNode& brush) const;
+    bool selected(const Model::BrushNode& brush, const Model::BrushFace& face) const;
+    bool selected(const Model::BrushNode& brush, const Model::BrushEdge& edge) const;
+    bool hasSelectedFaces(const Model::BrushNode& brush) const;
   };
 
-  class NoFilter : public Filter {
+  class NoFilter : public Filter
+  {
   public:
     using Filter::Filter;
-    RenderSettings markFaces(const Model::BrushNode* brushNode) const override;
-
-  private:
-    deleteCopyAndMove(NoFilter);
+    RenderSettings markFaces(const Model::BrushNode& brushNode) const override;
   };
-
-private:
-  class FilterWrapper;
 
 private:
   std::unique_ptr<Filter> m_filter;
 
-  struct BrushInfo {
+  struct BrushInfo
+  {
     AllocationTracker::Block* vertexHolderKey;
     AllocationTracker::Block* edgeIndicesKey;
-    std::vector<std::pair<const Assets::Texture*, AllocationTracker::Block*>> opaqueFaceIndicesKeys;
-    std::vector<std::pair<const Assets::Texture*, AllocationTracker::Block*>>
+    std::vector<std::pair<const Assets::Material*, AllocationTracker::Block*>>
+      opaqueFaceIndicesKeys;
+    std::vector<std::pair<const Assets::Material*, AllocationTracker::Block*>>
       transparentFaceIndicesKeys;
   };
   /**
-   * Tracks all brushes that are stored in the VBO, with the information necessary to remove them
-   * from the VBO later.
+   * Tracks all brushes that are stored in the VBO, with the information necessary to
+   * remove them from the VBO later.
    */
   std::unordered_map<const Model::BrushNode*, BrushInfo> m_brushInfo;
 
@@ -148,39 +146,33 @@ private:
   std::shared_ptr<BrushVertexArray> m_vertexArray;
   std::shared_ptr<BrushIndexArray> m_edgeIndices;
 
-  using TextureToBrushIndicesMap =
-    std::unordered_map<const Assets::Texture*, std::shared_ptr<BrushIndexArray>>;
-  std::shared_ptr<TextureToBrushIndicesMap> m_transparentFaces;
-  std::shared_ptr<TextureToBrushIndicesMap> m_opaqueFaces;
+  using MaterialToBrushIndicesMap =
+    std::unordered_map<const Assets::Material*, std::shared_ptr<BrushIndexArray>>;
+  std::shared_ptr<MaterialToBrushIndicesMap> m_transparentFaces;
+  std::shared_ptr<MaterialToBrushIndicesMap> m_opaqueFaces;
 
   FaceRenderer m_opaqueFaceRenderer;
   FaceRenderer m_transparentFaceRenderer;
   IndexedEdgeRenderer m_edgeRenderer;
 
   Color m_faceColor;
-  bool m_showEdges;
+  bool m_showEdges = false;
   Color m_edgeColor;
-  bool m_grayscale;
-  bool m_tint;
+  bool m_grayscale = false;
+  bool m_tint = false;
   Color m_tintColor;
-  bool m_showOccludedEdges;
+  bool m_showOccludedEdges = false;
   Color m_occludedEdgeColor;
-  bool m_forceTransparent;
-  float m_transparencyAlpha;
+  bool m_forceTransparent = false;
+  float m_transparencyAlpha = 1.0f;
 
-  bool m_showHiddenBrushes;
+  bool m_showHiddenBrushes = false;
 
 public:
   template <typename FilterT>
-  explicit BrushRenderer(const FilterT& filter)
-    : m_filter(std::make_unique<FilterT>(filter))
-    , m_showEdges(false)
-    , m_grayscale(false)
-    , m_tint(false)
-    , m_showOccludedEdges(false)
-    , m_forceTransparent(false)
-    , m_transparencyAlpha(1.0f)
-    , m_showHiddenBrushes(false) {
+  explicit BrushRenderer(FilterT filter)
+    : m_filter{std::make_unique<FilterT>(std::move(filter))}
+  {
     clear();
   }
 
@@ -192,25 +184,27 @@ public:
   void clear();
 
   /**
-   * Marks all of the brushes as invalid, meaning that next time one of the render() methods is
-   * called,
-   * - the Filter will be re-evaluated for each brush, possibly changing whether the brush is
-   * included/excluded
+   * Marks all of the brushes as invalid, meaning that next time one of the render()
+   * methods is called,
+   * - the Filter will be re-evaluated for each brush, possibly changing whether the brush
+   * is included/excluded
    * - all brushes vertices will be re-fetched from the Brush object.
    *
-   * Until a brush is invalidated, we don't re-evaluate the Filter, and don't check the Brush object
-   * for modification.
+   * Until a brush is invalidated, we don't re-evaluate the Filter, and don't check the
+   * Brush object for modification.
    *
-   * Additionally, calling `invalidate()` guarantees the m_brushInfo, m_transparentFaces, and
-   * m_opaqueFaces maps will be empty, so the BrushRenderer will not have any lingering Texture*
-   * pointers.
+   * Additionally, calling `invalidate()` guarantees the m_brushInfo, m_transparentFaces,
+   * and m_opaqueFaces maps will be empty, so the BrushRenderer will not have any
+   * lingering Material* pointers.
    */
   void invalidate();
+  void invalidateMaterials(const std::vector<const Assets::Material*>& materials);
   void invalidateBrush(const Model::BrushNode* brush);
+  void invalidateMaterial(const Assets::Material& material);
   bool valid() const;
 
   /**
-   * Sets the color to render untextured faces with.
+   * Sets the color to render faces with no material with.
    */
   void setFaceColor(const Color& faceColor);
 
@@ -252,10 +246,11 @@ public:
   void setOccludedEdgeColor(const Color& occludedEdgeColor);
 
   /**
-   * Specifies whether or not faces should be rendered transparent. Overrides any transparency
-   * settings from the face itself or its material.
+   * Specifies whether or not faces should be rendered transparent. Overrides any
+   * transparency settings from the face itself or its material.
    *
-   * Note: setTransparencyAlpha must be set to something less than 1.0 for this to have any effect.
+   * Note: setTransparencyAlpha must be set to something less than 1.0 for this to have
+   * any effect.
    *
    * @see setTransparencyAlpha
    */
@@ -264,13 +259,14 @@ public:
   /**
    * The alpha value to render transparent faces with.
    *
-   * Note: this defaults to 1.0, which means requests for transparency from the brush, face,
-   * or setForceTransparent() are ignored by default.
+   * Note: this defaults to 1.0, which means requests for transparency from the brush,
+   * face, or setForceTransparent() are ignored by default.
    */
   void setTransparencyAlpha(float transparencyAlpha);
 
   /**
-   * Specifies whether or not brushes which are currently hidden should be rendered regardless.
+   * Specifies whether or not brushes which are currently hidden should be rendered
+   * regardless.
    */
   void setShowHiddenBrushes(bool showHiddenBrushes);
 
@@ -292,31 +288,30 @@ public:
 
 private:
   bool shouldDrawFaceInTransparentPass(
-    const Model::BrushNode* brush, const Model::BrushFace& face) const;
-  void validateBrush(const Model::BrushNode* brush);
+    const Model::BrushNode& brushNode, const Model::BrushFace& face) const;
+  void validateBrush(const Model::BrushNode& brushNode);
 
 public:
   /**
-   * Adds a brush. Calling with an already-added brush is allowed, but ignored (not guaranteed to
-   * invalidate it).
+   * Adds a brush. Calling with an already-added brush is allowed, but ignored (not
+   * guaranteed to invalidate it).
    */
-  void addBrush(const Model::BrushNode* brush);
+  void addBrush(const Model::BrushNode* brushNode);
   /**
    * Removes a brush. Calling with an unknown brush is allowed, but ignored.
    */
-  void removeBrush(const Model::BrushNode* brush);
+  void removeBrush(const Model::BrushNode* brushNode);
 
 private:
   /**
    * If the given brush is not currently in the VBO, it's silently ignored.
-   * Otherwise, it's removed from the VBO (having its indices zeroed out, causing it to no longer
-   * draw). The brush's "valid" state is not touched inside here, but the m_brushInfo is updated.
+   * Otherwise, it's removed from the VBO (having its indices zeroed out, causing it to no
+   * longer draw). The brush's "valid" state is not touched inside here, but the
+   * m_brushInfo is updated.
    */
-  void removeBrushFromVbo(const Model::BrushNode* brush);
+  void removeBrushFromVbo(const Model::BrushNode& brush);
 
-private:
-  BrushRenderer(const BrushRenderer& other);
-  BrushRenderer& operator=(const BrushRenderer& other);
+  deleteCopyAndMove(BrushRenderer);
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

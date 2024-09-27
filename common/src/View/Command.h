@@ -24,11 +24,14 @@
 #include <memory>
 #include <string>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class MapDocumentCommandFacade;
 
-class CommandResult {
+class CommandResult
+{
 private:
   bool m_success;
 
@@ -39,11 +42,11 @@ public:
   bool success() const;
 };
 
-class Command {
+class Command
+{
 public:
-  using CommandType = size_t;
-
-  enum class CommandState {
+  enum class CommandState
+  {
     Default,
     Doing,
     Done,
@@ -51,31 +54,22 @@ public:
   };
 
 protected:
-  CommandType m_type;
   CommandState m_state;
   std::string m_name;
 
 public:
-  static CommandType freeType();
-
-  Command(CommandType type, const std::string& name);
+  Command(std::string name);
   virtual ~Command();
 
-  CommandType type() const;
-
-  bool isType(CommandType type) const;
-
-  template <typename... C> bool isType(CommandType type, C... types) const {
-    return isType(type) || isType(types...);
-  }
-
+public:
   CommandState state() const;
   const std::string& name() const;
 
   virtual std::unique_ptr<CommandResult> performDo(MapDocumentCommandFacade* document);
 
 private:
-  virtual std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) = 0;
+  virtual std::unique_ptr<CommandResult> doPerformDo(
+    MapDocumentCommandFacade* document) = 0;
 
   deleteCopyAndMove(Command);
 };

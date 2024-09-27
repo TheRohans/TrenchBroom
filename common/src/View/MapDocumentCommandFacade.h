@@ -24,20 +24,23 @@
 #include "NotifierConnection.h"
 #include "View/MapDocument.h"
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 enum class LockState;
 enum class VisibilityState;
 } // namespace Model
 
-namespace View {
+namespace View
+{
 class CommandProcessor;
 
 /**
@@ -47,7 +50,8 @@ class CommandProcessor;
  * the corresponding `something()` in MapDocument would create and execute a
  * Command object which then calls `performSomething()`.
  */
-class MapDocumentCommandFacade : public MapDocument {
+class MapDocumentCommandFacade : public MapDocument
+{
 private:
   std::unique_ptr<CommandProcessor> m_commandProcessor;
 
@@ -79,7 +83,8 @@ public: // adding and removing nodes
 
   std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>
   performReplaceChildren(
-    std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>> nodes);
+    std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>
+      nodes);
 
 public: // swapping node contents
   void performSwapNodeContents(
@@ -90,7 +95,8 @@ public: // Node Visibility
     const std::vector<Model::Node*>& nodes, Model::VisibilityState visibilityState);
   std::map<Model::Node*, Model::VisibilityState> setVisibilityEnsured(
     const std::vector<Model::Node*>& nodes);
-  void restoreVisibilityState(const std::map<Model::Node*, Model::VisibilityState>& nodes);
+  void restoreVisibilityState(
+    const std::map<Model::Node*, Model::VisibilityState>& nodes);
   std::map<Model::Node*, Model::LockState> setLockState(
     const std::vector<Model::Node*>& nodes, Model::LockState lockState);
   void restoreLockState(const std::map<Model::Node*, Model::LockState>& nodes);
@@ -102,27 +108,8 @@ public:
   void performPushGroup(Model::GroupNode* group);
   void performPopGroup();
 
-public: // brush face attributes
-  void performMoveTextures(
-    const vm::vec3f& cameraUp, const vm::vec3f& cameraRight, const vm::vec2f& delta);
-  void performRotateTextures(float angle);
-  void performShearTextures(const vm::vec2f& factors);
-  void performCopyTexCoordSystemFromFace(
-    const Model::TexCoordSystemSnapshot& coordSystemSnapshot,
-    const Model::BrushFaceAttributes& attribs, const vm::plane3& sourceFacePlane,
-    const Model::WrapStyle wrapStyle);
-
-public: // entity definition file management
-  void performSetEntityDefinitionFile(const Assets::EntityDefinitionFileSpec& spec);
-
-public: // texture collection management
-  void performSetTextureCollections(const std::vector<IO::Path>& paths);
-
-public: // mods management
-  void performSetMods(const std::vector<std::string>& mods);
-
 private:
-  void doSetIssueHidden(Model::Issue* issue, bool hidden) override;
+  void doSetIssueHidden(const Model::Issue& issue, bool hidden) override;
 
 public: // modification count
   void incModificationCount(size_t delta = 1);
@@ -134,6 +121,8 @@ private: // notification
   void documentWasLoaded(MapDocument* document);
 
 private: // implement MapDocument interface
+  bool isCurrentDocumentStateObservable() const override;
+
   bool doCanUndoCommand() const override;
   bool doCanRedoCommand() const override;
   const std::string& doGetUndoCommandName() const override;
@@ -142,13 +131,13 @@ private: // implement MapDocument interface
   void doRedoCommand() override;
 
   void doClearCommandProcessor() override;
-  void doStartTransaction(const std::string& name) override;
+  void doStartTransaction(std::string name, TransactionScope scope) override;
   void doCommitTransaction() override;
   void doRollbackTransaction() override;
 
-  std::unique_ptr<CommandResult> doExecute(std::unique_ptr<Command>&& command) override;
+  std::unique_ptr<CommandResult> doExecute(std::unique_ptr<Command> command) override;
   std::unique_ptr<CommandResult> doExecuteAndStore(
-    std::unique_ptr<UndoableCommand>&& command) override;
+    std::unique_ptr<UndoableCommand> command) override;
 };
 } // namespace View
 } // namespace TrenchBroom

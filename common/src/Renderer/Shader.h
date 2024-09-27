@@ -19,32 +19,38 @@
 
 #pragma once
 
+#include "Macros.h"
 #include "Renderer/GL.h"
+#include "Result.h"
 
+#include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
+namespace TrenchBroom::Renderer
+{
 
-namespace Renderer {
-class Shader {
+class Shader
+{
 private:
   std::string m_name;
   GLenum m_type;
   GLuint m_shaderId;
 
 public:
-  Shader(const IO::Path& path, const GLenum type);
+  Shader(std::string name, GLenum type, GLuint shaderId);
+
+  deleteCopy(Shader);
+
+  Shader(Shader&& other) noexcept;
+  Shader& operator=(Shader&& other) noexcept;
+
   ~Shader();
 
-  void attach(const GLuint programId);
-  void detach(const GLuint programId);
-
-private:
-  static std::vector<std::string> loadSource(const IO::Path& path);
+  void attach(GLuint programId) const;
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+
+Result<Shader> loadShader(const std::filesystem::path& path, GLenum type);
+
+} // namespace TrenchBroom::Renderer

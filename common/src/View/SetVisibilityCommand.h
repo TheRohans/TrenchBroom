@@ -27,19 +27,21 @@
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class Node;
 enum class VisibilityState;
 } // namespace Model
 
-namespace View {
-class SetVisibilityCommand : public UndoableCommand {
-public:
-  static const CommandType Type;
-
+namespace View
+{
+class SetVisibilityCommand : public UndoableCommand
+{
 private:
-  enum class Action {
+  enum class Action
+  {
     Reset,
     Hide,
     Show,
@@ -51,21 +53,20 @@ private:
   std::map<Model::Node*, Model::VisibilityState> m_oldState;
 
 public:
-  static std::unique_ptr<SetVisibilityCommand> show(const std::vector<Model::Node*>& nodes);
-  static std::unique_ptr<SetVisibilityCommand> hide(const std::vector<Model::Node*>& nodes);
+  static std::unique_ptr<SetVisibilityCommand> show(std::vector<Model::Node*> nodes);
+  static std::unique_ptr<SetVisibilityCommand> hide(std::vector<Model::Node*> nodes);
   static std::unique_ptr<SetVisibilityCommand> ensureVisible(
-    const std::vector<Model::Node*>& nodes);
-  static std::unique_ptr<SetVisibilityCommand> reset(const std::vector<Model::Node*>& nodes);
+    std::vector<Model::Node*> nodes);
+  static std::unique_ptr<SetVisibilityCommand> reset(std::vector<Model::Node*> nodes);
 
-  SetVisibilityCommand(const std::vector<Model::Node*>& nodes, Action action);
+  SetVisibilityCommand(std::vector<Model::Node*> nodes, Action action);
 
 private:
   static std::string makeName(Action action);
 
   std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
-  std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade* document) override;
-
-  bool doCollateWith(UndoableCommand* command) override;
+  std::unique_ptr<CommandResult> doPerformUndo(
+    MapDocumentCommandFacade* document) override;
 
   deleteCopyAndMove(SetVisibilityCommand);
 };

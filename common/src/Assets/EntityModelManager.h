@@ -19,85 +19,85 @@
 
 #pragma once
 
-#include "IO/Path.h"
+#include "Assets/EntityModel.h"
+#include "Assets/ModelSpecification.h"
+#include "Result.h"
 
-#include <kdl/vector_set.h>
+#include "kdl/path_hash.h"
 
-#include <map>
+#include <filesystem>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
 
-namespace IO {
-class EntityModelLoader;
-}
-
-namespace Model {
+namespace Model
+{
 class EntityNode;
-}
+class Game;
+} // namespace Model
 
-namespace Renderer {
-class TexturedRenderer;
+namespace Renderer
+{
+class MaterialRenderer;
 class VboManager;
 } // namespace Renderer
 
-namespace Assets {
-class EntityModel;
+namespace Assets
+{
 class EntityModelFrame;
-struct ModelSpecification;
 enum class Orientation;
+class Quake3Shader;
 
-class EntityModelManager {
+class EntityModelManager
+{
 private:
-  using ModelCache = std::map<IO::Path, std::unique_ptr<EntityModel>>;
-  using ModelMismatches = kdl::vector_set<IO::Path>;
-  using ModelList = std::vector<EntityModel*>;
-
-  using RendererCache = std::map<ModelSpecification, std::unique_ptr<Renderer::TexturedRenderer>>;
-  using RendererMismatches = kdl::vector_set<ModelSpecification>;
-  using RendererList = std::vector<Renderer::TexturedRenderer*>;
-
+  Assets::CreateEntityModelDataResource m_createResource;
   Logger& m_logger;
-  const IO::EntityModelLoader* m_loader;
 
-  int m_minFilter;
-  int m_magFilter;
-  bool m_resetTextureMode;
+  const Model::Game* m_game = nullptr;
 
-  mutable ModelCache m_models;
-  mutable ModelMismatches m_modelMismatches;
-  mutable RendererCache m_renderers;
-  mutable RendererMismatches m_rendererMismatches;
+  // Cache Quake 3 shaders to use when loading models
+  std::vector<Quake3Shader> m_shaders;
 
-  mutable ModelList m_unpreparedModels;
-  mutable RendererList m_unpreparedRenderers;
+  mutable std::unordered_map<std::filesystem::path, EntityModel, kdl::path_hash> m_models;
+  mutable std::
+    unordered_map<ModelSpecification, std::unique_ptr<Renderer::MaterialRenderer>>
+      m_renderers;
+  mutable std::unordered_set<ModelSpecification> m_rendererMismatches;
+
+  mutable std::vector<Renderer::MaterialRenderer*> m_unpreparedRenderers;
 
 public:
-  EntityModelManager(int magFilter, int minFilter, Logger& logger);
+  EntityModelManager(
+    Assets::CreateEntityModelDataResource createResource, Logger& logger);
   ~EntityModelManager();
 
   void clear();
+  void reloadShaders();
 
-  void setTextureMode(int minFilter, int magFilter);
-  void setLoader(const IO::EntityModelLoader* loader);
-  Renderer::TexturedRenderer* renderer(const ModelSpecification& spec) const;
+  void setGame(const Model::Game* game);
+
+  Renderer::MaterialRenderer* renderer(const ModelSpecification& spec) const;
 
   const EntityModelFrame* frame(const ModelSpecification& spec) const;
+  const EntityModel* model(const std::filesystem::path& path) const;
+
+  const std::vector<const EntityModel*> findEntityModelsByTextureResourceId(
+    const std::vector<ResourceId>& resourceIds) const;
 
 private:
-  EntityModel* model(const IO::Path& path) const;
-  EntityModel* safeGetModel(const IO::Path& path) const;
-  std::unique_ptr<EntityModel> loadModel(const IO::Path& path) const;
-  void loadFrame(const ModelSpecification& spec, EntityModel& model) const;
+  const EntityModel* safeGetModel(const std::filesystem::path& path) const;
+  Result<EntityModel> loadModel(const std::filesystem::path& path) const;
 
 public:
   void prepare(Renderer::VboManager& vboManager);
 
 private:
-  void resetTextureMode();
-  void prepareModels();
   void prepareRenderers(Renderer::VboManager& vboManager);
 };
 } // namespace Assets

@@ -19,104 +19,125 @@
 
 #pragma once
 
-#include "IO/Path.h"
+#include "Error.h"
+#include "Exceptions.h"
+#include "IO/PathMatcher.h"
+#include "Result.h"
 
+#include "kdl/result.h"
+
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom::IO
+{
+class CFile;
 class File;
+enum class PathInfo;
+struct TraversalMode;
 
-namespace Disk {
+namespace Disk
+{
 bool isCaseSensitive();
 
-Path fixPath(const Path& path);
+std::filesystem::path fixPath(const std::filesystem::path& path);
 
-bool directoryExists(const Path& path);
-bool fileExists(const Path& path);
+PathInfo pathInfo(const std::filesystem::path& path);
 
-std::vector<Path> getDirectoryContents(const Path& path);
-std::shared_ptr<File> openFile(const Path& path);
-std::string readTextFile(const Path& path);
-Path getCurrentWorkingDir();
+Result<std::vector<std::filesystem::path>> find(
+  const std::filesystem::path& path,
+  const TraversalMode& traversalMode,
+  const PathMatcher& pathMatcher = matchAnyPath);
 
-template <class M>
-void doFindItems(
-  const Path& searchPath, const M& matcher, const bool recurse, std::vector<Path>& result) {
-  for (const Path& itemPath : getDirectoryContents(searchPath)) {
-    const bool directory = directoryExists(searchPath + itemPath);
-    if (directory && recurse)
-      doFindItems(searchPath + itemPath, matcher, recurse, result);
-    if (matcher(searchPath + itemPath, directory))
-      result.push_back(searchPath + itemPath);
+Result<std::shared_ptr<CFile>> openFile(const std::filesystem::path& path);
+
+template <typename Stream, typename F>
+auto withStream(
+  const std::filesystem::path& path, const std::ios::openmode mode, const F& function)
+  -> kdl::wrap_result_t<decltype(function(std::declval<Stream&>())), Error>
+{
+  using FnResultType = decltype(function(std::declval<Stream&>()));
+  using ResultType = kdl::wrap_result_t<FnResultType, Error>;
+  try
+  {
+    auto stream = Stream{path, mode};
+    if (!stream)
+    {
+      return ResultType{Error{"Could not open stream for file '" + path.string() + "'"}};
+    }
+    if constexpr (kdl::is_result_v<FnResultType>)
+    {
+      if constexpr (std::is_same_v<typename FnResultType::value_type, void>)
+      {
+        return function(stream) | kdl::and_then([]() { return ResultType{}; });
+      }
+      else
+      {
+        return function(stream)
+               | kdl::and_then([](auto x) { return ResultType{std::move(x)}; });
+      }
+    }
+    else if constexpr (std::is_same_v<typename ResultType::value_type, void>)
+    {
+      function(stream);
+      return ResultType{};
+    }
+    else
+    {
+      return ResultType{function(stream)};
+    }
+  }
+  catch (const std::filesystem::filesystem_error& e)
+  {
+    return ResultType{
+      Error{"Could not open stream for file '" + path.string() + "': " + e.what()}};
   }
 }
 
-template <typename M> std::vector<Path> findItems(const Path& path, const M& matcher) {
-  std::vector<Path> result;
-  doFindItems(path, matcher, false, result);
-  return result;
+template <typename F>
+auto withInputStream(
+  const std::filesystem::path& path, const std::ios::openmode mode, const F& function)
+{
+  return withStream<std::ifstream>(path, mode, function);
 }
 
-std::vector<Path> findItems(const Path& path);
-
-template <typename M> std::vector<Path> findItemsRecursively(const Path& path, const M& matcher) {
-  std::vector<Path> result;
-  doFindItems(path, matcher, true, result);
-  return result;
+template <typename F>
+auto withInputStream(const std::filesystem::path& path, const F& function)
+{
+  return withStream<std::ifstream>(path, std::ios_base::in, function);
 }
 
-std::vector<Path> findItemsRecursively(const Path& path);
-
-void createFile(const Path& path, const std::string& contents);
-void createDirectory(const Path& path);
-void ensureDirectoryExists(const Path& path);
-void deleteFile(const Path& path);
-
-template <typename M> void deleteFiles(const Path& sourceDirPath, const M& matcher) {
-  for (const Path& filePath : findItems(sourceDirPath, matcher))
-    deleteFile(filePath);
+template <typename F>
+auto withOutputStream(
+  const std::filesystem::path& path, const std::ios::openmode mode, const F& function)
+{
+  return withStream<std::ofstream>(path, mode, function);
 }
 
-template <typename M> void deleteFilesRecursively(const Path& sourceDirPath, const M& matcher) {
-  for (const Path& filePath : findItemsRecursively(sourceDirPath, matcher))
-    deleteFile(filePath);
+template <typename F>
+auto withOutputStream(const std::filesystem::path& path, const F& function)
+{
+  return withStream<std::ofstream>(path, std::ios_base::out, function);
 }
 
-void copyFile(const Path& sourcePath, const Path& destPath, bool overwrite);
+Result<bool> createDirectory(const std::filesystem::path& path);
 
-template <typename M>
-void copyFiles(
-  const Path& sourceDirPath, const M& matcher, const Path& destDirPath, const bool overwrite) {
-  for (const Path& filePath : findItems(sourceDirPath, matcher))
-    copyFile(filePath, destDirPath, overwrite);
-}
+Result<bool> deleteFile(const std::filesystem::path& path);
 
-template <typename M>
-void copyFilesRecursively(
-  const Path& sourceDirPath, const M& matcher, const Path& destDirPath, const bool overwrite) {
-  for (const Path& filePath : findItemsRecursively(sourceDirPath, matcher))
-    copyFile(filePath, destDirPath, overwrite);
-}
+Result<void> copyFile(
+  const std::filesystem::path& sourcePath, const std::filesystem::path& destPath);
 
-void moveFile(const Path& sourcePath, const Path& destPath, bool overwrite);
+Result<void> moveFile(
+  const std::filesystem::path& sourcePath, const std::filesystem::path& destPath);
 
-template <typename M>
-void moveFiles(
-  const Path& sourceDirPath, const M& matcher, const Path& destDirPath, const bool overwrite) {
-  for (const Path& filePath : findItems(sourceDirPath, matcher))
-    moveFile(filePath, destDirPath, overwrite);
-}
+Result<void> renameDirectory(
+  const std::filesystem::path& sourcePath, const std::filesystem::path& destPath);
 
-template <typename M>
-void moveFilesRecursively(
-  const Path& sourceDirPath, const M& matcher, const Path& destDirPath, const bool overwrite) {
-  for (const Path& filePath : findItemsRecursively(sourceDirPath, matcher))
-    moveFile(filePath, destDirPath, overwrite);
-}
+std::filesystem::path resolvePath(
+  const std::vector<std::filesystem::path>& searchPaths,
+  const std::filesystem::path& path);
 
-Path resolvePath(const std::vector<Path>& searchPaths, const Path& path);
 } // namespace Disk
-} // namespace IO
-} // namespace TrenchBroom
+} // namespace TrenchBroom::IO

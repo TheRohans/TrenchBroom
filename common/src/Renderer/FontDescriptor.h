@@ -19,28 +19,32 @@
 
 #pragma once
 
-#include "IO/Path.h"
-
+#include <filesystem>
 #include <string>
 
-namespace TrenchBroom {
-namespace Renderer {
-class FontDescriptor {
+namespace TrenchBroom
+{
+namespace Renderer
+{
+class FontDescriptor
+{
 private:
-  IO::Path m_path;
+  std::filesystem::path m_path;
   size_t m_size;
   unsigned char m_minChar;
   unsigned char m_maxChar;
 
 public:
   FontDescriptor(
-    const IO::Path& path, const size_t size, unsigned char minChar = ' ',
+    const std::filesystem::path& path,
+    const size_t size,
+    unsigned char minChar = ' ',
     unsigned char maxChar = '~');
 
   int compare(const FontDescriptor& other) const;
   bool operator<(const FontDescriptor& other) const;
 
-  const IO::Path& path() const;
+  const std::filesystem::path& path() const;
   std::string name() const;
   size_t size() const;
   unsigned char minChar() const;

@@ -21,24 +21,27 @@
 
 #include "FloatType.h"
 #include "Model/BrushFaceHandle.h"
+#include "Result.h"
 
-#include <vecmath/plane.h>
+#include "vm/plane.h"
 
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushNode;
 
 /**
- * A brush face reference creates a persistent reference to a face that has a specific boundary
- * plane. It can be resolved later, and if the brush then has a face with the same boundary plane,
- * that face will be returned.
+ * A brush face reference creates a persistent reference to a face that has a specific
+ * boundary plane. It can be resolved later, and if the brush then has a face with the
+ * same boundary plane, that face will be returned.
  *
- * Depending on how the brush was modified in time since the reference has been created, the
- * resolved face might not be the same as the face which the reference was created with.
+ * Depending on how the brush was modified in time since the reference has been created,
+ * the resolved face might not be the same as the face which the reference was created
+ * with.
  */
-class BrushFaceReference {
+class BrushFaceReference
+{
 private:
   BrushNode* m_node;
   vm::plane3 m_facePlane;
@@ -53,11 +56,9 @@ public:
   BrushFaceReference(Model::BrushNode* node, const Model::BrushFace& face);
 
   /**
-   * Resolves the referenced brush face.
-   *
-   * @throws BrushFaceReferenceException if the face cannot be resolved
+   * Resolves the referenced brush face or an error if this reference cannot be resolved.
    */
-  BrushFaceHandle resolve() const;
+  Result<BrushFaceHandle> resolve() const;
 };
 
 /**
@@ -66,11 +67,10 @@ public:
 std::vector<BrushFaceReference> createRefs(const std::vector<BrushFaceHandle>& handles);
 
 /**
- * Returns a vector brush face handles representing the faces to which the given face references are
- * resolved.
- *
- * @throws BrushFAceReferenceException if any of the given face references cannot be resolved
+ * Returns a vector brush face handles representing the faces to which the given face
+ * references are resolved or an error if any reference cannot be resolved.
  */
-std::vector<BrushFaceHandle> resolveAllRefs(const std::vector<BrushFaceReference>& faceRefs);
-} // namespace Model
-} // namespace TrenchBroom
+Result<std::vector<BrushFaceHandle>> resolveAllRefs(
+  const std::vector<BrushFaceReference>& faceRefs);
+
+} // namespace TrenchBroom::Model

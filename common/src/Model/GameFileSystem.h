@@ -19,47 +19,55 @@
 
 #pragma once
 
-#include "IO/FileSystem.h"
+#include "IO/VirtualFileSystem.h"
+#include "Result.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace IO {
-class Path;
-class Quake3ShaderFileSystem;
-} // namespace IO
-
-namespace Model {
+namespace TrenchBroom::Model
+{
 struct GameConfig;
 
-class GameFileSystem : public IO::FileSystem {
+class GameFileSystem : public IO::VirtualFileSystem
+{
 private:
-  IO::Quake3ShaderFileSystem* m_shaderFS;
+  std::vector<IO::VirtualMountPointId> m_wadMountPoints;
 
 public:
-  GameFileSystem();
   void initialize(
-    const GameConfig& config, const IO::Path& gamePath,
-    const std::vector<IO::Path>& additionalSearchPaths, Logger& logger);
-  void reloadShaders();
+    const GameConfig& config,
+    const std::filesystem::path& gamePath,
+    const std::vector<std::filesystem::path>& additionalSearchPaths,
+    Logger& logger);
+  void reloadWads(
+    const std::filesystem::path& rootPath,
+    const std::vector<std::filesystem::path>& wadSearchPaths,
+    const std::vector<std::filesystem::path>& wadPaths,
+    Logger& logger);
 
 private:
   void addDefaultAssetPaths(const GameConfig& config, Logger& logger);
   void addGameFileSystems(
-    const GameConfig& config, const IO::Path& gamePath,
-    const std::vector<IO::Path>& additionalSearchPaths, Logger& logger);
-  void addShaderFileSystem(const GameConfig& config, Logger& logger);
-  void addFileSystemPath(const IO::Path& path, Logger& logger);
-  void addFileSystemPackages(const GameConfig& config, const IO::Path& searchPath, Logger& logger);
+    const GameConfig& config,
+    const std::filesystem::path& gamePath,
+    const std::vector<std::filesystem::path>& additionalSearchPaths,
+    Logger& logger);
+  void addFileSystemPath(const std::filesystem::path& path, Logger& logger);
+  void addFileSystemPackages(
+    const GameConfig& config, const std::filesystem::path& searchPath, Logger& logger);
 
-private:
-  bool doDirectoryExists(const IO::Path& path) const override;
-  bool doFileExists(const IO::Path& path) const override;
-  std::vector<IO::Path> doGetDirectoryContents(const IO::Path& path) const override;
-  std::shared_ptr<IO::File> doOpenFile(const IO::Path& path) const override;
+  void mountWads(
+    const std::filesystem::path& rootPath,
+    const std::vector<std::filesystem::path>& wadSearchPaths,
+    const std::vector<std::filesystem::path>& wadPaths,
+    Logger& logger);
+  void unmountWads();
 };
-} // namespace Model
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Model

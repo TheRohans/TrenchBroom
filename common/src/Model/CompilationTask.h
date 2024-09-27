@@ -21,153 +21,68 @@
 
 #include "Macros.h"
 
-#include <iosfwd>
+#include "kdl/reflection_decl.h"
+
 #include <string>
+#include <variant>
 
-namespace TrenchBroom {
-namespace Model {
-class CompilationTaskConstVisitor;
-class CompilationTaskVisitor;
-class ConstCompilationTaskConstVisitor;
-class ConstCompilationTaskVisitor;
+namespace TrenchBroom
+{
+namespace Model
+{
+struct CompilationExportMap
+{
+  bool enabled;
+  std::string targetSpec;
 
-class CompilationTask {
-protected:
-  bool m_enabled;
-
-protected:
-  explicit CompilationTask(bool enabled);
-
-public:
-  virtual ~CompilationTask();
-
-  virtual void accept(CompilationTaskVisitor& visitor) = 0;
-  virtual void accept(ConstCompilationTaskVisitor& visitor) const = 0;
-  virtual void accept(const CompilationTaskConstVisitor& visitor) = 0;
-  virtual void accept(const ConstCompilationTaskConstVisitor& visitor) const = 0;
-
-  bool enabled() const;
-  void setEnabled(bool enabled);
-
-  virtual CompilationTask* clone() const = 0;
-  virtual bool operator==(const CompilationTask& other) const = 0;
-  bool operator!=(const CompilationTask& other) const;
-  virtual void appendToStream(std::ostream& str) const = 0;
-
-  deleteCopyAndMove(CompilationTask);
+  kdl_reflect_decl(CompilationExportMap, enabled, targetSpec);
 };
 
-std::ostream& operator<<(std::ostream& str, const CompilationTask& task);
+struct CompilationCopyFiles
+{
+  bool enabled;
+  std::string sourceSpec;
+  std::string targetSpec;
 
-class CompilationExportMap : public CompilationTask {
-private:
-  std::string m_targetSpec;
-
-public:
-  CompilationExportMap(bool enabled, const std::string& targetSpec);
-
-  void accept(CompilationTaskVisitor& visitor) override;
-  void accept(ConstCompilationTaskVisitor& visitor) const override;
-  void accept(const CompilationTaskConstVisitor& visitor) override;
-  void accept(const ConstCompilationTaskConstVisitor& visitor) const override;
-
-  const std::string& targetSpec() const;
-
-  void setTargetSpec(const std::string& targetSpec);
-
-  CompilationExportMap* clone() const override;
-  bool operator==(const CompilationTask& other) const override;
-  void appendToStream(std::ostream& str) const override;
-
-  deleteCopyAndMove(CompilationExportMap);
+  kdl_reflect_decl(CompilationCopyFiles, enabled, sourceSpec, targetSpec);
 };
 
-class CompilationCopyFiles : public CompilationTask {
-private:
-  std::string m_sourceSpec;
-  std::string m_targetSpec;
+struct CompilationRenameFile
+{
+  bool enabled;
+  std::string sourceSpec;
+  std::string targetSpec;
 
-public:
-  CompilationCopyFiles(bool enabled, const std::string& sourceSpec, const std::string& targetSpec);
-
-  void accept(CompilationTaskVisitor& visitor) override;
-  void accept(ConstCompilationTaskVisitor& visitor) const override;
-  void accept(const CompilationTaskConstVisitor& visitor) override;
-  void accept(const ConstCompilationTaskConstVisitor& visitor) const override;
-
-  const std::string& sourceSpec() const;
-  const std::string& targetSpec() const;
-
-  void setSourceSpec(const std::string& sourceSpec);
-  void setTargetSpec(const std::string& targetSpec);
-
-  CompilationCopyFiles* clone() const override;
-  bool operator==(const CompilationTask& other) const override;
-  void appendToStream(std::ostream& str) const override;
-
-  deleteCopyAndMove(CompilationCopyFiles);
+  kdl_reflect_decl(CompilationRenameFile, enabled, sourceSpec, targetSpec);
 };
 
-class CompilationRunTool : public CompilationTask {
-private:
-  std::string m_toolSpec;
-  std::string m_parameterSpec;
+struct CompilationDeleteFiles
+{
+  bool enabled;
+  std::string targetSpec;
 
-public:
-  CompilationRunTool(bool enabled, const std::string& toolSpec, const std::string& parameterSpec);
-
-  void accept(CompilationTaskVisitor& visitor) override;
-  void accept(ConstCompilationTaskVisitor& visitor) const override;
-  void accept(const CompilationTaskConstVisitor& visitor) override;
-  void accept(const ConstCompilationTaskConstVisitor& visitor) const override;
-
-  const std::string& toolSpec() const;
-  const std::string& parameterSpec() const;
-
-  void setToolSpec(const std::string& toolSpec);
-  void setParameterSpec(const std::string& parameterSpec);
-
-  CompilationRunTool* clone() const override;
-  bool operator==(const CompilationTask& other) const override;
-  void appendToStream(std::ostream& str) const override;
-
-  deleteCopyAndMove(CompilationRunTool);
+  kdl_reflect_decl(CompilationDeleteFiles, enabled, targetSpec);
 };
 
-class CompilationTaskVisitor {
-public:
-  virtual ~CompilationTaskVisitor();
+struct CompilationRunTool
+{
+  bool enabled;
+  std::string toolSpec;
+  std::string parameterSpec;
+  bool treatNonZeroResultCodeAsError;
 
-  virtual void visit(CompilationExportMap& task) = 0;
-  virtual void visit(CompilationCopyFiles& task) = 0;
-  virtual void visit(CompilationRunTool& task) = 0;
+  kdl_reflect_decl(
+    CompilationRunTool, enabled, toolSpec, parameterSpec, treatNonZeroResultCodeAsError);
 };
 
-class ConstCompilationTaskVisitor {
-public:
-  virtual ~ConstCompilationTaskVisitor();
+using CompilationTask = std::variant<
+  CompilationExportMap,
+  CompilationCopyFiles,
+  CompilationRenameFile,
+  CompilationDeleteFiles,
+  CompilationRunTool>;
 
-  virtual void visit(const CompilationExportMap& task) = 0;
-  virtual void visit(const CompilationCopyFiles& task) = 0;
-  virtual void visit(const CompilationRunTool& task) = 0;
-};
+std::ostream& operator<<(std::ostream& lhs, const CompilationTask& rhs);
 
-class CompilationTaskConstVisitor {
-public:
-  virtual ~CompilationTaskConstVisitor();
-
-  virtual void visit(CompilationExportMap& task) const = 0;
-  virtual void visit(CompilationCopyFiles& task) const = 0;
-  virtual void visit(CompilationRunTool& task) const = 0;
-};
-
-class ConstCompilationTaskConstVisitor {
-public:
-  virtual ~ConstCompilationTaskConstVisitor();
-
-  virtual void visit(const CompilationExportMap& task) const = 0;
-  virtual void visit(const CompilationCopyFiles& task) const = 0;
-  virtual void visit(const CompilationRunTool& task) const = 0;
-};
 } // namespace Model
 } // namespace TrenchBroom

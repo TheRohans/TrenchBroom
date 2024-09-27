@@ -19,60 +19,67 @@
 
 #pragma once
 
-#include "View/CameraLinkHelper.h"
-#include "View/MultiMapView.h"
+#include "View/MultiPaneMapView.h"
 
 #include <memory>
 
 class QSplitter;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class MapRenderer;
 }
 
-namespace View {
+namespace TrenchBroom::View
+{
 class GLContextManager;
 class MapDocument;
 class MapView2D;
 class MapView3D;
 class MapViewToolBox;
 
-class FourPaneMapView : public MultiMapView {
+class FourPaneMapView : public MultiPaneMapView
+{
   Q_OBJECT
 private:
   Logger* m_logger;
   std::weak_ptr<MapDocument> m_document;
 
-  CameraLinkHelper m_linkHelper;
-  QSplitter* m_hSplitter;
-  QSplitter* m_leftVSplitter;
-  QSplitter* m_rightVSplitter;
+  QSplitter* m_hSplitter = nullptr;
+  QSplitter* m_leftVSplitter = nullptr;
+  QSplitter* m_rightVSplitter = nullptr;
 
-  MapView3D* m_mapView3D;
-  MapView2D* m_mapViewXY;
-  MapView2D* m_mapViewXZ;
-  MapView2D* m_mapViewYZ;
+  MapView3D* m_mapView3D = nullptr;
+  MapView2D* m_mapViewXY = nullptr;
+  MapView2D* m_mapViewXZ = nullptr;
+  MapView2D* m_mapViewYZ = nullptr;
 
 public:
   FourPaneMapView(
-    std::weak_ptr<MapDocument> document, MapViewToolBox& toolBox,
-    Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager, Logger* logger,
+    std::weak_ptr<MapDocument> document,
+    MapViewToolBox& toolBox,
+    Renderer::MapRenderer& mapRenderer,
+    GLContextManager& contextManager,
+    Logger* logger,
     QWidget* parent = nullptr);
   ~FourPaneMapView() override;
 
 private:
   void createGui(
-    MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager);
+    MapViewToolBox& toolBox,
+    Renderer::MapRenderer& mapRenderer,
+    GLContextManager& contextManager);
 
 private: // event handlers
   void onSplitterMoved(int pos, int index);
 
-private: // implement MultiMapView subclassing interface
+private: // implement MultiPaneMapView subclassing interface
   void doMaximizeView(MapView* view) override;
   void doRestoreViews() override;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

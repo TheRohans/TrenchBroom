@@ -19,17 +19,22 @@
 
 #pragma once
 
-#include "IO/Path.h"
+#include "kdl/reflection_decl.h"
 
+#include <filesystem>
 #include <set>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
-class Quake3ShaderStage {
+namespace TrenchBroom
+{
+namespace Assets
+{
+class Quake3ShaderStage
+{
 public:
-  struct BlendFunc {
+  struct BlendFunc
+  {
     std::string srcFactor;
     std::string destFactor;
 
@@ -49,40 +54,43 @@ public:
     bool validateSrcFactor() const;
     bool validateDestFactor() const;
     void reset();
+
+    kdl_reflect_decl(BlendFunc, srcFactor, destFactor);
   };
 
 public:
-  IO::Path map;
+  std::filesystem::path map;
   BlendFunc blendFunc;
+
+  kdl_reflect_decl(Quake3ShaderStage, map, blendFunc);
 };
 
-bool operator==(const Quake3ShaderStage::BlendFunc& lhs, const Quake3ShaderStage::BlendFunc& rhs);
-bool operator!=(const Quake3ShaderStage::BlendFunc& lhs, const Quake3ShaderStage::BlendFunc& rhs);
-
-bool operator==(const Quake3ShaderStage& lhs, const Quake3ShaderStage& rhs);
-bool operator!=(const Quake3ShaderStage& lhs, const Quake3ShaderStage& rhs);
-
-class Quake3Shader {
+class Quake3Shader
+{
 public:
-  enum class Culling {
+  enum class Culling
+  {
     Front,
     Back,
     None
   };
 
 public:
-  IO::Path shaderPath;
-  IO::Path editorImage;
-  IO::Path lightImage;
+  std::filesystem::path shaderPath = {};
+  std::filesystem::path editorImage = {};
+  std::filesystem::path lightImage = {};
   Culling culling = Culling::Front;
-  std::set<std::string> surfaceParms;
-  std::vector<Quake3ShaderStage> stages;
+  std::set<std::string> surfaceParms = {};
+  std::vector<Quake3ShaderStage> stages = {};
 
 public:
   Quake3ShaderStage& addStage();
+
+  kdl_reflect_decl(
+    Quake3Shader, shaderPath, editorImage, lightImage, culling, surfaceParms, stages);
 };
 
-bool operator==(const Quake3Shader& lhs, const Quake3Shader& rhs);
-bool operator!=(const Quake3Shader& lhs, const Quake3Shader& rhs);
+std::ostream& operator<<(std::ostream& lhs, Quake3Shader::Culling rhs);
+
 } // namespace Assets
 } // namespace TrenchBroom

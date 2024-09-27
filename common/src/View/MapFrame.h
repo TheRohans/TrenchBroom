@@ -19,16 +19,18 @@
 
 #pragma once
 
-#include "IO/ExportOptions.h"
-#include "Model/MapFormat.h"
-#include "NotifierConnection.h"
-#include "View/Selection.h"
-
 #include <QDialog>
 #include <QMainWindow>
 #include <QPointer>
 
+#include "IO/ExportOptions.h"
+#include "Model/MapFormat.h"
+#include "NotifierConnection.h"
+#include "Result.h"
+#include "View/Selection.h"
+
 #include <chrono>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -43,24 +45,25 @@ class QSplitter;
 class QTimer;
 class QToolBar;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
-
-namespace Assets {
-class Texture;
 }
 
-namespace IO {
-class Path;
+namespace TrenchBroom::Assets
+{
+class Material;
 }
 
-namespace Model {
+namespace TrenchBroom::Model
+{
 class Game;
 class GroupNode;
 class LayerNode;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace View {
+namespace TrenchBroom::View
+{
 class Action;
 class Autosaver;
 class Console;
@@ -77,34 +80,36 @@ class SignalDelayer;
 class SwitchableMapViewContainer;
 class Tool;
 
-class MapFrame : public QMainWindow {
+class MapFrame : public QMainWindow
+{
   Q_OBJECT
 private:
-  FrameManager* m_frameManager;
+  FrameManager& m_frameManager;
   std::shared_ptr<MapDocument> m_document;
 
   std::chrono::time_point<std::chrono::system_clock> m_lastInputTime;
   std::unique_ptr<Autosaver> m_autosaver;
-  QTimer* m_autosaveTimer;
+  QTimer* m_autosaveTimer = nullptr;
+  QTimer* m_processResourcesTimer = nullptr;
 
-  QToolBar* m_toolBar;
+  QToolBar* m_toolBar = nullptr;
 
-  QSplitter* m_hSplitter;
-  QSplitter* m_vSplitter;
+  QSplitter* m_hSplitter = nullptr;
+  QSplitter* m_vSplitter = nullptr;
 
   std::unique_ptr<GLContextManager> m_contextManager;
-  SwitchableMapViewContainer* m_mapView;
+  SwitchableMapViewContainer* m_mapView = nullptr;
   /**
-   * Last focused MapViewBase. It's a QPointer to handle changing from e.g. a 2-pane map view to
-   * 1-pane.
+   * Last focused MapViewBase. It's a QPointer to handle changing from e.g. a 2-pane map
+   * view to 1-pane.
    */
   QPointer<MapViewBase> m_currentMapView;
-  InfoPanel* m_infoPanel;
-  Console* m_console;
-  Inspector* m_inspector;
+  InfoPanel* m_infoPanel = nullptr;
+  Console* m_console = nullptr;
+  Inspector* m_inspector = nullptr;
 
-  QComboBox* m_gridChoice;
-  QLabel* m_statusBarLabel;
+  QComboBox* m_gridChoice = nullptr;
+  QLabel* m_statusBarLabel = nullptr;
 
   QPointer<QDialog> m_compilationDialog;
   QPointer<ObjExportDialog> m_objExportDialog;
@@ -121,12 +126,12 @@ private: // special menu entries
   QAction* m_redoAction;
 
 private:
-  SignalDelayer* m_updateTitleSignalDelayer;
-  SignalDelayer* m_updateActionStateSignalDelayer;
-  SignalDelayer* m_updateStatusBarSignalDelayer;
+  SignalDelayer* m_updateTitleSignalDelayer = nullptr;
+  SignalDelayer* m_updateActionStateSignalDelayer = nullptr;
+  SignalDelayer* m_updateStatusBarSignalDelayer = nullptr;
 
 public:
-  MapFrame(FrameManager* frameManager, std::shared_ptr<MapDocument> document);
+  MapFrame(FrameManager& frameManager, std::shared_ptr<MapDocument> document);
   ~MapFrame() override;
 
   void positionOnScreen(QWidget* reference);
@@ -134,7 +139,7 @@ public:
 
 public: // getters and such
   Logger& logger() const;
-  QAction* findAction(const IO::Path& path);
+  QAction* findAction(const std::filesystem::path& path);
 
 private: // title bar contents
   void updateTitle();
@@ -174,7 +179,7 @@ private: // notification handlers
   void transactionDone(const std::string&);
   void transactionUndone(const std::string&);
 
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
   void gridDidChange();
   void toolActivated(Tool& tool);
   void toolDeactivated(Tool& tool);
@@ -192,12 +197,14 @@ private: // menu event handlers
   void bindEvents();
 
 public:
-  bool newDocument(std::shared_ptr<Model::Game> game, Model::MapFormat mapFormat);
-  bool openDocument(
-    std::shared_ptr<Model::Game> game, Model::MapFormat mapFormat, const IO::Path& path);
+  Result<bool> newDocument(std::shared_ptr<Model::Game> game, Model::MapFormat mapFormat);
+  Result<bool> openDocument(
+    std::shared_ptr<Model::Game> game,
+    Model::MapFormat mapFormat,
+    const std::filesystem::path& path);
   bool saveDocument();
   bool saveDocumentAs();
-  bool revertDocument();
+  void revertDocument();
   bool exportDocumentAsObj();
   bool exportDocumentAsMap();
   bool exportDocument(const IO::ExportOptions& options);
@@ -219,7 +226,7 @@ public:
   bool canReloadPortalFile() const;
   bool canUnloadPointFile() const;
 
-  void reloadTextureCollections();
+  void reloadMaterialCollections();
   void reloadEntityDefinitions();
   void closeDocument();
 
@@ -277,9 +284,9 @@ public:
 
   bool anyToolActive() const;
 
-  void toggleCreateComplexBrushTool();
-  bool canToggleCreateComplexBrushTool() const;
-  bool createComplexBrushToolActive() const;
+  void toggleAssembleBrushTool();
+  bool canToggleAssembleBrushTool() const;
+  bool assembleBrushToolActive() const;
 
   void toggleClipTool();
   bool canToggleClipTool() const;
@@ -327,9 +334,9 @@ public:
   void snapVerticesToGrid();
   bool canSnapVertices() const;
 
-  void replaceTexture();
+  void replaceMaterial();
 
-  void toggleTextureLock();
+  void toggleAlignmentLock();
   void toggleUVLock();
 
   void toggleShowGrid();
@@ -348,6 +355,8 @@ public:
 
   void moveCameraToPreviousPoint();
   bool canMoveCameraToPreviousPoint() const;
+
+  void reset2dCameras();
 
   void focusCameraOnSelection();
   bool canFocusCamera() const;
@@ -381,10 +390,10 @@ public:
 
   void showLaunchEngineDialog();
 
-  bool canRevealTexture() const;
-  void revealTexture();
+  bool canRevealMaterial() const;
+  void revealMaterial();
 
-  void revealTexture(const Assets::Texture* texture);
+  void revealMaterial(const Assets::Material* material);
 
   void debugPrintVertices();
   void debugCreateBrush();
@@ -403,6 +412,10 @@ private:
   bool canCompile() const;
   bool canLaunch() const;
 
+public: // drag and drop
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
+
 protected: // other event handlers
   void changeEvent(QEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
@@ -412,13 +425,15 @@ public: // event filter (suppress autosave for user input events)
 
 private:
   void triggerAutosave();
+  void triggerProcessResources();
 };
 
-class DebugPaletteWindow : public QDialog {
+class DebugPaletteWindow : public QDialog
+{
   Q_OBJECT
 public:
-  DebugPaletteWindow(QWidget* parent = nullptr);
-  virtual ~DebugPaletteWindow();
+  explicit DebugPaletteWindow(QWidget* parent = nullptr);
+  ~DebugPaletteWindow() override;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

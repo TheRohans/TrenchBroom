@@ -20,26 +20,22 @@
 #pragma once
 
 #include "IO/ImageFileSystem.h"
+#include "Result.h"
 
-#include <memory>
+#include <filesystem>
 
-namespace TrenchBroom {
-class Logger;
-
-namespace IO {
+namespace TrenchBroom::IO
+{
 class FileSystem;
-class Path;
+class OwningBufferFile;
 
-class WadFileSystem : public ImageFileSystem {
-private:
-  Logger& m_logger;
-
+class WadFileSystem : public ImageFileSystem<OwningBufferFile>
+{
 public:
-  WadFileSystem(const Path& path, Logger& logger);
-  WadFileSystem(std::shared_ptr<FileSystem> next, const Path& path, Logger& logger);
+  explicit WadFileSystem(std::shared_ptr<CFile> file);
 
 private:
-  void doReadDirectory() override;
+  Result<void> doReadDirectory() override;
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

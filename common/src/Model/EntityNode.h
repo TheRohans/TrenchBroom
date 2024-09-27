@@ -25,33 +25,37 @@
 #include "Model/HitType.h"
 #include "Model/Object.h"
 
-#include <kdl/result_forward.h>
+#include "kdl/result_forward.h"
 
-#include <vecmath/bbox.h>
-#include <vecmath/forward.h>
-#include <vecmath/util.h>
+#include "vm/bbox.h"
+#include "vm/forward.h"
+#include "vm/util.h"
 
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 enum class PitchType;
-class EntityModelFrame;
+class EntityModel;
 struct ModelSpecification;
-} // namespace Assets
+} // namespace TrenchBroom::Assets
 
-namespace Model {
+namespace TrenchBroom::Model
+{
+
 struct EntityPropertyConfig;
 
-class EntityNode : public EntityNodeBase, public Object {
+class EntityNode : public EntityNodeBase, public Object
+{
 public:
   static const HitType::Type EntityHitType;
   static const vm::bbox3 DefaultBounds;
 
 private:
-  struct CachedBounds {
+  struct CachedBounds
+  {
     vm::bbox3 modelBounds;
     vm::bbox3 logicalBounds;
     vm::bbox3 physicalBounds;
@@ -60,13 +64,10 @@ private:
 
 public:
   explicit EntityNode(Entity entity);
-  EntityNode(
-    const Model::EntityPropertyConfig& entityPropertyConfig,
-    std::initializer_list<EntityProperty> properties);
 
 public: // entity model
   const vm::bbox3& modelBounds() const;
-  void setModelFrame(const Assets::EntityModelFrame* modelFrame);
+  void setModel(const Assets::EntityModel* model);
 
 private: // implement Node interface
   const vm::bbox3& doGetLogicalBounds() const override;
@@ -91,10 +92,11 @@ private: // implement Node interface
   bool doSelectable() const override;
 
   void doPick(
-    const EditorContext& editorContext, const vm::ray3& ray, PickResult& pickResult) override;
+    const EditorContext& editorContext,
+    const vm::ray3& ray,
+    PickResult& pickResult) override;
   void doFindNodesContaining(const vm::vec3& point, std::vector<Node*>& result) override;
 
-  void doGenerateIssues(const IssueGenerator* generator, std::vector<Issue*>& issues) override;
   void doAccept(NodeVisitor& visitor) override;
   void doAccept(ConstNodeVisitor& visitor) const override;
 
@@ -121,5 +123,5 @@ private: // implement Taggable interface
 private:
   deleteCopyAndMove(EntityNode);
 };
-} // namespace Model
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Model

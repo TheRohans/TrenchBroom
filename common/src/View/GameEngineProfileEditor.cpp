@@ -19,15 +19,6 @@
 
 #include "GameEngineProfileEditor.h"
 
-#include "IO/DiskIO.h"
-#include "IO/PathQt.h"
-#include "Model/GameEngineProfile.h"
-#include "View/QtUtils.h"
-#include "View/ViewConstants.h"
-
-#include <kdl/set_temp.h>
-#include <kdl/string_compare.h>
-
 #include <QBoxLayout>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -35,47 +26,61 @@
 #include <QPushButton>
 #include <QStackedWidget>
 
-namespace TrenchBroom {
-namespace View {
+#include "IO/DiskIO.h"
+#include "IO/PathInfo.h"
+#include "IO/PathQt.h"
+#include "Model/GameEngineProfile.h"
+#include "View/QtUtils.h"
+#include "View/ViewConstants.h"
+
+#include "kdl/set_temp.h"
+#include "kdl/string_compare.h"
+
+namespace TrenchBroom::View
+{
+
 GameEngineProfileEditor::GameEngineProfileEditor(QWidget* parent)
-  : QWidget(parent)
-  , m_profile(nullptr)
-  , m_stackedWidget(nullptr)
-  , m_nameEdit(nullptr)
-  , m_pathEdit(nullptr) {
-  m_stackedWidget = new QStackedWidget();
+  : QWidget{parent}
+{
+  m_stackedWidget = new QStackedWidget{};
   m_stackedWidget->addWidget(createDefaultPage("Select a game engine profile"));
   m_stackedWidget->addWidget(createEditorPage());
 
-  auto* layout = new QVBoxLayout();
-  layout->setContentsMargins(QMargins());
+  auto* layout = new QVBoxLayout{};
+  layout->setContentsMargins(QMargins{});
   setLayout(layout);
   layout->addWidget(m_stackedWidget);
 }
 
-QWidget* GameEngineProfileEditor::createEditorPage() {
-  auto* container = new QWidget();
+QWidget* GameEngineProfileEditor::createEditorPage()
+{
+  auto* container = new QWidget{};
   setBaseWindowColor(container);
 
-  m_nameEdit = new QLineEdit();
+  m_nameEdit = new QLineEdit{};
   setHint(m_nameEdit, "Choose a name");
 
-  m_pathEdit = new QLineEdit();
+  m_pathEdit = new QLineEdit{};
   setHint(m_pathEdit, "Click on the button to choose...");
 
-  auto* button = new QPushButton("...");
+  auto* button = new QPushButton{"..."};
 
-  connect(m_nameEdit, &QLineEdit::textEdited, this, &GameEngineProfileEditor::nameChanged);
-  connect(m_pathEdit, &QLineEdit::editingFinished, this, &GameEngineProfileEditor::pathChanged);
-  connect(button, &QPushButton::clicked, this, &GameEngineProfileEditor::changePathClicked);
+  connect(
+    m_nameEdit, &QLineEdit::textEdited, this, &GameEngineProfileEditor::nameChanged);
+  connect(
+    m_pathEdit, &QLineEdit::editingFinished, this, &GameEngineProfileEditor::pathChanged);
+  connect(
+    button, &QPushButton::clicked, this, &GameEngineProfileEditor::changePathClicked);
 
-  auto* pathLayout = new QHBoxLayout();
+  auto* pathLayout = new QHBoxLayout{};
   pathLayout->addWidget(m_pathEdit, 1);
   pathLayout->addWidget(button);
 
-  auto* formLayout = new QFormLayout();
+  auto* formLayout = new QFormLayout{};
   formLayout->setContentsMargins(
-    LayoutConstants::WideHMargin, LayoutConstants::WideVMargin, LayoutConstants::WideHMargin,
+    LayoutConstants::WideHMargin,
+    LayoutConstants::WideVMargin,
+    LayoutConstants::WideHMargin,
     LayoutConstants::WideVMargin);
   formLayout->setVerticalSpacing(LayoutConstants::NarrowVMargin);
   formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
@@ -87,76 +92,85 @@ QWidget* GameEngineProfileEditor::createEditorPage() {
   return container;
 }
 
-void GameEngineProfileEditor::updatePath(const QString& str) {
+void GameEngineProfileEditor::updatePath(const QString& str)
+{
   const auto valid = isValidEnginePath(str);
-  if (valid) {
-    const auto path = IO::pathFromQString(str);
-    m_profile->setPath(path);
-    if (m_profile->name().empty()) {
-      m_profile->setName(path.lastComponent().deleteExtension().asString());
+  if (valid)
+  {
+    m_profile->path = IO::pathFromQString(str);
+    if (m_profile->name.empty())
+    {
+      m_profile->name = m_profile->path.stem().string();
     }
     emit profileChanged();
     refresh();
   }
 
-  if (valid || str.isEmpty()) {
+  if (valid || str.isEmpty())
+  {
     makeDefault(m_pathEdit);
-  } else {
+  }
+  else
+  {
     makeError(m_pathEdit);
   }
 }
 
-void GameEngineProfileEditor::setProfile(Model::GameEngineProfile* profile) {
+void GameEngineProfileEditor::setProfile(Model::GameEngineProfile* profile)
+{
   m_profile = profile;
-  if (m_profile != nullptr) {
-    m_stackedWidget->setCurrentIndex(1);
-  } else {
-    m_stackedWidget->setCurrentIndex(0);
-  }
+  m_stackedWidget->setCurrentIndex(m_profile ? 1 : 0);
   refresh();
 }
 
-void GameEngineProfileEditor::refresh() {
-  if (m_profile != nullptr) {
-    m_nameEdit->setText(QString::fromStdString(m_profile->name()));
-    m_pathEdit->setText(IO::pathAsQString(m_profile->path()));
-  } else {
-    m_nameEdit->setText("");
-    m_pathEdit->setText("");
+void GameEngineProfileEditor::refresh()
+{
+  m_nameEdit->setText(m_profile ? QString::fromStdString(m_profile->name) : "");
+  m_pathEdit->setText(m_profile ? IO::pathAsQString(m_profile->path) : "");
+}
+
+bool GameEngineProfileEditor::isValidEnginePath(const QString& str) const
+{
+  try
+  {
+    const auto path = IO::pathFromQString(str);
+    return IO::Disk::pathInfo(path) == IO::PathInfo::File
+#ifdef __APPLE__
+           || (IO::Disk::pathInfo(path) == IO::PathInfo::Directory 
+           && kdl::ci::str_is_equal(path.extension().string(), ".app"))
+#endif
+      ;
+  }
+  catch (...)
+  {
+    return false;
   }
 }
 
-bool GameEngineProfileEditor::isValidEnginePath(const QString& str) const {
-  try {
-    const auto path = IO::pathFromQString(str);
-    return IO::Disk::fileExists(path)
-#ifdef __APPLE__
-           || (IO::Disk::directoryExists(path) && kdl::ci::str_is_equal(path.extension(), "app"))
-#endif
-      ;
-  } catch (...) { return false; }
-}
-
-void GameEngineProfileEditor::nameChanged(const QString& text) {
+void GameEngineProfileEditor::nameChanged(const QString& text)
+{
   ensure(m_profile != nullptr, "profile is null");
 
-  m_profile->setName(text.toStdString());
+  m_profile->name = text.toStdString();
   emit profileChanged();
 }
 
-void GameEngineProfileEditor::pathChanged() {
+void GameEngineProfileEditor::pathChanged()
+{
   ensure(m_profile != nullptr, "profile is null");
 
   updatePath(m_pathEdit->text());
 }
 
-void GameEngineProfileEditor::changePathClicked() {
-  const QString pathStr = QFileDialog::getOpenFileName(
+void GameEngineProfileEditor::changePathClicked()
+{
+  const auto pathStr = QFileDialog::getOpenFileName(
     this, tr("Choose Engine"), fileDialogDefaultDirectory(FileDialogDir::Engine));
-  if (!pathStr.isEmpty()) {
+  if (!pathStr.isEmpty())
+  {
     updateFileDialogDefaultDirectoryWithFilename(FileDialogDir::Engine, pathStr);
     updatePath(pathStr);
   }
 }
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

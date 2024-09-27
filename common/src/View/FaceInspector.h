@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "NotifierConnection.h"
 #include "View/TabBook.h"
 
 #include <memory>
@@ -26,46 +27,51 @@
 class QSplitter;
 class QWidget;
 
-namespace TrenchBroom {
-namespace Assets {
-class Texture;
+namespace TrenchBroom::Assets
+{
+class Material;
 }
 
-namespace View {
+namespace TrenchBroom::View
+{
 class CollapsibleTitledPanel;
 class FaceAttribsEditor;
 class GLContextManager;
 class MapDocument;
-class TextureBrowser;
+class MaterialBrowser;
 
-class FaceInspector : public TabBookPage {
+class FaceInspector : public TabBookPage
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
-  QSplitter* m_splitter;
-  FaceAttribsEditor* m_faceAttribsEditor;
-  TextureBrowser* m_textureBrowser;
-  CollapsibleTitledPanel* m_textureCollectionsEditor;
+  QSplitter* m_splitter = nullptr;
+  FaceAttribsEditor* m_faceAttribsEditor = nullptr;
+  MaterialBrowser* m_materialBrowser = nullptr;
+  QWidget* m_materialBrowserInfo = nullptr;
+
+  NotifierConnection m_notifierConnection;
 
 public:
   FaceInspector(
-    std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    std::weak_ptr<MapDocument> document,
+    GLContextManager& contextManager,
     QWidget* parent = nullptr);
   ~FaceInspector() override;
 
   bool cancelMouseDrag();
-  void revealTexture(const Assets::Texture* texture);
+  void revealMaterial(const Assets::Material* material);
 
 private:
-  void createGui(std::weak_ptr<MapDocument> document, GLContextManager& contextManager);
-  QWidget* createFaceAttribsEditor(
-    QWidget* parent, std::weak_ptr<MapDocument> document, GLContextManager& contextManager);
-  QWidget* createTextureBrowser(
-    QWidget* parent, std::weak_ptr<MapDocument> document, GLContextManager& contextManager);
-  CollapsibleTitledPanel* createTextureCollectionEditor(
-    QWidget* parent, std::weak_ptr<MapDocument> document);
+  void createGui(GLContextManager& contextManager);
+  QWidget* createFaceAttribsEditor(GLContextManager& contextManager);
+  QWidget* createMaterialBrowser(GLContextManager& contextManager);
+  QWidget* createMaterialBrowserInfo();
 
-  void textureSelected(const Assets::Texture* texture);
+  void materialSelected(const Assets::Material* material);
+
+  void connectObservers();
+  void documentWasNewedOrOpened(MapDocument* document);
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

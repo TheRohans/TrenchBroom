@@ -19,30 +19,29 @@
 
 #pragma once
 
-#include "IO/Path.h"
-
 #include <QAbstractTableModel>
 
+#include <filesystem>
 #include <vector>
 
 class QObject;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class Action;
 class MapDocument;
 
-class KeyboardShortcutModel : public QAbstractTableModel {
+class KeyboardShortcutModel : public QAbstractTableModel
+{
   Q_OBJECT
 private:
-  struct ActionInfo {
+  struct ActionInfo
+  {
     /**
      * Path displayed to the user, unrelated to the preference path.
      */
-    const IO::Path displayPath;
+    const std::filesystem::path displayPath;
     const Action& action;
-
-    ActionInfo(const IO::Path& i_displayPath, const Action& i_action);
   };
 
   MapDocument* m_document;
@@ -83,5 +82,4 @@ private:
 
   bool checkIndex(const QModelIndex& index) const;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

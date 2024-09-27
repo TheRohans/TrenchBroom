@@ -29,112 +29,47 @@
 #include <optional>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushFace;
 class BrushFaceHandle;
 class Node;
 class PickResult;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class BrushRenderer;
 class Camera;
 class RenderBatch;
 class RenderContext;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
 class Grid;
 class MapDocument;
 class Selection;
 
-class ClipTool : public Tool {
+class ClipStrategy;
+
+class ClipTool : public Tool
+{
 public:
   static const Model::HitType::Type PointHitType;
 
 private:
-  enum ClipSide {
-    ClipSide_Front,
-    ClipSide_Both,
-    ClipSide_Back
+  enum class ClipSide
+  {
+    Front,
+    Both,
+    Back
   };
-
-  class ClipStrategy {
-  public:
-    virtual ~ClipStrategy();
-    void pick(
-      const vm::ray3& pickRay, const Renderer::Camera& camera, Model::PickResult& pickResult) const;
-    void render(
-      Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
-      const Model::PickResult& pickResult);
-    void renderFeedback(
-      Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
-      const vm::vec3& point) const;
-
-    bool computeThirdPoint(vm::vec3& point) const;
-
-    bool canClip() const;
-    bool hasPoints() const;
-    bool canAddPoint(const vm::vec3& point) const;
-    void addPoint(const vm::vec3& point, const std::vector<vm::vec3>& helpVectors);
-    bool canRemoveLastPoint() const;
-    void removeLastPoint();
-
-    std::optional<std::tuple<vm::vec3, vm::vec3>> canDragPoint(
-      const Model::PickResult& pickResult) const;
-    void beginDragPoint(const Model::PickResult& pickResult);
-    void beginDragLastPoint();
-    bool dragPoint(const vm::vec3& newPosition, const std::vector<vm::vec3>& helpVectors);
-    void endDragPoint();
-    void cancelDragPoint();
-
-    bool setFace(const Model::BrushFaceHandle& faceHandle);
-    void reset();
-    size_t getPoints(vm::vec3& point1, vm::vec3& point2, vm::vec3& point3) const;
-
-  private:
-    virtual void doPick(
-      const vm::ray3& pickRay, const Renderer::Camera& camera,
-      Model::PickResult& pickResult) const = 0;
-    virtual void doRender(
-      Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
-      const Model::PickResult& pickResult) = 0;
-
-    virtual void doRenderFeedback(
-      Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
-      const vm::vec3& point) const = 0;
-
-    virtual bool doComputeThirdPoint(vm::vec3& point) const = 0;
-
-    virtual bool doCanClip() const = 0;
-    virtual bool doHasPoints() const = 0;
-    virtual bool doCanAddPoint(const vm::vec3& point) const = 0;
-    virtual void doAddPoint(const vm::vec3& point, const std::vector<vm::vec3>& helpVectors) = 0;
-    virtual bool doCanRemoveLastPoint() const = 0;
-    virtual void doRemoveLastPoint() = 0;
-
-    virtual std::optional<std::tuple<vm::vec3, vm::vec3>> doCanDragPoint(
-      const Model::PickResult& pickResult) const = 0;
-    virtual void doBeginDragPoint(const Model::PickResult& pickResult) = 0;
-    virtual void doBeginDragLastPoint() = 0;
-    virtual bool doDragPoint(
-      const vm::vec3& newPosition, const std::vector<vm::vec3>& helpVectors) = 0;
-    virtual void doEndDragPoint() = 0;
-    virtual void doCancelDragPoint() = 0;
-
-    virtual bool doSetFace(const Model::BrushFaceHandle& face) = 0;
-    virtual void doReset() = 0;
-    virtual size_t doGetPoints(vm::vec3& point1, vm::vec3& point2, vm::vec3& point3) const = 0;
-  };
-
-  class PointClipStrategy;
-  class FaceClipStrategy;
 
 private:
   std::weak_ptr<MapDocument> m_document;
 
-  ClipSide m_clipSide;
+  ClipSide m_clipSide = ClipSide::Front;
   std::unique_ptr<ClipStrategy> m_strategy;
 
   std::map<Model::Node*, std::vector<Model::Node*>> m_frontBrushes;
@@ -143,8 +78,8 @@ private:
   std::unique_ptr<Renderer::BrushRenderer> m_remainingBrushRenderer;
   std::unique_ptr<Renderer::BrushRenderer> m_clippedBrushRenderer;
 
-  bool m_ignoreNotifications;
-  bool m_dragging;
+  bool m_ignoreNotifications = false;
+  bool m_dragging = false;
 
   NotifierConnection m_notifierConnection;
 
@@ -156,21 +91,28 @@ public:
 
   void toggleSide();
 
-  void pick(const vm::ray3& pickRay, const Renderer::Camera& camera, Model::PickResult& pickResult);
+  void pick(
+    const vm::ray3& pickRay,
+    const Renderer::Camera& camera,
+    Model::PickResult& pickResult);
 
   void render(
-    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
+    Renderer::RenderContext& renderContext,
+    Renderer::RenderBatch& renderBatch,
     const Model::PickResult& pickResult);
 
 private:
-  void renderBrushes(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
+  void renderBrushes(
+    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
   void renderStrategy(
-    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
+    Renderer::RenderContext& renderContext,
+    Renderer::RenderBatch& renderBatch,
     const Model::PickResult& pickResult);
 
 public:
   void renderFeedback(
-    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch,
+    Renderer::RenderContext& renderContext,
+    Renderer::RenderBatch& renderBatch,
     const vm::vec3& point) const;
 
 public:
@@ -190,7 +132,8 @@ public:
   bool canRemoveLastPoint() const;
   bool removeLastPoint();
 
-  std::optional<std::tuple<vm::vec3, vm::vec3>> beginDragPoint(const Model::PickResult& pickResult);
+  std::optional<std::tuple<vm::vec3, vm::vec3>> beginDragPoint(
+    const Model::PickResult& pickResult);
   void beginDragLastPoint();
   bool dragPoint(const vm::vec3& newPosition, const std::vector<vm::vec3>& helpVectors);
   void endDragPoint();
@@ -206,7 +149,8 @@ private:
   void clearBrushes();
   void updateBrushes();
 
-  void setFaceAttributes(const std::vector<Model::BrushFace>& faces, Model::BrushFace& toSet) const;
+  void setFaceAttributes(
+    const std::vector<Model::BrushFace>& faces, Model::BrushFace& toSet) const;
 
   void clearRenderers();
   void updateRenderers();
@@ -229,5 +173,5 @@ private:
   void nodesDidChange(const std::vector<Model::Node*>& nodes);
   void brushFacesDidChange(const std::vector<Model::BrushFaceHandle>& nodes);
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

@@ -21,31 +21,41 @@
 
 #include "View/EdgeTool.h"
 
-#include <vecmath/polygon.h>
+#include "vm/polygon.h"
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace View {
-class EdgeToolController::SelectEdgePart : public SelectPartBase<vm::segment3> {
+namespace TrenchBroom
+{
+namespace View
+{
+class EdgeToolController::SelectEdgePart : public SelectPartBase<vm::segment3>
+{
 public:
   SelectEdgePart(EdgeTool& tool)
-    : SelectPartBase(tool, EdgeHandleManager::HandleHitType) {}
+    : SelectPartBase(tool, EdgeHandleManager::HandleHitType)
+  {
+  }
 
 private:
-  bool equalHandles(const vm::segment3& lhs, const vm::segment3& rhs) const override {
+  bool equalHandles(const vm::segment3& lhs, const vm::segment3& rhs) const override
+  {
     return compare(lhs, rhs, MaxHandleDistance) == 0;
   }
 };
 
-class EdgeToolController::MoveEdgePart : public MovePartBase {
+class EdgeToolController::MoveEdgePart : public MovePartBase
+{
 public:
   MoveEdgePart(EdgeTool& tool)
-    : MovePartBase(tool, EdgeHandleManager::HandleHitType) {}
+    : MovePartBase(tool, EdgeHandleManager::HandleHitType)
+  {
+  }
 };
 
 EdgeToolController::EdgeToolController(EdgeTool& tool)
-  : VertexToolControllerBase(tool) {
+  : VertexToolControllerBase(tool)
+{
   addController(std::make_unique<MoveEdgePart>(tool));
   addController(std::make_unique<SelectEdgePart>(tool));
 }

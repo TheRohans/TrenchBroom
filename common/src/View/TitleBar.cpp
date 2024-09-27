@@ -19,37 +19,45 @@
 
 #include "TitleBar.h"
 
+#include <QHBoxLayout>
+#include <QLabel>
+
 #include "View/ControlListBox.h"
 #include "View/QtUtils.h"
 #include "View/ViewConstants.h"
 
-#include <QHBoxLayout>
-#include <QLabel>
+namespace TrenchBroom::View
+{
 
-namespace TrenchBroom {
-namespace View {
 TitleBar::TitleBar(
-  const QString& title, QWidget* parent, const int hMargin, const int vMargin, const bool boldTitle)
-  : QWidget(parent)
-  , m_titleText(nullptr) {
-  m_titleText = new QLabel(title);
+  const QString& title,
+  QWidget* parent,
+  const int hMargin,
+  const int vMargin,
+  const bool boldTitle)
+  : QWidget{parent}
+  , m_titleLabel{new QLabel{title}}
+{
+  // Tell ControlListBox to not update the title label's color when the selection changes,
+  // in case this widget is used inside of a ControlListBox.
+  m_titleLabel->setProperty(ControlListBox::LabelColorShouldNotUpdateWhenSelected, true);
 
-  // Tell ControlListBox to not update the title label's color when the selection changes, in case
-  // this widget is used inside of a ControlListBox.
-  m_titleText->setProperty(ControlListBox::LabelColorShouldNotUpdateWhenSelected, true);
-
-  if (boldTitle) {
-    makeEmphasized(m_titleText);
+  if (boldTitle)
+  {
+    makeEmphasized(m_titleLabel);
   }
 
-  auto* layout = new QHBoxLayout();
+  auto* layout = new QHBoxLayout{};
   layout->setContentsMargins(hMargin, vMargin, hMargin, vMargin);
   layout->setSpacing(LayoutConstants::WideHMargin);
-  layout->addWidget(m_titleText, 1);
+  layout->addWidget(m_titleLabel, 1);
   setLayout(layout);
 }
 
-TitleBar::TitleBar(const QString& title, const int hMargin, const int vMargin, const bool boldTitle)
-  : TitleBar(title, nullptr, hMargin, vMargin, boldTitle) {}
-} // namespace View
-} // namespace TrenchBroom
+TitleBar::TitleBar(
+  const QString& title, const int hMargin, const int vMargin, const bool boldTitle)
+  : TitleBar{title, nullptr, hMargin, vMargin, boldTitle}
+{
+}
+
+} // namespace TrenchBroom::View

@@ -19,28 +19,28 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "NotifierConnection.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <QWidget>
 
 class QLineEdit;
 class QListWidget;
 class QWidget;
 class QAbstractButton;
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
-
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class MapDocument;
 
-class ModEditor : public QWidget {
+class ModEditor : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
@@ -71,7 +71,7 @@ private:
   void documentWasNewed(MapDocument* document);
   void documentWasLoaded(MapDocument* document);
   void modsDidChange();
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
 
   void updateAvailableMods();
   void updateMods();

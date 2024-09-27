@@ -19,6 +19,11 @@
 
 #include "ViewUtils.h"
 
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QString>
+#include <QWidget>
+
 #include "Assets/EntityDefinitionFileSpec.h"
 #include "IO/PathQt.h"
 #include "Model/Game.h"
@@ -26,147 +31,138 @@
 #include "View/ChoosePathTypeDialog.h"
 #include "View/MapDocument.h"
 
-#include <kdl/memory_utils.h>
-#include <kdl/string_compare.h>
-#include <kdl/string_format.h>
+#include "kdl/memory_utils.h"
+#include "kdl/string_compare.h"
+#include "kdl/string_format.h"
 
+#include <filesystem>
 #include <memory>
 
-#include <QInputDialog>
-#include <QMessageBox>
-#include <QString>
-#include <QWidget>
+namespace TrenchBroom::View
+{
 
-namespace TrenchBroom {
-namespace View {
-void combineFlags(const size_t numFlags, const int newFlagValue, int& setFlags, int& mixedFlags) {
-  for (size_t i = 0; i < numFlags; ++i) {
-    const bool alreadySet = (newFlagValue & (1 << i)) != 0;
-    const bool willBeSet = (setFlags & (1 << i)) != 0;
+void combineFlags(
+  const size_t numFlags, const int newFlagValue, int& setFlags, int& mixedFlags)
+{
+  for (size_t i = 0; i < numFlags; ++i)
+  {
+    const auto alreadySet = (newFlagValue & (1 << i)) != 0;
+    const auto willBeSet = (setFlags & (1 << i)) != 0;
     if (alreadySet == willBeSet)
+    {
       continue;
+    }
 
     setFlags &= ~(1 << i);
     mixedFlags |= (1 << i);
   }
 }
 
-bool loadTextureCollection(
-  std::weak_ptr<MapDocument> document, QWidget* parent, const QString& path) {
-  return loadTextureCollections(document, parent, QStringList{path}) == 1;
-}
-
-size_t loadTextureCollections(
-  std::weak_ptr<MapDocument> i_document, QWidget* parent, const QStringList& pathStrs) {
-  if (pathStrs.empty()) {
-    return 0;
-  }
-
-  size_t count = 0;
-
-  auto document = kdl::mem_lock(i_document);
-  std::vector<IO::Path> collections = document->enabledTextureCollections();
-
-  auto game = document->game();
-  const Model::GameFactory& gameFactory = Model::GameFactory::instance();
-  const IO::Path gamePath = gameFactory.gamePath(game->gameName());
-  const IO::Path docPath = document->path();
-
-  for (int i = 0; i < pathStrs.size(); ++i) {
-    const QString& pathStr = pathStrs[i];
-    const IO::Path absPath = IO::pathFromQString(pathStr);
-    if (game->isTextureCollection(absPath)) {
-      ChoosePathTypeDialog pathDialog(parent->window(), absPath, docPath, gamePath);
-      const int result = pathDialog.exec();
-      if (result == QDialog::Rejected) {
-        return 0;
-      } else if (result == QDialog::Accepted) {
-        collections.push_back(pathDialog.path());
-        ++count;
-      }
-    }
-  }
-
-  document->setEnabledTextureCollections(collections);
-
-  return count;
-}
-
 bool loadEntityDefinitionFile(
-  std::weak_ptr<MapDocument> document, QWidget* parent, const QString& path) {
+  std::weak_ptr<MapDocument> document, QWidget* parent, const QString& path)
+{
   return loadEntityDefinitionFile(document, parent, QStringList{path}) == 0;
 }
 
 size_t loadEntityDefinitionFile(
-  std::weak_ptr<MapDocument> i_document, QWidget* parent, const QStringList& pathStrs) {
-  if (pathStrs.empty()) {
+  std::weak_ptr<MapDocument> i_document, QWidget* parent, const QStringList& pathStrs)
+{
+  if (pathStrs.empty())
+  {
     return 0;
   }
 
   auto document = kdl::mem_lock(i_document);
   auto game = document->game();
-  const Model::GameFactory& gameFactory = Model::GameFactory::instance();
-  const IO::Path gamePath = gameFactory.gamePath(game->gameName());
-  const IO::Path docPath = document->path();
+  const auto& gameFactory = Model::GameFactory::instance();
+  const auto gamePath = gameFactory.gamePath(game->config().name);
+  const auto docPath = document->path();
 
-  try {
-    for (int i = 0; i < pathStrs.size(); ++i) {
-      const QString& pathStr = pathStrs[i];
-      const IO::Path absPath = IO::pathFromQString(pathStr);
-      if (game->isEntityDefinitionFile(absPath)) {
-        ChoosePathTypeDialog pathDialog(parent->window(), absPath, docPath, gamePath);
-        if (pathDialog.exec() == QDialog::Accepted) {
-          const Assets::EntityDefinitionFileSpec spec =
-            Assets::EntityDefinitionFileSpec::external(pathDialog.path());
-          document->setEntityDefinitionFile(spec);
-          return static_cast<size_t>(i);
-        }
+  for (int i = 0; i < pathStrs.size(); ++i)
+  {
+    const auto& pathStr = pathStrs[i];
+    const auto absPath = IO::pathFromQString(pathStr);
+    if (game->isEntityDefinitionFile(absPath))
+    {
+      auto pathDialog =
+        ChoosePathTypeDialog{parent->window(), absPath, docPath, gamePath};
+      if (pathDialog.exec() == QDialog::Accepted)
+      {
+        const auto path =
+          convertToPathType(pathDialog.pathType(), absPath, docPath, gamePath);
+        const auto spec = Assets::EntityDefinitionFileSpec::external(path);
+        document->setEntityDefinitionFile(spec);
+        return static_cast<size_t>(i);
       }
     }
-  } catch (...) { throw; }
+  }
 
   return static_cast<size_t>(pathStrs.size());
 }
 
 static std::string queryObjectName(
-  QWidget* parent, const QString& objectType, const std::string& suggestion) {
-  while (true) {
-    bool ok = false;
-    const std::string name = QInputDialog::getText(
-                               parent, "Enter a name", QObject::tr("%1 Name").arg(objectType),
-                               QLineEdit::Normal, QString::fromStdString(suggestion), &ok)
-                               .toStdString();
+  QWidget* parent, const QString& objectType, const std::string& suggestion)
+{
+  while (true)
+  {
+    auto ok = false;
+    const auto name = QInputDialog::getText(
+                        parent,
+                        "Enter a name",
+                        QObject::tr("%1 Name").arg(objectType),
+                        QLineEdit::Normal,
+                        QString::fromStdString(suggestion),
+                        &ok)
+                        .toStdString();
 
-    if (!ok) {
+    if (!ok)
+    {
       return "";
     }
 
-    if (kdl::str_is_blank(name)) {
+    if (kdl::str_is_blank(name))
+    {
       if (
         QMessageBox::warning(
-          parent, "Error", QObject::tr("%1 names cannot be blank.").arg(objectType),
-          QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok) != QMessageBox::Ok) {
+          parent,
+          "Error",
+          QObject::tr("%1 names cannot be blank.").arg(objectType),
+          QMessageBox::Ok | QMessageBox::Cancel,
+          QMessageBox::Ok)
+        != QMessageBox::Ok)
+      {
         return "";
       }
-    } else if (kdl::ci::str_contains(name, "\"")) {
+    }
+    else if (kdl::ci::str_contains(name, "\""))
+    {
       if (
         QMessageBox::warning(
-          parent, "Error", QObject::tr("%1 names cannot contain double quotes.").arg(objectType),
-          QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok) != QMessageBox::Ok) {
+          parent,
+          "Error",
+          QObject::tr("%1 names cannot contain double quotes.").arg(objectType),
+          QMessageBox::Ok | QMessageBox::Cancel,
+          QMessageBox::Ok)
+        != QMessageBox::Ok)
+      {
         return "";
       }
-    } else {
+    }
+    else
+    {
       return name;
     }
   }
 }
 
-std::string queryGroupName(QWidget* parent, const std::string& suggestion) {
+std::string queryGroupName(QWidget* parent, const std::string& suggestion)
+{
   return queryObjectName(parent, QObject::tr("Group"), suggestion);
 }
 
-std::string queryLayerName(QWidget* parent, const std::string& suggestion) {
+std::string queryLayerName(QWidget* parent, const std::string& suggestion)
+{
   return queryObjectName(parent, QObject::tr("Layer"), suggestion);
 }
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

@@ -19,42 +19,50 @@
 
 #pragma once
 
+#include "Assets/ModelSpecification.h"
 #include "EL/Expression.h"
 #include "FloatType.h"
-#include "IO/Path.h"
 
-#include <kdl/reflection_decl.h>
-#include <vecmath/vec.h>
+#include "kdl/reflection_decl.h"
 
+#include "vm/vec.h" // IWYU pragma: keep
+
+#include <filesystem>
 #include <iosfwd>
 #include <optional>
 
-namespace TrenchBroom {
-namespace Assets {
-struct ModelSpecification {
-  IO::Path path;
-  size_t skinIndex;
-  size_t frameIndex;
+namespace TrenchBroom
+{
+struct FileLocation;
+}
 
-  ModelSpecification();
-  ModelSpecification(const IO::Path& path, size_t skinIndex, size_t frameIndex);
+namespace TrenchBroom::Assets
+{
 
-  kdl_reflect_decl(ModelSpecification, path, skinIndex, frameIndex);
-};
+namespace ModelSpecificationKeys
+{
+constexpr auto Path = "path";
+constexpr auto Skin = "skin";
+constexpr auto Frame = "frame";
+constexpr auto Scale = "scale";
+} // namespace ModelSpecificationKeys
 
-class ModelDefinition {
+class ModelDefinition
+{
 private:
-  EL::Expression m_expression;
+  EL::ExpressionNode m_expression;
 
 public:
   ModelDefinition();
-  ModelDefinition(size_t line, size_t column);
-  explicit ModelDefinition(const EL::Expression& expression);
+  explicit ModelDefinition(const FileLocation& location);
 
-  void append(const ModelDefinition& other);
+  explicit ModelDefinition(EL::ExpressionNode expression);
+
+  void append(ModelDefinition other);
 
   /**
-   * Evaluates the model expresion, using the given variable store to interpolate variables.
+   * Evaluates the model expresion, using the given variable store to interpolate
+   * variables.
    *
    * @param variableStore the variable store to use when interpolating variables
    * @return the model specification
@@ -73,15 +81,16 @@ public:
   ModelSpecification defaultModelSpecification() const;
 
   /**
-   * Evaluates the model expression using the given variable store to interpolate variables, and
-   * returns the scale value configured for the model, if any. If the model expression doesn't have
-   * its own scale expression, then the given scale expression is used instead.
+   * Evaluates the model expression using the given variable store to interpolate
+   * variables, and returns the scale value configured for the model, if any. If the model
+   * expression doesn't have its own scale expression, then the given scale expression is
+   * used instead.
    *
    * @throws EL::Exception if the expression could not be evaluated
    */
   vm::vec3 scale(
     const EL::VariableStore& variableStore,
-    const std::optional<EL::Expression>& defaultScaleExpression) const;
+    const std::optional<EL::ExpressionNode>& defaultScaleExpression) const;
 
   kdl_reflect_decl(ModelDefinition, m_expression);
 };
@@ -91,7 +100,8 @@ public:
  * an error occurs.
  */
 vm::vec3 safeGetModelScale(
-  const ModelDefinition& definition, const EL::VariableStore& variableStore,
-  const std::optional<EL::Expression>& defaultScaleExpression);
-} // namespace Assets
-} // namespace TrenchBroom
+  const ModelDefinition& definition,
+  const EL::VariableStore& variableStore,
+  const std::optional<EL::ExpressionNode>& defaultScaleExpression);
+
+} // namespace TrenchBroom::Assets

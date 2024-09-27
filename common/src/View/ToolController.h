@@ -25,33 +25,36 @@
 #include "ToolChain.h"
 #include "View/InputState.h"
 
-#include <vecmath/line.h>
-#include <vecmath/plane.h>
-#include <vecmath/vec.h>
+#include "vm/line.h"
+#include "vm/plane.h"
+#include "vm/vec.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class Hit;
 class HitQuery;
 class PickResult;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class RenderBatch;
 class RenderContext;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
 class DragTracker;
 class DropTracker;
 class InputState;
 class Tool;
 
-class ToolController {
+class ToolController
+{
 public:
   virtual ~ToolController();
 
@@ -71,15 +74,17 @@ public:
   virtual void mouseScroll(const InputState& inputState);
 
   virtual std::unique_ptr<DragTracker> acceptMouseDrag(const InputState& inputState);
-  virtual bool anyToolDragging(const InputState& inputState) const;
 
+  virtual bool shouldAcceptDrop(
+    const InputState& inputState, const std::string& payload) const;
   virtual std::unique_ptr<DropTracker> acceptDrop(
     const InputState& inputState, const std::string& payload);
 
   virtual void setRenderOptions(
     const InputState& inputState, Renderer::RenderContext& renderContext) const;
   virtual void render(
-    const InputState& inputState, Renderer::RenderContext& renderContext,
+    const InputState& inputState,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch);
 
   virtual bool cancel();
@@ -88,7 +93,8 @@ protected:
   void refreshViews();
 };
 
-class ToolControllerGroup : public ToolController {
+class ToolControllerGroup : public ToolController
+{
 private:
   ToolChain m_chain;
 
@@ -118,14 +124,15 @@ public:
   void setRenderOptions(
     const InputState& inputState, Renderer::RenderContext& renderContext) const override;
   void render(
-    const InputState& inputState, Renderer::RenderContext& renderContext,
+    const InputState& inputState,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch) override;
 
   bool cancel() override;
 
 private: // subclassing interface
   virtual bool doShouldHandleMouseDrag(const InputState& inputState) const;
-  virtual bool doShouldHandleDrop(const InputState& inputState, const std::string& payload) const;
+  virtual bool doShouldAcceptDrop(
+    const InputState& inputState, const std::string& payload) const;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

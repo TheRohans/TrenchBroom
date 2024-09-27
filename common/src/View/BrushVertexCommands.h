@@ -22,26 +22,29 @@
 #include "Macros.h"
 #include "View/SwapNodeContentsCommand.h"
 
-#include <vecmath/forward.h>
-#include <vecmath/polygon.h>
-#include <vecmath/segment.h>
-#include <vecmath/vec.h>
+#include "vm/forward.h"
+#include "vm/polygon.h"
+#include "vm/segment.h"
+#include "vm/vec.h"
 
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class MapDocument;
 class VertexHandleManagerBase;
-template <typename H> class VertexHandleManagerBaseT;
+template <typename H>
+class VertexHandleManagerBaseT;
 
-class BrushVertexCommandBase : public SwapNodeContentsCommand {
+class BrushVertexCommandBase : public SwapNodeContentsCommand
+{
 protected:
   BrushVertexCommandBase(
-    const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-      linkedGroupsToUpdate);
+    const std::string& name,
+    std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes);
 
 private:
   std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
@@ -53,17 +56,24 @@ public:
   void addHandles(VertexHandleManagerBase& manager);
 
 public:
-  virtual void selectNewHandlePositions(VertexHandleManagerBaseT<vm::vec3>& manager) const;
-  virtual void selectOldHandlePositions(VertexHandleManagerBaseT<vm::vec3>& manager) const;
-  virtual void selectNewHandlePositions(VertexHandleManagerBaseT<vm::segment3>& manager) const;
-  virtual void selectOldHandlePositions(VertexHandleManagerBaseT<vm::segment3>& manager) const;
-  virtual void selectNewHandlePositions(VertexHandleManagerBaseT<vm::polygon3>& manager) const;
-  virtual void selectOldHandlePositions(VertexHandleManagerBaseT<vm::polygon3>& manager) const;
+  virtual void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::vec3>& manager) const;
+  virtual void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::vec3>& manager) const;
+  virtual void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::segment3>& manager) const;
+  virtual void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::segment3>& manager) const;
+  virtual void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::polygon3>& manager) const;
+  virtual void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::polygon3>& manager) const;
 
   deleteCopyAndMove(BrushVertexCommandBase);
 };
 
-class BrushVertexCommandResult : public CommandResult {
+class BrushVertexCommandResult : public CommandResult
+{
 private:
   bool m_hasRemainingVertices;
 
@@ -73,77 +83,77 @@ public:
   bool hasRemainingVertices() const;
 };
 
-class BrushVertexCommand : public BrushVertexCommandBase {
-public:
-  static const CommandType Type;
-
+class BrushVertexCommand : public BrushVertexCommandBase
+{
 private:
   std::vector<vm::vec3> m_oldVertexPositions;
   std::vector<vm::vec3> m_newVertexPositions;
 
 public:
   BrushVertexCommand(
-    const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-    std::vector<vm::vec3> oldVertexPositions, std::vector<vm::vec3> newVertexPositions,
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-      linkedGroupsToUpdate);
+    const std::string& name,
+    std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
+    std::vector<vm::vec3> oldVertexPositions,
+    std::vector<vm::vec3> newVertexPositions);
 
 private:
   std::unique_ptr<CommandResult> createCommandResult(
     std::unique_ptr<CommandResult> swapResult) override;
 
-  bool doCollateWith(UndoableCommand* command) override;
+  bool doCollateWith(UndoableCommand& command) override;
 
-  void selectNewHandlePositions(VertexHandleManagerBaseT<vm::vec3>& manager) const override;
-  void selectOldHandlePositions(VertexHandleManagerBaseT<vm::vec3>& manager) const override;
+  void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::vec3>& manager) const override;
+  void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::vec3>& manager) const override;
 
   deleteCopyAndMove(BrushVertexCommand);
 };
 
-class BrushEdgeCommand : public BrushVertexCommandBase {
-public:
-  static const CommandType Type;
-
+class BrushEdgeCommand : public BrushVertexCommandBase
+{
 private:
   std::vector<vm::segment3> m_oldEdgePositions;
   std::vector<vm::segment3> m_newEdgePositions;
 
 public:
   BrushEdgeCommand(
-    const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-    std::vector<vm::segment3> oldEdgePositions, std::vector<vm::segment3> newEdgePositions,
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-      linkedGroupsToUpdate);
+    const std::string& name,
+    std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
+    std::vector<vm::segment3> oldEdgePositions,
+    std::vector<vm::segment3> newEdgePositions);
 
 private:
-  bool doCollateWith(UndoableCommand* command) override;
+  bool doCollateWith(UndoableCommand& command) override;
 
-  void selectNewHandlePositions(VertexHandleManagerBaseT<vm::segment3>& manager) const override;
-  void selectOldHandlePositions(VertexHandleManagerBaseT<vm::segment3>& manager) const override;
+  void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::segment3>& manager) const override;
+  void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::segment3>& manager) const override;
 
   deleteCopyAndMove(BrushEdgeCommand);
 };
 
-class BrushFaceCommand : public BrushVertexCommandBase {
-public:
-  static const CommandType Type;
-
+class BrushFaceCommand : public BrushVertexCommandBase
+{
 private:
   std::vector<vm::polygon3> m_oldFacePositions;
   std::vector<vm::polygon3> m_newFacePositions;
 
 public:
   BrushFaceCommand(
-    const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-    std::vector<vm::polygon3> oldFacePositions, std::vector<vm::polygon3> newFacePositions,
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-      linkedGroupsToUpdate);
+    const std::string& name,
+    std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
+    std::vector<vm::polygon3> oldFacePositions,
+    std::vector<vm::polygon3> newFacePositions);
 
 private:
-  bool doCollateWith(UndoableCommand* command) override;
+  bool doCollateWith(UndoableCommand& command) override;
 
-  void selectNewHandlePositions(VertexHandleManagerBaseT<vm::polygon3>& manager) const override;
-  void selectOldHandlePositions(VertexHandleManagerBaseT<vm::polygon3>& manager) const override;
+  void selectNewHandlePositions(
+    VertexHandleManagerBaseT<vm::polygon3>& manager) const override;
+  void selectOldHandlePositions(
+    VertexHandleManagerBaseT<vm::polygon3>& manager) const override;
 
   deleteCopyAndMove(BrushFaceCommand);
 };

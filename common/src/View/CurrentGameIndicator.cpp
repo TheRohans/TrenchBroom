@@ -19,23 +19,28 @@
 
 #include "CurrentGameIndicator.h"
 
-#include "IO/Path.h"
-#include "IO/ResourceUtils.h"
-#include "Model/GameFactory.h"
-
 #include <QPixmap>
 #include <QString>
 
-namespace TrenchBroom {
-namespace View {
+#include "IO/ResourceUtils.h"
+#include "Model/GameFactory.h"
+
+#include <filesystem>
+
+namespace TrenchBroom
+{
+namespace View
+{
 CurrentGameIndicator::CurrentGameIndicator(const std::string& gameName, QWidget* parent)
-  : DialogHeader{parent} {
+  : DialogHeader{parent}
+{
   auto& gameFactory = Model::GameFactory::instance();
 
   const auto gamePath = gameFactory.gamePath(gameName);
   auto iconPath = gameFactory.iconPath(gameName);
-  if (iconPath.isEmpty()) {
-    iconPath = IO::Path("DefaultGameIcon.svg");
+  if (iconPath.empty())
+  {
+    iconPath = std::filesystem::path{"DefaultGameIcon.svg"};
   }
 
   const auto gameIcon = IO::loadPixmapResource(iconPath);

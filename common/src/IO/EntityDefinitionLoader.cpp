@@ -19,13 +19,9 @@
 
 #include "EntityDefinitionLoader.h"
 
-namespace TrenchBroom {
-namespace IO {
-EntityDefinitionLoader::~EntityDefinitionLoader() {}
+namespace TrenchBroom::IO
+{
 
-std::vector<Assets::EntityDefinition*> EntityDefinitionLoader::loadEntityDefinitions(
-  ParserStatus& status, const IO::Path& path) const {
-  return doLoadEntityDefinitions(status, path);
-}
-} // namespace IO
-} // namespace TrenchBroom
+EntityDefinitionLoader::~EntityDefinitionLoader() = default;
+
+} // namespace TrenchBroom::IO

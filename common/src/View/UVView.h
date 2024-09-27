@@ -29,28 +29,27 @@
 #include "View/ToolBoxConnector.h"
 #include "View/UVViewHelper.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
 class QWidget;
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
-
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushFaceHandle;
 class Node;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class ActiveShader;
 class RenderBatch;
 class RenderContext;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
 class MapDocument;
 class Selection;
 class UVRotateTool;
@@ -61,11 +60,12 @@ class UVOffsetTool;
 class UVCameraTool;
 
 /**
- A view which allows the user to manipulate the texture projection interactively with the mouse. The
- user can change texture offsets, scaling factors and rotation. If supported by the map format, the
- user can manipulate the texture axes as well.
+ A view which allows the user to manipulate the UV projection interactively with the
+ mouse. The user can change UV offsets, scaling factors and rotation. If supported by the
+ map format, the user can manipulate the UV axes as well.
  */
-class UVView : public RenderView, public ToolBoxConnector {
+class UVView : public RenderView, public ToolBoxConnector
+{
   Q_OBJECT
 public:
   static const Model::HitType::Type FaceHitType;
@@ -85,6 +85,8 @@ public:
 
   void setSubDivisions(const vm::vec2i& subDivisions);
 
+  bool event(QEvent* event) override;
+
 private:
   void createTools();
 
@@ -96,7 +98,7 @@ private:
   void brushFacesDidChange(const std::vector<Model::BrushFaceHandle>& faces);
   void gridDidChange();
   void cameraDidChange(const Renderer::Camera* camera);
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
 
   void doUpdateViewport(int x, int y, int width, int height) override;
   void doRender() override;
@@ -105,13 +107,15 @@ private:
 
   void setupGL(Renderer::RenderContext& renderContext);
 
-  class RenderTexture;
-  void renderTexture(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
-
-  void renderFace(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
-  void renderTextureAxes(
+  void renderMaterial(
     Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
-  void renderToolBox(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
+
+  void renderFace(
+    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
+  void renderUVAxes(
+    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
+  void renderToolBox(
+    Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
 
 public: // implement InputEventProcessor interface
   void processEvent(const KeyEvent& event) override;
@@ -122,5 +126,5 @@ private:
   PickRequest doGetPickRequest(float x, float y) const override;
   Model::PickResult doPick(const vm::ray3& pickRay) const override;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

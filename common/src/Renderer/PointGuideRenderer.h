@@ -24,20 +24,24 @@
 #include "Renderer/Renderable.h"
 #include "Renderer/SpikeGuideRenderer.h"
 
-#include <vecmath/vec.h>
+#include "vm/vec.h"
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class MapDocument;
 }
 
-namespace Renderer {
+namespace Renderer
+{
 class RenderContext;
 class VboManager;
 
-class PointGuideRenderer : public DirectRenderable {
+class PointGuideRenderer : public DirectRenderable
+{
 private:
   static const FloatType SpikeLength;
 

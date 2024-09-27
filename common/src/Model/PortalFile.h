@@ -19,34 +19,29 @@
 
 #pragma once
 
-#include <vecmath/forward.h>
+#include "Result.h"
 
+#include "vm/forward.h"
+
+#include <filesystem>
+#include <iosfwd>
 #include <vector>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
-namespace Model {
-class PortalFile {
+namespace TrenchBroom::Model
+{
+
+class PortalFile
+{
 private:
   std::vector<vm::polygon3f> m_portals;
 
 public:
-  PortalFile();
-  ~PortalFile();
-
-  /**
-   * Constructor throws an exception if portalFilePath couldn't be read.
-   */
-  explicit PortalFile(const IO::Path& path);
-
-  static bool canLoad(const IO::Path& path);
+  explicit PortalFile(std::vector<vm::polygon3f> portals);
 
   const std::vector<vm::polygon3f>& portals() const;
-
-private:
-  void load(const IO::Path& path);
 };
-} // namespace Model
-} // namespace TrenchBroom
+
+bool canLoadPortalFile(const std::filesystem::path& path);
+Result<PortalFile> loadPortalFile(std::istream& stream);
+
+} // namespace TrenchBroom::Model

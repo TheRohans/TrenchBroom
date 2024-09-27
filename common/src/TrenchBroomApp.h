@@ -19,43 +19,44 @@
 
 #pragma once
 
+#include <QApplication>
+
 #include "Notifier.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <QApplication>
-
 class QMenu;
 class QSettings;
+class QTimer;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
-class RecoverableException;
-
-namespace IO {
-class Path;
 }
 
-namespace View {
-class ExecutableEvent;
+namespace TrenchBroom::View
+{
 class FrameManager;
 class RecentDocuments;
 class WelcomeWindow;
 
-class TrenchBroomApp : public QApplication {
+class TrenchBroomApp : public QApplication
+{
   Q_OBJECT
 private:
   std::unique_ptr<FrameManager> m_frameManager;
   std::unique_ptr<RecentDocuments> m_recentDocuments;
   std::unique_ptr<WelcomeWindow> m_welcomeWindow;
+  QTimer* m_recentDocumentsReloadTimer;
 
 public:
   static TrenchBroomApp& instance();
 
   TrenchBroomApp(int& argc, char** argv);
-  ~TrenchBroomApp();
+  ~TrenchBroomApp() override;
 
 public:
   void parseCommandLineAndShowFrame();
@@ -68,18 +69,16 @@ private:
   void loadStyle();
 
 public:
-  const std::vector<IO::Path>& recentDocuments() const;
-  void addRecentDocumentMenu(QMenu* menu);
-  void removeRecentDocumentMenu(QMenu* menu);
-  void updateRecentDocument(const IO::Path& path);
+  std::vector<std::filesystem::path> recentDocuments() const;
+  void addRecentDocumentMenu(QMenu& menu);
+  void removeRecentDocumentMenu(QMenu& menu);
+  void updateRecentDocument(const std::filesystem::path& path);
 
-  bool openDocument(const IO::Path& path);
-  bool recoverFromException(const RecoverableException& e, const std::function<bool()>& retry);
+  bool openDocument(const std::filesystem::path& path);
   void openPreferences();
   void openAbout();
   bool initializeGameFactory();
 
-public:
   bool newDocument();
   void openDocument();
   void showManual();
@@ -92,7 +91,7 @@ public:
 #ifdef __APPLE__
   bool event(QEvent* event) override;
 #endif
-  bool openFilesOrWelcomeFrame(const QStringList& fileNames);
+  void openFilesOrWelcomeFrame(const QStringList& fileNames);
 
 public:
   void showWelcomeWindow();
@@ -105,7 +104,9 @@ signals:
 };
 
 void setCrashReportGUIEnbled(bool guiEnabled);
-[[noreturn]] void reportCrashAndExit(const std::string& stacktrace, const std::string& reason);
+[[noreturn]] void reportCrashAndExit(
+  const std::string& stacktrace, const std::string& reason);
 bool isReportingCrash();
-} // namespace View
-} // namespace TrenchBroom
+
+
+} // namespace TrenchBroom::View

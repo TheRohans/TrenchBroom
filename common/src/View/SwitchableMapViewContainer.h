@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "FloatType.h"
 #include "Macros.h"
 #include "NotifierConnection.h"
@@ -26,16 +28,18 @@
 
 #include <memory>
 
-#include <QWidget>
-
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class MapRenderer;
 }
 
-namespace View {
+namespace TrenchBroom::View
+{
 class ClipTool;
 class EdgeTool;
 class FaceTool;
@@ -45,29 +49,33 @@ class MapDocument;
 class MapViewBar;
 enum class MapViewLayout;
 class MapViewToolBox;
+class MultiPaneMapView;
 class Tool;
 class VertexTool;
 
-class SwitchableMapViewContainer : public QWidget, public MapView {
+class SwitchableMapViewContainer : public QWidget, public MapView
+{
   Q_OBJECT
 private:
   Logger* m_logger;
   std::weak_ptr<MapDocument> m_document;
   GLContextManager& m_contextManager;
 
-  MapViewBar* m_mapViewBar;
+  MapViewBar* m_mapViewBar = nullptr;
   std::unique_ptr<MapViewToolBox> m_toolBox;
 
   std::unique_ptr<Renderer::MapRenderer> m_mapRenderer;
 
-  MapViewContainer* m_mapView;
+  MultiPaneMapView* m_mapView = nullptr;
   std::unique_ptr<MapViewActivationTracker> m_activationTracker;
 
   NotifierConnection m_notifierConnection;
 
 public:
   SwitchableMapViewContainer(
-    Logger* logger, std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    Logger* logger,
+    std::weak_ptr<MapDocument> document,
+    GLContextManager& contextManager,
     QWidget* parent = nullptr);
   ~SwitchableMapViewContainer() override;
 
@@ -81,9 +89,9 @@ public:
   bool anyToolActive() const;
   void deactivateTool();
 
-  bool createComplexBrushToolActive() const;
-  bool canToggleCreateComplexBrushTool() const;
-  void toggleCreateComplexBrushTool();
+  bool assembleBrushToolActive() const;
+  bool canToggleAssembleBrushTool() const;
+  void toggleAssembleBrushTool();
 
   bool clipToolActive() const;
   bool canToggleClipTool() const;
@@ -136,8 +144,9 @@ private: // implement MapView interface
   void doSelectTall() override;
   vm::vec3 doGetPasteObjectsDelta(
     const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const override;
+  void doReset2dCameras(const Renderer::Camera& masterCamera, bool animate) override;
   void doFocusCameraOnSelection(bool animate) override;
-  void doMoveCameraToPosition(const vm::vec3& position, bool animate) override;
+  void doMoveCameraToPosition(const vm::vec3f& position, bool animate) override;
   void doMoveCameraToCurrentTracePoint() override;
   bool doCancelMouseDrag() override;
   void doRefreshViews() override;
@@ -147,5 +156,4 @@ private: // implement ViewEffectsService interface
 
   deleteCopyAndMove(SwitchableMapViewContainer);
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

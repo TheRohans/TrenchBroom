@@ -20,43 +20,72 @@
 #include "Object.h"
 
 #include "Model/GroupNode.h"
+#include "Uuid.h"
 
-namespace TrenchBroom {
-namespace Model {
-Object::Object() {}
-Object::~Object() {}
+namespace TrenchBroom::Model
+{
 
-Node* Object::container() {
+Object::Object()
+  : m_linkId{generateUuid()}
+{
+}
+
+Object::~Object() = default;
+
+const std::string& Object::linkId() const
+{
+  return m_linkId;
+}
+
+void Object::setLinkId(std::string linkId)
+{
+  m_linkId = std::move(linkId);
+}
+
+void Object::cloneLinkId(Object& object) const
+{
+  object.setLinkId(linkId());
+}
+
+Node* Object::container()
+{
   return doGetContainer();
 }
 
-const Node* Object::container() const {
+const Node* Object::container() const
+{
   return const_cast<Object*>(this)->container();
 }
 
-LayerNode* Object::containingLayer() {
+LayerNode* Object::containingLayer()
+{
   return doGetContainingLayer();
 }
 
-const LayerNode* Object::containingLayer() const {
+const LayerNode* Object::containingLayer() const
+{
   return const_cast<Object*>(this)->containingLayer();
 }
 
-GroupNode* Object::containingGroup() {
+GroupNode* Object::containingGroup()
+{
   return doGetContainingGroup();
 }
 
-const GroupNode* Object::containingGroup() const {
+const GroupNode* Object::containingGroup() const
+{
   return const_cast<Object*>(this)->containingGroup();
 }
 
-bool Object::containedInGroup() const {
+bool Object::containedInGroup() const
+{
   return containingGroup() != nullptr;
 }
 
-bool Object::containingGroupOpened() const {
+bool Object::containingGroupOpened() const
+{
   const auto* group = containingGroup();
   return group == nullptr || group->opened();
 }
-} // namespace Model
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Model

@@ -19,119 +19,93 @@
 
 #pragma once
 
+#include "Ensure.h"
 #include "IO/FileSystem.h"
-#include "IO/Path.h"
+#include "Result.h"
 
-#include <kdl/string_compare.h>
+#include "kdl/path_hash.h"
+#include "kdl/result.h"
 
-#include <map>
+#include <filesystem>
+#include <functional>
 #include <memory>
+#include <unordered_map>
+#include <variant>
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom::IO
+{
 class CFile;
 class File;
 
-class ImageFileSystemBase : public FileSystem {
+using GetImageFile = std::function<Result<std::shared_ptr<File>>()>;
+
+struct ImageFileEntry
+{
+  std::filesystem::path name;
+  GetImageFile getFile;
+};
+
+struct ImageDirectoryEntry;
+using ImageEntry = std::variant<ImageDirectoryEntry, ImageFileEntry>;
+
+struct ImageDirectoryEntry
+{
+  std::filesystem::path name;
+  std::vector<ImageEntry> entries;
+  std::unordered_map<std::filesystem::path, size_t, kdl::path_hash> entryMapLC;
+};
+
+class ImageFileSystemBase : public FileSystem
+{
 protected:
-  class FileEntry {
-  public:
-    virtual ~FileEntry();
+  ImageEntry m_root;
 
-    std::shared_ptr<File> open() const;
-
-  private:
-    virtual std::shared_ptr<File> doOpen() const = 0;
-  };
-
-  class SimpleFileEntry : public FileEntry {
-  private:
-    std::shared_ptr<File> m_file;
-
-  public:
-    explicit SimpleFileEntry(std::shared_ptr<File> file);
-
-  private:
-    std::shared_ptr<File> doOpen() const override;
-  };
-
-  class CompressedFileEntry : public FileEntry {
-  private:
-    std::shared_ptr<File> m_file;
-    const size_t m_uncompressedSize;
-
-  public:
-    CompressedFileEntry(std::shared_ptr<File> file, size_t uncompressedSize);
-    ~CompressedFileEntry() override = default;
-
-  private:
-    std::shared_ptr<File> doOpen() const override;
-    virtual std::unique_ptr<char[]> decompress(
-      std::shared_ptr<File> file, size_t uncompressedSize) const = 0;
-  };
-
-  class Directory {
-  private:
-    using DirMap = std::map<Path, std::unique_ptr<Directory>, Path::Less<kdl::ci::string_less>>;
-    using FileMap = std::map<Path, std::unique_ptr<FileEntry>, Path::Less<kdl::ci::string_less>>;
-
-    Path m_path;
-    DirMap m_directories;
-    FileMap m_files;
-
-  public:
-    explicit Directory(const Path& path);
-
-    void addFile(const Path& path, std::shared_ptr<File> file);
-    void addFile(const Path& path, std::unique_ptr<FileEntry> file);
-
-    bool directoryExists(const Path& path) const;
-    bool fileExists(const Path& path) const;
-
-    const Directory& findDirectory(const Path& path) const;
-    const FileEntry& findFile(const Path& path) const;
-    std::vector<Path> contents() const;
-
-  private:
-    Directory& findOrCreateDirectory(const Path& path);
-  };
-
-protected:
-  Path m_path;
-  Directory m_root;
-
-protected:
-  ImageFileSystemBase(std::shared_ptr<FileSystem> next, const Path& path);
+  ImageFileSystemBase();
 
 public:
   ~ImageFileSystemBase() override;
 
-protected:
-  void initialize();
+  Result<std::filesystem::path> makeAbsolute(
+    const std::filesystem::path& path) const override;
 
-public:
   /**
    * Reload this file system.
    */
-  void reload();
-
-private:
-  bool doDirectoryExists(const Path& path) const override;
-  bool doFileExists(const Path& path) const override;
-
-  std::vector<Path> doGetDirectoryContents(const Path& path) const override;
-  std::shared_ptr<File> doOpenFile(const Path& path) const override;
-
-private:
-  virtual void doReadDirectory() = 0;
-};
-
-class ImageFileSystem : public ImageFileSystemBase {
-protected:
-  std::shared_ptr<CFile> m_file;
+  Result<void> reload();
 
 protected:
-  ImageFileSystem(std::shared_ptr<FileSystem> next, const Path& path);
+  void addFile(const std::filesystem::path& path, GetImageFile getFile);
+
+  PathInfo pathInfo(const std::filesystem::path& path) const override;
+
+private:
+  Result<std::vector<std::filesystem::path>> doFind(
+    const std::filesystem::path& path, const TraversalMode& traversalMode) const override;
+  Result<std::shared_ptr<File>> doOpenFile(
+    const std::filesystem::path& path) const override;
+
+  virtual Result<void> doReadDirectory() = 0;
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+template <typename FileType>
+class ImageFileSystem : public ImageFileSystemBase
+{
+protected:
+  std::shared_ptr<FileType> m_file;
+
+public:
+  explicit ImageFileSystem(std::shared_ptr<FileType> file)
+    : m_file{std::move(file)}
+  {
+    ensure(m_file, "file must not be null");
+  }
+};
+
+template <typename T, typename... Args>
+Result<std::unique_ptr<T>> createImageFileSystem(Args&&... args)
+{
+  auto fs = std::make_unique<T>(std::forward<Args>(args)...);
+  return fs->reload() | kdl::transform([&]() { return std::move(fs); });
+}
+
+} // namespace TrenchBroom::IO

@@ -22,23 +22,26 @@
 #include <memory>
 #include <string>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class PickResult;
 }
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class RenderBatch;
 class RenderContext;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
 class DragTracker;
 class DropTracker;
 class InputState;
 class ToolController;
 
-class ToolChain {
+class ToolChain
+{
 private:
   std::unique_ptr<ToolController> m_tool;
   std::unique_ptr<ToolChain> m_suffix;
@@ -61,11 +64,16 @@ public:
   void mouseMove(const InputState& inputState);
 
   std::unique_ptr<DragTracker> startMouseDrag(const InputState& inputState);
-  std::unique_ptr<DropTracker> dragEnter(const InputState& inputState, const std::string& payload);
 
-  void setRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const;
+  bool shouldAcceptDrop(const InputState& inputState, const std::string& payload) const;
+  std::unique_ptr<DropTracker> dragEnter(
+    const InputState& inputState, const std::string& payload);
+
+  void setRenderOptions(
+    const InputState& inputState, Renderer::RenderContext& renderContext) const;
   void render(
-    const InputState& inputState, Renderer::RenderContext& renderContext,
+    const InputState& inputState,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch);
 
   bool cancel();
@@ -74,5 +82,4 @@ private:
   bool checkInvariant() const;
   bool chainEndsHere() const;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

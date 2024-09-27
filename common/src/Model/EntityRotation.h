@@ -21,26 +21,28 @@
 
 #include "FloatType.h"
 
-#include <vecmath/forward.h>
+#include "kdl/reflection_decl.h"
 
-#include <kdl/reflection_decl.h>
+#include "vm/forward.h"
 
 #include <iosfwd>
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 enum class PitchType;
 }
 
-namespace Model {
+namespace TrenchBroom::Model
+{
 class Entity;
 class EntityProperty;
 struct EntityPropertyConfig;
 
-enum class EntityRotationType {
+enum class EntityRotationType
+{
   None,
   Angle,
   AngleUpDown,
@@ -51,14 +53,16 @@ enum class EntityRotationType {
 
 std::ostream& operator<<(std::ostream& lhs, const EntityRotationType& rhs);
 
-enum class EntityRotationUsage {
+enum class EntityRotationUsage
+{
   Allowed,
   BlockRotation
 };
 
 std::ostream& operator<<(std::ostream& lhs, const EntityRotationUsage& rhs);
 
-struct EntityRotationInfo {
+struct EntityRotationInfo
+{
   const EntityRotationType type;
   const std::string propertyKey;
   const EntityRotationUsage usage;
@@ -76,10 +80,9 @@ vm::mat4x4 entityRotation(const Entity& entity);
 vm::vec3 entityYawPitchRoll(const vm::mat4x4& transformation, const vm::mat4x4& rotation);
 
 std::optional<EntityProperty> applyEntityRotation(
-  const std::vector<EntityProperty>& properties, const EntityRotationInfo& info,
+  const std::vector<EntityProperty>& properties,
+  const EntityRotationInfo& info,
   const vm::mat4x4& transformation);
-void applyEntityRotation(
-  Entity& entity, const EntityPropertyConfig& propertyConfig, const vm::mat4x4& transformation);
+void applyEntityRotation(Entity& entity, const vm::mat4x4& transformation);
 
-} // namespace Model
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Model

@@ -19,30 +19,36 @@
 
 #pragma once
 
-#include "Color.h"
-#include "Renderer/GL.h" // must be included here, before QOpenGLWidget, because it includes glew
-#include "View/InputEvent.h"
-
-#include <string>
+#include <GL/glew.h> // must be included here, before QOpenGLWidget
 
 #include <QElapsedTimer>
 #include <QOpenGLWidget>
+
+#include "Color.h"
+#include "Renderer/GL.h"
+#include "View/InputEvent.h"
+
+#include <string>
 
 #undef Bool
 #undef Status
 #undef CursorShape
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom
+{
+namespace Renderer
+{
 class FontManager;
 class ShaderManager;
 class VboManager;
 } // namespace Renderer
 
-namespace View {
+namespace View
+{
 class GLContextManager;
 
-class RenderView : public QOpenGLWidget, public InputEventProcessor {
+class RenderView : public QOpenGLWidget, public InputEventProcessor
+{
   Q_OBJECT
 private:
   Color m_focusColor;

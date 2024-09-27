@@ -21,25 +21,27 @@
 
 #include "View/ControlListBox.h"
 
-namespace TrenchBroom {
-namespace Model {
-class GameEngineConfig;
-class GameEngineProfile;
-} // namespace Model
+namespace TrenchBroom::Model
+{
+struct GameEngineConfig;
+struct GameEngineProfile;
+} // namespace TrenchBroom::Model
 
-namespace View {
+namespace TrenchBroom::View
+{
 class ElidedLabel;
 
-class GameEngineProfileItemRenderer : public ControlListBoxItemRenderer {
+class GameEngineProfileItemRenderer : public ControlListBoxItemRenderer
+{
   Q_OBJECT
 private:
   Model::GameEngineProfile* m_profile;
-  ElidedLabel* m_nameLabel;
-  ElidedLabel* m_pathLabel;
+  ElidedLabel* m_nameLabel{nullptr};
+  ElidedLabel* m_pathLabel{nullptr};
 
 public:
   explicit GameEngineProfileItemRenderer(
-    Model::GameEngineProfile* profile, QWidget* parent = nullptr);
+    Model::GameEngineProfile& profile, QWidget* parent = nullptr);
 
   void updateItem() override;
 
@@ -50,19 +52,20 @@ private:
   void profileDidChange();
 };
 
-class GameEngineProfileListBox : public ControlListBox {
+class GameEngineProfileListBox : public ControlListBox
+{
   Q_OBJECT
 private:
-  const Model::GameEngineConfig* m_config;
+  Model::GameEngineConfig* m_config;
 
 public:
   explicit GameEngineProfileListBox(
-    const Model::GameEngineConfig* config, QWidget* parent = nullptr);
+    Model::GameEngineConfig& config, QWidget* parent = nullptr);
 
-  Model::GameEngineProfile* selectedProfile() const;
+  Model::GameEngineProfile* selectedProfile();
 
 public:
-  void setConfig(const Model::GameEngineConfig* config);
+  void setConfig(Model::GameEngineConfig& config);
   void reloadProfiles();
   void updateProfiles();
 
@@ -79,7 +82,7 @@ signals:
   /**
    * Emitted when a profile is double-clicked.
    */
-  void profileSelected(Model::GameEngineProfile* profile);
+  void profileSelected(Model::GameEngineProfile& profile);
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

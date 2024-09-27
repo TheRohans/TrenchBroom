@@ -27,44 +27,52 @@
 #include "Model/MapFormat.h"
 #include "Model/Node.h"
 
-#include <kdl/result_forward.h>
+#include "kdl/result_forward.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-template <typename T, size_t S, typename U> class AABBTree;
+namespace TrenchBroom
+{
+template <typename T, typename U>
+class octree;
 
-namespace Model {
+namespace Model
+{
 class EntityNodeIndex;
-enum class BrushError;
-class BrushFace;
-class IssueGeneratorRegistry;
 class IssueQuickFix;
 enum class MapFormat;
 class PickResult;
+class Validator;
+class ValidatorRegistry;
 
-class WorldNode : public EntityNodeBase {
+class WorldNode : public EntityNodeBase
+{
 private:
   EntityPropertyConfig m_entityPropertyConfig;
   MapFormat m_mapFormat;
   LayerNode* m_defaultLayer;
   std::unique_ptr<EntityNodeIndex> m_entityNodeIndex;
-  std::unique_ptr<IssueGeneratorRegistry> m_issueGeneratorRegistry;
+  std::unique_ptr<ValidatorRegistry> m_validatorRegistry;
 
-  using NodeTree = AABBTree<FloatType, 3, Node*>;
+  using NodeTree = octree<FloatType, Node*>;
   std::unique_ptr<NodeTree> m_nodeTree;
   bool m_updateNodeTree;
 
   IdType m_nextPersistentId = 1;
 
 public:
-  WorldNode(EntityPropertyConfig entityPropertyConfig, Entity entity, MapFormat mapFormat);
   WorldNode(
-    EntityPropertyConfig entityPropertyConfig, std::initializer_list<EntityProperty> properties,
+    EntityPropertyConfig entityPropertyConfig, Entity entity, MapFormat mapFormat);
+  WorldNode(
+    EntityPropertyConfig entityPropertyConfig,
+    std::initializer_list<EntityProperty> properties,
     MapFormat mapFormat);
   ~WorldNode() override;
+
+  using Node::entityPropertyConfig;
+  EntityPropertyConfig& entityPropertyConfig();
 
   MapFormat mapFormat() const;
 
@@ -96,14 +104,14 @@ public: // layer management
   std::vector<const LayerNode*> customLayers() const;
 
   /**
-   * Returns defaultLayer() plus customLayers() ordered by LayerNode::sortIndex(). The default layer
-   * is always first.
+   * Returns defaultLayer() plus customLayers() ordered by LayerNode::sortIndex(). The
+   * default layer is always first.
    */
   std::vector<LayerNode*> allLayersUserSorted();
 
   /**
-   * Returns defaultLayer() plus customLayers() ordered by LayerNode::sortIndex(). The default layer
-   * is always first.
+   * Returns defaultLayer() plus customLayers() ordered by LayerNode::sortIndex(). The
+   * default layer is always first.
    */
   std::vector<const LayerNode*> allLayersUserSorted() const;
 
@@ -123,12 +131,11 @@ private:
 public: // index
   const EntityNodeIndex& entityNodeIndex() const;
 
-public: // selection
-  // issue generator registration
-  const std::vector<IssueGenerator*>& registeredIssueGenerators() const;
-  std::vector<IssueQuickFix*> quickFixes(IssueType issueTypes) const;
-  void registerIssueGenerator(IssueGenerator* issueGenerator);
-  void unregisterAllIssueGenerators();
+public: // validator registration
+  std::vector<const Validator*> registeredValidators() const;
+  std::vector<const IssueQuickFix*> quickFixes(IssueType issueTypes) const;
+  void registerValidator(std::unique_ptr<Validator> validator);
+  void unregisterAllValidators();
 
 public: // node tree bulk updating
   void disableNodeTreeUpdates();
@@ -155,17 +162,20 @@ private: // implement Node interface
 
   bool doSelectable() const override;
   void doPick(
-    const EditorContext& editorContext, const vm::ray3& ray, PickResult& pickResult) override;
+    const EditorContext& editorContext,
+    const vm::ray3& ray,
+    PickResult& pickResult) override;
   void doFindNodesContaining(const vm::vec3& point, std::vector<Node*>& result) override;
-  void doGenerateIssues(const IssueGenerator* generator, std::vector<Issue*>& issues) override;
   void doAccept(NodeVisitor& visitor) override;
   void doAccept(ConstNodeVisitor& visitor) const override;
   const EntityPropertyConfig& doGetEntityPropertyConfig() const override;
   void doFindEntityNodesWithProperty(
-    const std::string& name, const std::string& value,
+    const std::string& name,
+    const std::string& value,
     std::vector<EntityNodeBase*>& result) const override;
   void doFindEntityNodesWithNumberedProperty(
-    const std::string& prefix, const std::string& value,
+    const std::string& prefix,
+    const std::string& value,
     std::vector<EntityNodeBase*>& result) const override;
   void doAddToIndex(
     EntityNodeBase* node, const std::string& key, const std::string& value) override;

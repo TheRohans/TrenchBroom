@@ -19,19 +19,22 @@
 
 #include "InfoPanel.h"
 
+#include <QVBoxLayout>
+
 #include "View/Console.h"
 #include "View/IssueBrowser.h"
 #include "View/TabBook.h"
 
-#include <QVBoxLayout>
-
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 InfoPanel::InfoPanel(std::weak_ptr<MapDocument> document, QWidget* parent)
   : QWidget(parent)
   , m_tabBook(nullptr)
   , m_console(nullptr)
-  , m_issueBrowser(nullptr) {
+  , m_issueBrowser(nullptr)
+{
   m_tabBook = new TabBook(this);
 
   m_console = new Console();
@@ -46,7 +49,8 @@ InfoPanel::InfoPanel(std::weak_ptr<MapDocument> document, QWidget* parent)
   setLayout(sizer);
 }
 
-Console* InfoPanel::console() const {
+Console* InfoPanel::console() const
+{
   return m_console;
 }
 } // namespace View

@@ -20,39 +20,71 @@
 #pragma once
 
 #include "Color.h"
-#include "IO/Path.h"
 
-#include <kdl/string_utils.h>
+#include "kdl/string_utils.h"
 
 #include <string>
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom::IO
+{
 class EntityDefinitionParser;
 }
 
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 class EntityDefinition;
 class ModelDefinition;
 struct ModelSpecification;
+class DecalDefinition;
+struct DecalSpecification;
 
 void assertModelDefinition(
-  const ModelSpecification& expected, IO::EntityDefinitionParser& parser,
+  const ModelSpecification& expected,
+  IO::EntityDefinitionParser& parser,
   const std::string& entityPropertiesStr = "{}");
 void assertModelDefinition(
-  const ModelSpecification& expected, const EntityDefinition* definition,
+  const ModelSpecification& expected,
+  const EntityDefinition& definition,
   const std::string& entityPropertiesStr = "{}");
 void assertModelDefinition(
-  const ModelSpecification& expected, const ModelDefinition& actual,
+  const ModelSpecification& expected,
+  const ModelDefinition& actual,
   const std::string& entityPropertiesStr = "{}");
 
 template <typename Parser>
 void assertModelDefinition(
-  const ModelSpecification& expected, const std::string& modelStr, const std::string& templateStr,
-  const std::string& entityPropertiesStr = "{}") {
-  const std::string defStr = kdl::str_replace_every(templateStr, "${MODEL}", modelStr);
-  Parser parser(defStr, Color(1.0f, 1.0f, 1.0f, 1.0f));
+  const ModelSpecification& expected,
+  const std::string& modelStr,
+  const std::string& templateStr,
+  const std::string& entityPropertiesStr = "{}")
+{
+  const auto defStr = kdl::str_replace_every(templateStr, "${MODEL}", modelStr);
+  auto parser = Parser{defStr, Color{1, 1, 1, 1}};
   assertModelDefinition(expected, parser, entityPropertiesStr);
 }
-} // namespace Assets
-} // namespace TrenchBroom
+
+void assertDecalDefinition(
+  const DecalSpecification& expected,
+  IO::EntityDefinitionParser& parser,
+  const std::string& entityPropertiesStr = "{}");
+void assertDecalDefinition(
+  const DecalSpecification& expected,
+  const EntityDefinition& definition,
+  const std::string& entityPropertiesStr = "{}");
+void assertDecalDefinition(
+  const DecalSpecification& expected,
+  const DecalDefinition& actual,
+  const std::string& entityPropertiesStr = "{}");
+
+template <typename Parser>
+void assertDecalDefinition(
+  const DecalSpecification& expected,
+  const std::string& decalStr,
+  const std::string& templateStr,
+  const std::string& entityPropertiesStr = "{}")
+{
+  const auto defStr = kdl::str_replace_every(templateStr, "${DECAL}", decalStr);
+  auto parser = Parser{defStr, Color{1, 1, 1, 1}};
+  assertDecalDefinition(expected, parser, entityPropertiesStr);
+}
+} // namespace TrenchBroom::Assets

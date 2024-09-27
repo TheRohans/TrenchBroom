@@ -26,22 +26,26 @@
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class PickResult;
 }
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class RenderBatch;
 class RenderContext;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
+
 class DragTracker;
 class MapDocument;
 class UVViewHelper;
 
-class UVScaleTool : public ToolController, public Tool {
+class UVScaleTool : public ToolController, public Tool
+{
 public:
   static const Model::HitType::Type XHandleHitType;
   static const Model::HitType::Type YHandleHitType;
@@ -62,10 +66,11 @@ private:
   std::unique_ptr<DragTracker> acceptMouseDrag(const InputState& inputState) override;
 
   void render(
-    const InputState& inputState, Renderer::RenderContext& renderContext,
+    const InputState& inputState,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch) override;
 
   bool cancel() override;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

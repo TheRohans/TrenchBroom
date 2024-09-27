@@ -20,35 +20,49 @@
 #include "ConfigParserBase.h"
 
 #include "EL/EvaluationContext.h"
+#include "EL/EvaluationTrace.h"
 #include "EL/Expression.h"
 #include "EL/Value.h"
 #include "Exceptions.h"
 
+#include <fmt/format.h>
+
 #include <string>
 
-namespace TrenchBroom {
-namespace IO {
-ConfigParserBase::ConfigParserBase(std::string_view str, const Path& path)
-  : m_parser(ELParser::Mode::Strict, std::move(str))
-  , m_path(path) {}
+namespace TrenchBroom::IO
+{
 
-ConfigParserBase::~ConfigParserBase() {}
+ConfigParserBase::ConfigParserBase(const std::string_view str, std::filesystem::path path)
+  : m_parser{ELParser::Mode::Strict, str}
+  , m_path{std::move(path)}
+{
+}
 
-EL::Expression ConfigParserBase::parseConfigFile() {
+ConfigParserBase::~ConfigParserBase() = default;
+
+EL::ExpressionNode ConfigParserBase::parseConfigFile()
+{
   return m_parser.parse();
 }
 
-void ConfigParserBase::expectType(const EL::Value& value, const EL::ValueType type) const {
-  if (value.type() != type) {
-    throw ParserException(
-      value.line(), value.column(),
-      "Expected value of type '" + EL::typeName(type) + "', but got type '" + value.typeName() +
-        "'");
+void expectType(
+  const EL::Value& value, const EL::EvaluationTrace& trace, const EL::ValueType type)
+{
+  if (value.type() != type)
+  {
+    throw ParserException{
+      *trace.getLocation(value),
+      fmt::format(
+        "Expected value of type '{}', but got type '{}'",
+        EL::typeName(type),
+        value.typeName())};
   }
 }
 
-void ConfigParserBase::expectStructure(const EL::Value& value, const std::string& structure) const {
-  ELParser parser(ELParser::Mode::Strict, structure);
+void expectStructure(
+  const EL::Value& value, const EL::EvaluationTrace& trace, const std::string& structure)
+{
+  auto parser = ELParser{ELParser::Mode::Strict, structure};
   const auto expected = parser.parse().evaluate(EL::EvaluationContext());
   assert(expected.type() == EL::ValueType::Array);
 
@@ -59,23 +73,31 @@ void ConfigParserBase::expectStructure(const EL::Value& value, const std::string
   assert(optional.type() == EL::ValueType::Map);
 
   // Are all mandatory keys present?
-  for (const auto& key : mandatory.keys()) {
+  for (const auto& key : mandatory.keys())
+  {
     const auto typeName = mandatory[key].stringValue();
-    if (typeName != "*") {
+    if (typeName != "*")
+    {
       const auto type = EL::typeForName(typeName);
-      expectMapEntry(value, key, type);
+      expectMapEntry(value, trace, key, type);
     }
   }
 }
 
-void ConfigParserBase::expectMapEntry(
-  const EL::Value& value, const std::string& key, EL::ValueType type) const {
+void expectMapEntry(
+  const EL::Value& value,
+  const EL::EvaluationTrace& trace,
+  const std::string& key,
+  const EL::ValueType type)
+{
   const auto& map = value.mapValue();
   const auto it = map.find(key);
-  if (it == std::end(map)) {
-    throw ParserException(value.line(), value.column(), "Expected map entry '" + key + "'");
+  if (it == std::end(map))
+  {
+    throw ParserException{
+      *trace.getLocation(value), fmt::format("Expected map entry '{}'", key)};
   }
-  expectType(it->second, type);
+  expectType(it->second, trace, type);
 }
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

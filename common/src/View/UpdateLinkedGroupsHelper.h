@@ -19,23 +19,21 @@
 
 #pragma once
 
-#include "FloatType.h"
-
-#include <kdl/result_forward.h>
+#include "Result.h"
 
 #include <memory>
 #include <utility>
 #include <variant>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 class GroupNode;
 class Node;
-enum class UpdateLinkedGroupsError;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace View {
+namespace TrenchBroom::View
+{
 class MapDocumentCommandFacade;
 
 /**
@@ -44,42 +42,39 @@ class MapDocumentCommandFacade;
  * The given linked groups can be updated consistently if no two of them are in the same
  * linked set.
  */
-bool checkLinkedGroupsToUpdate(const std::vector<const Model::GroupNode*>& linkedGroupsToUpdate);
+bool checkLinkedGroupsToUpdate(const std::vector<Model::GroupNode*>& changedLinkedGroups);
 
 /**
  * A helper class to add support for updating linked groups to commands.
  *
- * The class is initialized with a vector of group nodes whose changes should be propagated
- * to the members of their respective link sets. When applyLinkedGroupUpdates is first called,
- * a replacement node is created for each linked group that needs to be updated, and these
- * linked groups are replaced with their replacements. Calling applyLinkedGroupUpdates replaces
- * the replacement nodes with their original corresponding groups again, effectively undoing the
- * change.
+ * The class is initialized with a vector of group nodes whose changes should be
+ * propagated to the members of their respective link sets. When applyLinkedGroupUpdates
+ * is first called, a replacement node is created for each linked group that needs to be
+ * updated, and these linked groups are replaced with their replacements. Calling
+ * applyLinkedGroupUpdates replaces the replacement nodes with their original
+ * corresponding groups again, effectively undoing the change.
  */
-class UpdateLinkedGroupsHelper {
+class UpdateLinkedGroupsHelper
+{
 private:
-  using LinkedGroupsToUpdate =
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>;
+  using ChangedLinkedGroups = std::vector<Model::GroupNode*>;
   using LinkedGroupUpdates =
     std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>;
-  std::variant<LinkedGroupsToUpdate, LinkedGroupUpdates> m_state;
+  std::variant<ChangedLinkedGroups, LinkedGroupUpdates> m_state;
 
 public:
-  explicit UpdateLinkedGroupsHelper(LinkedGroupsToUpdate linkedGroupsToUpdate);
+  explicit UpdateLinkedGroupsHelper(ChangedLinkedGroups changedLinkedGroups);
   ~UpdateLinkedGroupsHelper();
 
-  kdl::result<void, Model::UpdateLinkedGroupsError> applyLinkedGroupUpdates(
-    MapDocumentCommandFacade& document);
+  Result<void> applyLinkedGroupUpdates(MapDocumentCommandFacade& document);
   void undoLinkedGroupUpdates(MapDocumentCommandFacade& document);
   void collateWith(UpdateLinkedGroupsHelper& other);
 
 private:
-  kdl::result<void, Model::UpdateLinkedGroupsError> computeLinkedGroupUpdates(
-    MapDocumentCommandFacade& document);
-  static kdl::result<LinkedGroupUpdates, Model::UpdateLinkedGroupsError> computeLinkedGroupUpdates(
-    const LinkedGroupsToUpdate& linkedGroupsToUpdate, const vm::bbox3& worldBounds);
+  Result<void> computeLinkedGroupUpdates(MapDocumentCommandFacade& document);
+  static Result<LinkedGroupUpdates> computeLinkedGroupUpdates(
+    const ChangedLinkedGroups& changedLinkedGroups, MapDocumentCommandFacade& document);
 
   void doApplyOrUndoLinkedGroupUpdates(MapDocumentCommandFacade& document);
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

@@ -20,192 +20,267 @@
 #include "ImageFileSystem.h"
 
 #include "Ensure.h"
+#include "Error.h"
 #include "IO/DiskFileSystem.h"
 #include "IO/File.h"
+#include "IO/PathInfo.h"
+#include "IO/TraversalMode.h"
+
+#include "kdl/overload.h"
+#include "kdl/path_utils.h"
+#include "kdl/result.h"
 
 #include <cassert>
 #include <memory>
 
-namespace TrenchBroom {
-namespace IO {
-ImageFileSystemBase::FileEntry::~FileEntry() = default;
+namespace TrenchBroom::IO
+{
 
-std::shared_ptr<File> ImageFileSystemBase::FileEntry::open() const {
-  return doOpen();
+namespace
+{
+const std::filesystem::path& getName(const ImageEntry& entry)
+{
+  return std::visit(
+    [](const auto& x) -> const std::filesystem::path& { return x.name; }, entry);
 }
 
-ImageFileSystemBase::SimpleFileEntry::SimpleFileEntry(std::shared_ptr<File> file)
-  : m_file(std::move(file)) {}
-
-std::shared_ptr<File> ImageFileSystemBase::SimpleFileEntry::doOpen() const {
-  return m_file;
+bool isDirectory(const ImageEntry& entry)
+{
+  return std::visit(
+    kdl::overload(
+      [](const ImageDirectoryEntry&) { return true; },
+      [](const ImageFileEntry&) { return false; }),
+    entry);
 }
 
-ImageFileSystemBase::CompressedFileEntry::CompressedFileEntry(
-  std::shared_ptr<File> file, const size_t uncompressedSize)
-  : m_file(file)
-  , m_uncompressedSize(uncompressedSize) {}
-
-std::shared_ptr<File> ImageFileSystemBase::CompressedFileEntry::doOpen() const {
-  auto data = decompress(m_file, m_uncompressedSize);
-  return std::make_shared<OwningBufferFile>(m_file->path(), std::move(data), m_uncompressedSize);
+auto& addEntry(ImageDirectoryEntry& parent, ImageEntry&& entry)
+{
+  parent.entryMapLC[kdl::path_to_lower(getName(entry))] = parent.entries.size();
+  parent.entries.push_back(std::move(entry));
+  return parent.entries.back();
 }
 
-ImageFileSystemBase::Directory::Directory(const Path& path)
-  : m_path(path) {}
+template <typename Entry>
+auto findEntry(Entry& directoryEntry, const std::filesystem::path& nameLC)
+{
+  using difftype = std::vector<ImageEntry>::difference_type;
 
-void ImageFileSystemBase::Directory::addFile(const Path& path, std::shared_ptr<File> file) {
-  addFile(path, std::make_unique<SimpleFileEntry>(file));
+  const auto entryIndexIt = directoryEntry.entryMapLC.find(nameLC);
+  return entryIndexIt != directoryEntry.entryMapLC.end()
+           ? std::next(directoryEntry.entries.begin(), difftype(entryIndexIt->second))
+           : directoryEntry.entries.end();
 }
 
-void ImageFileSystemBase::Directory::addFile(const Path& path, std::unique_ptr<FileEntry> file) {
-  ensure(file != nullptr, "file is null");
-  const auto filename = path.lastComponent();
-  if (path.length() == 1) {
-    // silently overwrite duplicates, the latest entries win
-    m_files[filename] = std::move(file);
-  } else {
-    auto& dir = findOrCreateDirectory(path.deleteLastComponent());
-    dir.addFile(filename, std::move(file));
-  }
-}
-
-bool ImageFileSystemBase::Directory::directoryExists(const Path& path) const {
-  if (path.isEmpty()) {
-    return true;
-  }
-
-  auto it = m_directories.find(path.firstComponent());
-  if (it == std::end(m_directories)) {
-    return false;
-  } else {
-    return it->second->directoryExists(path.deleteFirstComponent());
-  }
-}
-
-bool ImageFileSystemBase::Directory::fileExists(const Path& path) const {
-  if (path.length() == 1) {
-    return m_files.count(path) > 0;
+template <typename F>
+auto withEntry(
+  const std::filesystem::path& searchPathLC,
+  const ImageEntry& currentEntry,
+  const std::filesystem::path& currentPath,
+  const F& f,
+  decltype(f(
+    std::declval<const ImageEntry&>(),
+    std::declval<const std::filesystem::path&>())) defaultResult)
+{
+  if (searchPathLC.empty())
+  {
+    return f(currentEntry, currentPath);
   }
 
-  auto it = m_directories.find(path.firstComponent());
-  if (it == std::end(m_directories)) {
-    return false;
-  } else {
-    return it->second->fileExists(path.deleteFirstComponent());
-  }
+  return std::visit(
+    kdl::overload(
+      [&](const ImageDirectoryEntry& directoryEntry) {
+        const auto nameLC = kdl::path_front(searchPathLC);
+        const auto entryIt = findEntry(directoryEntry, nameLC);
+
+        return entryIt != directoryEntry.entries.end() ? withEntry(
+                 kdl::path_pop_front(searchPathLC),
+                 *entryIt,
+                 currentPath / nameLC,
+                 f,
+                 defaultResult)
+                                                       : defaultResult;
+      },
+      [&](const ImageFileEntry&) { return defaultResult; }),
+    currentEntry);
 }
 
-const ImageFileSystemBase::Directory& ImageFileSystemBase::Directory::findDirectory(
-  const Path& path) const {
-  if (path.isEmpty()) {
-    return *this;
+template <typename F>
+void withEntry(
+  const std::filesystem::path& searchPathLC,
+  const ImageEntry& currentEntry,
+  const std::filesystem::path& currentPath,
+  const F& f)
+{
+  if (searchPathLC.empty())
+  {
+    f(currentEntry, currentPath);
   }
+  else
+  {
+    std::visit(
+      kdl::overload(
+        [&](const ImageDirectoryEntry& directoryEntry) {
+          const auto nameLC = kdl::path_front(searchPathLC);
+          const auto entryIt = findEntry(directoryEntry, nameLC);
 
-  auto it = m_directories.find(path.firstComponent());
-  if (it == std::end(m_directories)) {
-    throw FileSystemException("Path does not exist: '" + (m_path + path).asString() + "'");
-  } else {
-    return it->second->findDirectory(path.deleteFirstComponent());
-  }
-}
-
-const ImageFileSystemBase::FileEntry& ImageFileSystemBase::Directory::findFile(
-  const Path& path) const {
-  assert(!path.isEmpty());
-
-  const auto name = path.firstComponent();
-  if (path.length() == 1) {
-    auto it = m_files.find(name);
-    if (it == std::end(m_files)) {
-      throw FileSystemException("File not found: '" + (m_path + path).asString() + "'");
-    } else {
-      return *it->second;
-    }
-  } else {
-    auto it = m_directories.find(name);
-    if (it == std::end(m_directories)) {
-      throw FileSystemException("File not found: '" + (m_path + path).asString() + "'");
-    } else {
-      return it->second->findFile(path.deleteFirstComponent());
-    }
+          if (entryIt != directoryEntry.entries.end())
+          {
+            withEntry(
+              kdl::path_pop_front(searchPathLC), *entryIt, currentPath / nameLC, f);
+          }
+        },
+        [&](const ImageFileEntry&) {}),
+      currentEntry);
   }
 }
 
-std::vector<Path> ImageFileSystemBase::Directory::contents() const {
-  std::vector<Path> contents;
-
-  for (const auto& [path, directory] : m_directories) {
-    contents.push_back(Path(path));
-  }
-
-  for (const auto& [path, file] : m_files) {
-    contents.push_back(Path(path));
-  }
-
-  return contents;
+const ImageEntry* findEntry(const std::filesystem::path& path, const ImageEntry& parent)
+{
+  return withEntry(
+    path,
+    parent,
+    std::filesystem::path{},
+    [](const ImageEntry& entry, const std::filesystem::path&) { return &entry; },
+    nullptr);
 }
 
-ImageFileSystemBase::Directory& ImageFileSystemBase::Directory::findOrCreateDirectory(
-  const Path& path) {
-  if (path.isEmpty()) {
-    return *this;
+ImageDirectoryEntry& findOrCreateDirectory(
+  const std::filesystem::path& path, ImageDirectoryEntry& parent)
+{
+  if (path.empty())
+  {
+    return parent;
   }
 
-  const auto name = path.firstComponent();
-  auto it = m_directories.lower_bound(name);
-  if (it == std::end(m_directories) || name != it->first) {
-    it = m_directories.insert(it, std::make_pair(name, new Directory(m_path + Path(name))));
+  auto name = kdl::path_front(path);
+  auto nameLC = kdl::path_to_lower(name);
+  auto entryIt = findEntry(parent, nameLC);
+  if (entryIt != parent.entries.end())
+  {
+    return std::visit(
+      kdl::overload(
+        [&](ImageDirectoryEntry& directoryEntry) -> ImageDirectoryEntry& {
+          return findOrCreateDirectory(kdl::path_pop_front(path), directoryEntry);
+        },
+        [&](ImageFileEntry&) -> ImageDirectoryEntry& {
+          *entryIt = ImageDirectoryEntry{std::move(name), {}, {}};
+          return findOrCreateDirectory(
+            kdl::path_pop_front(path), std::get<ImageDirectoryEntry>(*entryIt));
+        }),
+      *entryIt);
   }
-  return it->second->findOrCreateDirectory(path.deleteFirstComponent());
+  else
+  {
+    return findOrCreateDirectory(
+      kdl::path_pop_front(path),
+      std::get<ImageDirectoryEntry>(
+        addEntry(parent, ImageDirectoryEntry{std::move(name), {}, {}})));
+  }
 }
+} // namespace
 
-ImageFileSystemBase::ImageFileSystemBase(std::shared_ptr<FileSystem> next, const Path& path)
-  : FileSystem(std::move(next))
-  , m_path(path)
-  , m_root(Path()) {}
+ImageFileSystemBase::ImageFileSystemBase()
+  : m_root{ImageDirectoryEntry{{}, {}, {}}}
+{
+}
 
 ImageFileSystemBase::~ImageFileSystemBase() = default;
 
-void ImageFileSystemBase::initialize() {
-  try {
-    doReadDirectory();
-  } catch (const std::exception& e) {
-    throw FileSystemException(
-      "Could not initialize image file system '" + m_path.asString() + "': " + e.what());
+Result<std::filesystem::path> ImageFileSystemBase::makeAbsolute(
+  const std::filesystem::path& path) const
+{
+  return Result<std::filesystem::path>{"/" / path};
+}
+
+Result<void> ImageFileSystemBase::reload()
+{
+  m_root = ImageDirectoryEntry{{}, {}, {}};
+  return doReadDirectory();
+}
+
+void ImageFileSystemBase::addFile(const std::filesystem::path& path, GetImageFile getFile)
+{
+  auto& directoryEntry =
+    findOrCreateDirectory(path.parent_path(), std::get<ImageDirectoryEntry>(m_root));
+
+  auto name = path.filename();
+  auto nameLC = kdl::path_to_lower(name);
+  if (const auto entryIt = findEntry(directoryEntry, nameLC);
+      entryIt != directoryEntry.entries.end())
+  {
+    *entryIt = ImageFileEntry{std::move(name), std::move(getFile)};
+  }
+  else
+  {
+    addEntry(directoryEntry, ImageFileEntry{std::move(name), std::move(getFile)});
   }
 }
 
-void ImageFileSystemBase::reload() {
-  m_root = Directory(Path());
-  initialize();
+PathInfo ImageFileSystemBase::pathInfo(const std::filesystem::path& path) const
+{
+  const auto* entry = findEntry(kdl::path_to_lower(path), m_root);
+  return entry ? isDirectory(*entry) ? PathInfo::Directory : PathInfo::File
+               : PathInfo::Unknown;
 }
 
-bool ImageFileSystemBase::doDirectoryExists(const Path& path) const {
-  const auto searchPath = path.makeLowerCase().makeCanonical();
-  return m_root.directoryExists(searchPath);
+namespace
+{
+void doFindImpl(
+  const ImageEntry& entry,
+  const std::filesystem::path& entryPath,
+  const size_t depth,
+  const TraversalMode& traversalMode,
+  std::vector<std::filesystem::path>& result)
+{
+  if (!traversalMode.depth || depth <= *traversalMode.depth)
+  {
+    std::visit(
+      kdl::overload(
+        [&](const ImageDirectoryEntry& directoryEntry) {
+          for (const auto& childEntry : directoryEntry.entries)
+          {
+            const auto childPath = entryPath / getName(childEntry);
+            result.push_back(childPath);
+            doFindImpl(childEntry, childPath, depth + 1, traversalMode, result);
+          }
+        },
+        [](const ImageFileEntry&) {}),
+      entry);
+  }
+}
+} // namespace
+
+Result<std::vector<std::filesystem::path>> ImageFileSystemBase::doFind(
+  const std::filesystem::path& path, const TraversalMode& traversalMode) const
+{
+  auto result = std::vector<std::filesystem::path>{};
+  withEntry(
+    kdl::path_to_lower(path),
+    m_root,
+    {},
+    [&](const ImageEntry& entry, const std::filesystem::path& entryPath) {
+      doFindImpl(entry, entryPath, 0, traversalMode, result);
+    });
+  return result;
 }
 
-bool ImageFileSystemBase::doFileExists(const Path& path) const {
-  const auto searchPath = path.makeLowerCase().makeCanonical();
-  return m_root.fileExists(searchPath);
+Result<std::shared_ptr<File>> ImageFileSystemBase::doOpenFile(
+  const std::filesystem::path& path) const
+{
+  return withEntry(
+    kdl::path_to_lower(path),
+    m_root,
+    std::filesystem::path{},
+    [&](const ImageEntry& entry, const std::filesystem::path&) {
+      return std::visit(
+        kdl::overload(
+          [&](const ImageDirectoryEntry&) {
+            return Result<std::shared_ptr<File>>{
+              Error{"Cannot open directory entry at '" + path.string() + "'"}};
+          },
+          [](const ImageFileEntry& fileEntry) { return fileEntry.getFile(); }),
+        entry);
+    },
+    Result<std::shared_ptr<File>>{Error{"'" + path.string() + "' not found"}});
 }
-
-std::vector<Path> ImageFileSystemBase::doGetDirectoryContents(const Path& path) const {
-  const auto searchPath = path.makeLowerCase().makeCanonical();
-  const auto& directory = m_root.findDirectory(path);
-  return directory.contents();
-}
-
-std::shared_ptr<File> ImageFileSystemBase::doOpenFile(const Path& path) const {
-  const auto searchPath = path.makeLowerCase().makeCanonical();
-  return m_root.findFile(path).open();
-}
-
-ImageFileSystem::ImageFileSystem(std::shared_ptr<FileSystem> next, const Path& path)
-  : ImageFileSystemBase(std::move(next), path)
-  , m_file(std::make_shared<CFile>(path)) {
-  ensure(m_path.isAbsolute(), "path must be absolute");
-}
-} // namespace IO
-} // namespace TrenchBroom
+} // namespace TrenchBroom::IO

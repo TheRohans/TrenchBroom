@@ -20,39 +20,36 @@
 #pragma once
 
 #include "Renderer/GL.h"
+#include "Renderer/Shader.h"
+#include "Renderer/ShaderProgram.h"
+#include "Result.h"
 
-#include <map>
-#include <memory>
 #include <string>
+#include <unordered_map>
 
-namespace TrenchBroom {
-namespace Renderer {
-class Shader;
+namespace TrenchBroom::Renderer
+{
 class ShaderConfig;
-class ShaderProgram;
 
-class ShaderManager {
+class ShaderManager
+{
 private:
   friend class ShaderProgram;
-  using ShaderCache = std::map<std::string, std::unique_ptr<Shader>>;
-  using ShaderProgramCache = std::map<const ShaderConfig*, std::unique_ptr<ShaderProgram>>;
+  using ShaderCache = std::unordered_map<std::string, Shader>;
+  using ShaderProgramCache = std::unordered_map<std::string, ShaderProgram>;
 
   ShaderCache m_shaders;
   ShaderProgramCache m_programs;
-  ShaderProgram* m_currentProgram;
+  ShaderProgram* m_currentProgram{nullptr};
 
 public:
-  ShaderManager();
-  ~ShaderManager();
-
-public:
+  Result<void> loadProgram(const ShaderConfig& config);
   ShaderProgram& program(const ShaderConfig& config);
   ShaderProgram* currentProgram();
 
 private:
   void setCurrentProgram(ShaderProgram* program);
-  std::unique_ptr<ShaderProgram> createProgram(const ShaderConfig& config);
-  Shader& loadShader(const std::string& name, const GLenum type);
+  Result<ShaderProgram> createProgram(const ShaderConfig& config);
+  Result<std::reference_wrapper<Shader>> loadShader(const std::string& name, GLenum type);
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Renderer

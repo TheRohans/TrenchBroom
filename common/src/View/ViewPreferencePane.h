@@ -24,23 +24,25 @@
 class QCheckBox;
 class QComboBox;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class SliderWithLabel;
 
-class ViewPreferencePane : public PreferencePane {
+class ViewPreferencePane : public PreferencePane
+{
   Q_OBJECT
 private:
-  QComboBox* m_layoutCombo;
-  SliderWithLabel* m_brightnessSlider;
-  SliderWithLabel* m_gridAlphaSlider;
-  SliderWithLabel* m_fovSlider;
-  QCheckBox* m_showAxes;
-  QComboBox* m_textureModeCombo;
-  QCheckBox* m_enableMsaa;
-  QComboBox* m_themeCombo;
-  QComboBox* m_textureBrowserIconSizeCombo;
-  QComboBox* m_rendererFontSizeCombo;
+  QComboBox* m_layoutCombo = nullptr;
+  QCheckBox* m_link2dCameras = nullptr;
+  SliderWithLabel* m_brightnessSlider = nullptr;
+  SliderWithLabel* m_gridAlphaSlider = nullptr;
+  SliderWithLabel* m_fovSlider = nullptr;
+  QCheckBox* m_showAxes = nullptr;
+  QComboBox* m_filterModeCombo = nullptr;
+  QCheckBox* m_enableMsaa = nullptr;
+  QComboBox* m_themeCombo = nullptr;
+  QComboBox* m_materialBrowserIconSizeCombo = nullptr;
+  QComboBox* m_rendererFontSizeCombo = nullptr;
 
 public:
   explicit ViewPreferencePane(QWidget* parent = nullptr);
@@ -56,19 +58,19 @@ private:
   void doUpdateControls() override;
   bool doValidate() override;
 
-  size_t findTextureMode(int minFilter, int magFilter) const;
+  size_t findFilterMode(int minFilter, int magFilter) const;
   int findThemeIndex(const QString& theme);
 private slots:
   void layoutChanged(int index);
+  void link2dCamerasChanged(int state);
   void brightnessChanged(int value);
   void gridAlphaChanged(int value);
   void fovChanged(int value);
   void showAxesChanged(int state);
   void enableMsaaChanged(int state);
-  void textureModeChanged(int index);
+  void filterModeChanged(int index);
   void themeChanged(int index);
-  void textureBrowserIconSizeChanged(int index);
+  void materialBrowserIconSizeChanged(int index);
   void rendererFontSizeChanged(const QString& text);
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

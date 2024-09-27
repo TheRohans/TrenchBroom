@@ -21,42 +21,40 @@
 
 #include "Macros.h"
 #include "Model/NodeContents.h"
-#include "View/UndoableCommand.h"
-#include "View/UpdateLinkedGroupsHelper.h"
+#include "View/UpdateLinkedGroupsCommandBase.h"
 
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class Brush;
 class Entity;
 class GroupNode;
 class Node;
 } // namespace Model
 
-namespace View {
-class SwapNodeContentsCommand : public UndoableCommand {
-public:
-  static const CommandType Type;
-
+namespace View
+{
+class SwapNodeContentsCommand : public UpdateLinkedGroupsCommandBase
+{
 protected:
   std::vector<std::pair<Model::Node*, Model::NodeContents>> m_nodes;
-  UpdateLinkedGroupsHelper m_updateLinkedGroupsHelper;
 
 public:
   SwapNodeContentsCommand(
-    const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-    std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-      linkedGroupsToUpdate);
+    const std::string& name,
+    std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes);
   ~SwapNodeContentsCommand();
 
   std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
-  std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade* document) override;
+  std::unique_ptr<CommandResult> doPerformUndo(
+    MapDocumentCommandFacade* document) override;
 
-  bool doCollateWith(UndoableCommand* command) override;
+  bool doCollateWith(UndoableCommand& command) override;
 
   deleteCopyAndMove(SwapNodeContentsCommand);
 };

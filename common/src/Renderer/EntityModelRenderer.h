@@ -24,57 +24,72 @@
 
 #include <unordered_map>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 class EntityModelManager;
 }
 
-namespace Model {
+namespace TrenchBroom::Model
+{
 class EditorContext;
 class EntityNode;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class RenderBatch;
 class ShaderConfig;
-class TexturedRenderer;
+class MaterialRenderer;
 
-class EntityModelRenderer : public DirectRenderable {
+class EntityModelRenderer : public DirectRenderable
+{
 private:
   Logger& m_logger;
 
   Assets::EntityModelManager& m_entityModelManager;
   const Model::EditorContext& m_editorContext;
 
-  std::unordered_map<const Model::EntityNode*, TexturedRenderer*> m_entities;
+  std::unordered_map<const Model::EntityNode*, MaterialRenderer*> m_entities;
 
-  bool m_applyTinting;
+  bool m_applyTinting = false;
   Color m_tintColor;
 
-  bool m_showHiddenEntities;
+  bool m_showHiddenEntities = false;
 
 public:
   EntityModelRenderer(
-    Logger& logger, Assets::EntityModelManager& entityModelManager,
+    Logger& logger,
+    Assets::EntityModelManager& entityModelManager,
     const Model::EditorContext& editorContext);
   ~EntityModelRenderer() override;
 
-  template <typename I> void setEntities(I cur, I end) {
+  template <typename I>
+  void setEntities(I cur, I end)
+  {
     clear();
     addEntities(cur, end);
   }
 
-  template <typename I> void addEntities(I cur, I end) {
-    while (cur != end) {
+  template <typename I>
+  void addEntities(I cur, I end)
+  {
+    while (cur != end)
+    {
       addEntity(*cur);
       ++cur;
     }
   }
 
-  template <typename I> void updateEntities(I cur, I end) {
-    while (cur != end) {
+  template <typename I>
+  void updateEntities(I cur, I end)
+  {
+    while (cur != end)
+    {
       updateEntity(*cur);
       ++cur;
     }
@@ -86,7 +101,7 @@ public:
   void clear();
 
   bool applyTinting() const;
-  void setApplyTinting(const bool applyTinting);
+  void setApplyTinting(bool applyTinting);
   const Color& tintColor() const;
   void setTintColor(const Color& tintColor);
 
@@ -99,5 +114,5 @@ private:
   void doPrepareVertices(VboManager& vboManager) override;
   void doRender(RenderContext& renderContext) override;
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

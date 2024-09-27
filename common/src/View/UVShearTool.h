@@ -25,13 +25,15 @@
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
+
 class DragTracker;
 class MapDocument;
 class UVViewHelper;
 
-class UVShearTool : public ToolController, public Tool {
+class UVShearTool : public ToolController, public Tool
+{
 private:
   static const Model::HitType::Type XHandleHitType;
   static const Model::HitType::Type YHandleHitType;
@@ -53,5 +55,5 @@ private:
 
   bool cancel() override;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

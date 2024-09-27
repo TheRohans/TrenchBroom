@@ -19,48 +19,54 @@
 
 #pragma once
 
-#include "IO/Path.h"
-
 // FIXME: there must not be dependencies from Assets or Model or Renderer to Qt
 #include <QMetaType>
 
+#include <filesystem>
 #include <string>
 
-namespace TrenchBroom {
-namespace Assets {
-class EntityDefinitionFileSpec {
+namespace TrenchBroom
+{
+namespace Assets
+{
+class EntityDefinitionFileSpec
+{
 private:
-  enum class Type {
+  enum class Type
+  {
     Builtin,
     External,
     Unset
   };
 
   Type m_type;
-  IO::Path m_path;
+  std::filesystem::path m_path;
 
 public:
   EntityDefinitionFileSpec();
 
   static EntityDefinitionFileSpec parse(const std::string& str);
-  static EntityDefinitionFileSpec builtin(const IO::Path& path);
-  static EntityDefinitionFileSpec external(const IO::Path& path);
+  static EntityDefinitionFileSpec builtin(const std::filesystem::path& path);
+  static EntityDefinitionFileSpec external(const std::filesystem::path& path);
   static EntityDefinitionFileSpec unset();
 
-  friend bool operator<(const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
-  friend bool operator==(const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
-  friend bool operator!=(const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
+  friend bool operator<(
+    const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
+  friend bool operator==(
+    const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
+  friend bool operator!=(
+    const EntityDefinitionFileSpec& lhs, const EntityDefinitionFileSpec& rhs);
 
   bool valid() const;
   bool builtin() const;
   bool external() const;
 
-  const IO::Path& path() const;
+  const std::filesystem::path& path() const;
 
   std::string asString() const;
 
 private:
-  EntityDefinitionFileSpec(Type type, const IO::Path& path);
+  EntityDefinitionFileSpec(Type type, const std::filesystem::path& path);
 };
 } // namespace Assets
 } // namespace TrenchBroom

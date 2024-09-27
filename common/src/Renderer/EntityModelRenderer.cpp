@@ -32,49 +32,57 @@
 #include "Preferences.h"
 #include "Renderer/ActiveShader.h"
 #include "Renderer/Camera.h"
+#include "Renderer/MaterialIndexRangeRenderer.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderUtils.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Shaders.h"
-#include "Renderer/TexturedIndexRangeRenderer.h"
 #include "Renderer/Transformation.h"
 
-#include <vecmath/mat.h>
+#include "vm/mat.h"
 
 #include <vector>
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
+
 EntityModelRenderer::EntityModelRenderer(
-  Logger& logger, Assets::EntityModelManager& entityModelManager,
+  Logger& logger,
+  Assets::EntityModelManager& entityModelManager,
   const Model::EditorContext& editorContext)
   : m_logger{logger}
   , m_entityModelManager{entityModelManager}
   , m_editorContext{editorContext}
-  , m_applyTinting{false}
-  , m_showHiddenEntities{false} {}
+{
+}
 
-EntityModelRenderer::~EntityModelRenderer() {
+EntityModelRenderer::~EntityModelRenderer()
+{
   clear();
 }
 
-void EntityModelRenderer::addEntity(const Model::EntityNode* entityNode) {
+void EntityModelRenderer::addEntity(const Model::EntityNode* entityNode)
+{
   const auto modelSpec =
     Assets::safeGetModelSpecification(m_logger, entityNode->entity().classname(), [&]() {
       return entityNode->entity().modelSpecification();
     });
 
   auto* renderer = m_entityModelManager.renderer(modelSpec);
-  if (renderer != nullptr) {
+  if (renderer != nullptr)
+  {
     m_entities.emplace(entityNode, renderer);
   }
 }
 
-void EntityModelRenderer::removeEntity(const Model::EntityNode* entityNode) {
+void EntityModelRenderer::removeEntity(const Model::EntityNode* entityNode)
+{
   m_entities.erase(entityNode);
 }
 
-void EntityModelRenderer::updateEntity(const Model::EntityNode* entityNode) {
+void EntityModelRenderer::updateEntity(const Model::EntityNode* entityNode)
+{
   const auto modelSpec =
     Assets::safeGetModelSpecification(m_logger, entityNode->entity().classname(), [&]() {
       return entityNode->entity().modelSpecification();
@@ -83,103 +91,136 @@ void EntityModelRenderer::updateEntity(const Model::EntityNode* entityNode) {
   auto* renderer = m_entityModelManager.renderer(modelSpec);
   auto it = m_entities.find(entityNode);
 
-  if (renderer == nullptr && it == std::end(m_entities)) {
+  if (renderer == nullptr && it == std::end(m_entities))
+  {
     return;
   }
 
-  if (it == std::end(m_entities)) {
+  if (it == std::end(m_entities))
+  {
     m_entities.emplace(entityNode, renderer);
-  } else {
-    if (renderer == nullptr) {
+  }
+  else
+  {
+    if (renderer == nullptr)
+    {
       m_entities.erase(it);
-    } else if (it->second != renderer) {
+    }
+    else if (it->second != renderer)
+    {
       it->second = renderer;
     }
   }
 }
 
-void EntityModelRenderer::clear() {
+void EntityModelRenderer::clear()
+{
   m_entities.clear();
 }
 
-bool EntityModelRenderer::applyTinting() const {
+bool EntityModelRenderer::applyTinting() const
+{
   return m_applyTinting;
 }
 
-void EntityModelRenderer::setApplyTinting(const bool applyTinting) {
+void EntityModelRenderer::setApplyTinting(const bool applyTinting)
+{
   m_applyTinting = applyTinting;
 }
 
-const Color& EntityModelRenderer::tintColor() const {
+const Color& EntityModelRenderer::tintColor() const
+{
   return m_tintColor;
 }
 
-void EntityModelRenderer::setTintColor(const Color& tintColor) {
+void EntityModelRenderer::setTintColor(const Color& tintColor)
+{
   m_tintColor = tintColor;
 }
 
-bool EntityModelRenderer::showHiddenEntities() const {
+bool EntityModelRenderer::showHiddenEntities() const
+{
   return m_showHiddenEntities;
 }
 
-void EntityModelRenderer::setShowHiddenEntities(const bool showHiddenEntities) {
+void EntityModelRenderer::setShowHiddenEntities(const bool showHiddenEntities)
+{
   m_showHiddenEntities = showHiddenEntities;
 }
 
-void EntityModelRenderer::render(RenderBatch& renderBatch) {
+void EntityModelRenderer::render(RenderBatch& renderBatch)
+{
   renderBatch.add(this);
 }
 
-void EntityModelRenderer::doPrepareVertices(VboManager& vboManager) {
+void EntityModelRenderer::doPrepareVertices(VboManager& vboManager)
+{
   m_entityModelManager.prepare(vboManager);
 }
 
-void EntityModelRenderer::doRender(RenderContext& renderContext) {
-  auto& prefs = PreferenceManager::instance();
+void EntityModelRenderer::doRender(RenderContext& renderContext)
+{
+  if (!m_entities.empty())
+  {
+    auto& prefs = PreferenceManager::instance();
 
-  glAssert(glEnable(GL_TEXTURE_2D));
-  glAssert(glActiveTexture(GL_TEXTURE0));
+    glAssert(glEnable(GL_TEXTURE_2D));
+    glAssert(glActiveTexture(GL_TEXTURE0));
 
-  auto shader = ActiveShader{renderContext.shaderManager(), Shaders::EntityModelShader};
-  shader.set("Brightness", prefs.get(Preferences::Brightness));
-  shader.set("ApplyTinting", m_applyTinting);
-  shader.set("TintColor", m_tintColor);
-  shader.set("GrayScale", false);
-  shader.set("Texture", 0);
-  shader.set("ShowSoftMapBounds", !renderContext.softMapBounds().is_empty());
-  shader.set("SoftMapBoundsMin", renderContext.softMapBounds().min);
-  shader.set("SoftMapBoundsMax", renderContext.softMapBounds().max);
-  shader.set(
-    "SoftMapBoundsColor", vm::vec4f{
-                            prefs.get(Preferences::SoftMapBoundsColor).r(),
-                            prefs.get(Preferences::SoftMapBoundsColor).g(),
-                            prefs.get(Preferences::SoftMapBoundsColor).b(), 0.1f});
+    auto shader = ActiveShader{renderContext.shaderManager(), Shaders::EntityModelShader};
+    shader.set("Brightness", prefs.get(Preferences::Brightness));
+    shader.set("ApplyTinting", m_applyTinting);
+    shader.set("TintColor", m_tintColor);
+    shader.set("GrayScale", false);
+    shader.set("Material", 0);
+    shader.set("ShowSoftMapBounds", !renderContext.softMapBounds().is_empty());
+    shader.set("SoftMapBoundsMin", renderContext.softMapBounds().min);
+    shader.set("SoftMapBoundsMax", renderContext.softMapBounds().max);
+    shader.set(
+      "SoftMapBoundsColor",
+      vm::vec4f{
+        prefs.get(Preferences::SoftMapBoundsColor).r(),
+        prefs.get(Preferences::SoftMapBoundsColor).g(),
+        prefs.get(Preferences::SoftMapBoundsColor).b(),
+        0.1f});
 
-  shader.set("CameraPosition", renderContext.camera().position());
-  shader.set("CameraDirection", renderContext.camera().direction());
-  shader.set("CameraRight", renderContext.camera().right());
-  shader.set("CameraUp", renderContext.camera().up());
-  shader.set("ViewMatrix", renderContext.camera().viewMatrix());
+    shader.set("CameraPosition", renderContext.camera().position());
+    shader.set("CameraDirection", renderContext.camera().direction());
+    shader.set("CameraRight", renderContext.camera().right());
+    shader.set("CameraUp", renderContext.camera().up());
+    shader.set("ViewMatrix", renderContext.camera().viewMatrix());
 
-  for (const auto& [entityNode, renderer] : m_entities) {
-    if (!m_showHiddenEntities && !m_editorContext.visible(entityNode)) {
-      continue;
+    const auto& propertyConfig = m_entities.begin()->first->entityPropertyConfig();
+    const auto& defaultModelScaleExpression = propertyConfig.defaultModelScaleExpression;
+
+    for (const auto& [entityNode, renderer] : m_entities)
+    {
+      if (!m_showHiddenEntities && !m_editorContext.visible(entityNode))
+      {
+        continue;
+      }
+
+      const auto* model = entityNode->entity().model();
+      const auto* modelData = model ? model->data() : nullptr;
+      if (!modelData)
+      {
+        continue;
+      }
+
+      shader.set("Orientation", static_cast<int>(modelData->orientation()));
+
+      const auto transformation = vm::mat4x4f{
+        entityNode->entity().modelTransformation(defaultModelScaleExpression)};
+      const auto multMatrix =
+        MultiplyModelMatrix{renderContext.transformation(), transformation};
+
+      shader.set("ModelMatrix", transformation);
+
+      auto renderFunc = DefaultMaterialRenderFunc{
+        renderContext.minFilterMode(), renderContext.magFilterMode()};
+      renderer->render(renderFunc);
     }
-
-    const auto* model = entityNode->entity().model();
-    if (!model) {
-      continue;
-    }
-
-    shader.set("Orientation", static_cast<int>(model->orientation()));
-
-    const auto transformation = vm::mat4x4f{entityNode->entity().modelTransformation()};
-    const auto multMatrix = MultiplyModelMatrix{renderContext.transformation(), transformation};
-
-    shader.set("ModelMatrix", transformation);
-
-    renderer->render();
   }
 }
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

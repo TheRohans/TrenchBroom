@@ -19,18 +19,24 @@
 
 #pragma once
 
-#include "IO/Path.h"
+#include "IO/DiskIO.h"
+#include "Uuid.h"
 
+#include "kdl/invoke.h"
+
+#include <filesystem>
 #include <functional>
 #include <string>
 
-namespace TrenchBroom {
-namespace IO {
-class TestEnvironment {
+namespace TrenchBroom::IO
+{
+
+class TestEnvironment
+{
 private:
   using SetupFunction = std::function<void(TestEnvironment&)>;
-  Path m_sandboxPath;
-  Path m_dir;
+  std::filesystem::path m_sandboxPath;
+  std::filesystem::path m_dir;
 
 public:
   explicit TestEnvironment(
@@ -38,17 +44,38 @@ public:
   explicit TestEnvironment(const SetupFunction& setup = [](TestEnvironment&) {});
   ~TestEnvironment();
 
-  const Path& dir() const;
+  const std::filesystem::path& dir() const;
 
 public:
   void createTestEnvironment(const SetupFunction& setup);
-  void createDirectory(const Path& path);
-  void createFile(const Path& path, const std::string& contents);
+  void createDirectory(const std::filesystem::path& path);
+  void createFile(const std::filesystem::path& path, const std::string& contents);
+  void createSymLink(
+    const std::filesystem::path& target, const std::filesystem::path& link);
 
   bool deleteTestEnvironment();
 
-  bool directoryExists(const Path& path) const;
-  bool fileExists(const Path& path) const;
+  bool directoryExists(const std::filesystem::path& path) const;
+  bool fileExists(const std::filesystem::path& path) const;
+  std::vector<std::filesystem::path> directoryContents(
+    const std::filesystem::path& path) const;
+
+  std::string loadFile(const std::filesystem::path& path) const;
+
+  template <typename F>
+  auto withTempFile(const std::string& contents, const F& f)
+  {
+    const auto path = m_dir / generateUuid();
+    auto removeFile = kdl::invoke_later{[&]() {
+      // ignore errors
+      auto error = std::error_code{};
+      std::filesystem::remove(path, error);
+    }};
+
+    Disk::withOutputStream(path, [&](auto& stream) { stream << contents; })
+      | kdl::transform_error([](auto e) { throw std::runtime_error{e.msg}; });
+    return f(path);
+  }
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

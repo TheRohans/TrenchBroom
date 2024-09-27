@@ -19,6 +19,11 @@
 
 #include "GameEngineDialog.h"
 
+#include <QBoxLayout>
+#include <QCloseEvent>
+#include <QDialogButtonBox>
+
+#include "FileLogger.h"
 #include "Model/GameConfig.h"
 #include "Model/GameFactory.h"
 #include "View/BorderLine.h"
@@ -28,37 +33,35 @@
 
 #include <string>
 
-#include <QBoxLayout>
-#include <QCloseEvent>
-#include <QDialogButtonBox>
+namespace TrenchBroom::View
+{
 
-namespace TrenchBroom {
-namespace View {
-GameEngineDialog::GameEngineDialog(const std::string& gameName, QWidget* parent)
-  : QDialog(parent)
-  , m_gameName(gameName)
-  , m_profileManager(nullptr) {
+GameEngineDialog::GameEngineDialog(std::string gameName, QWidget* parent)
+  : QDialog{parent}
+  , m_gameName{std::move(gameName)}
+{
   setWindowTitle("Game Engines");
   setWindowIconTB(this);
   createGui();
 }
 
-void GameEngineDialog::createGui() {
-  auto* gameIndicator = new CurrentGameIndicator(m_gameName);
+void GameEngineDialog::createGui()
+{
+  auto* gameIndicator = new CurrentGameIndicator{m_gameName};
 
   auto& gameFactory = Model::GameFactory::instance();
   auto& gameConfig = gameFactory.gameConfig(m_gameName);
-  m_profileManager = new GameEngineProfileManager(gameConfig.gameEngineConfig);
+  m_profileManager = new GameEngineProfileManager{gameConfig.gameEngineConfig};
 
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close);
+  auto* buttons = new QDialogButtonBox{QDialogButtonBox::Close};
 
-  auto* layout = new QVBoxLayout();
-  layout->setContentsMargins(QMargins());
+  auto* layout = new QVBoxLayout{};
+  layout->setContentsMargins(QMargins{});
   layout->setSpacing(0);
   setLayout(layout);
 
   layout->addWidget(gameIndicator);
-  layout->addWidget(new BorderLine(BorderLine::Direction::Horizontal));
+  layout->addWidget(new BorderLine{BorderLine::Direction::Horizontal});
   layout->addWidget(m_profileManager, 1);
   layout->addLayout(wrapDialogButtonBox(buttons));
 
@@ -68,15 +71,18 @@ void GameEngineDialog::createGui() {
   connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);
 }
 
-void GameEngineDialog::done(const int r) {
+void GameEngineDialog::done(const int r)
+{
   saveConfig();
 
   QDialog::done(r);
 }
 
-void GameEngineDialog::saveConfig() {
+void GameEngineDialog::saveConfig()
+{
+  auto& logger = FileLogger::instance();
   auto& gameFactory = Model::GameFactory::instance();
-  gameFactory.saveGameEngineConfig(m_gameName, m_profileManager->config());
+  gameFactory.saveGameEngineConfig(m_gameName, m_profileManager->config(), logger);
 }
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

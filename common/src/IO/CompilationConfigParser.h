@@ -19,42 +19,25 @@
 
 #pragma once
 
-#include "EL/EL_Forward.h"
 #include "IO/ConfigParserBase.h"
 #include "Macros.h"
+#include "Model/CompilationConfig.h"
 
-#include <memory>
+#include <filesystem>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
-class CompilationConfig;
-class CompilationProfile;
-class CompilationTask;
-} // namespace Model
+namespace TrenchBroom::IO
+{
 
-namespace IO {
-class Path;
-
-class CompilationConfigParser : public ConfigParserBase {
+class CompilationConfigParser : public ConfigParserBase
+{
 public:
-  explicit CompilationConfigParser(std::string_view str, const Path& path = Path(""));
+  explicit CompilationConfigParser(std::string_view str, std::filesystem::path path = {});
 
   Model::CompilationConfig parse();
 
-private:
-  std::vector<std::unique_ptr<Model::CompilationProfile>> parseProfiles(
-    const EL::Value& value) const;
-  std::unique_ptr<Model::CompilationProfile> parseProfile(const EL::Value& value) const;
-
-  std::vector<std::unique_ptr<Model::CompilationTask>> parseTasks(const EL::Value& value) const;
-  std::unique_ptr<Model::CompilationTask> parseTask(const EL::Value& value) const;
-  std::unique_ptr<Model::CompilationTask> parseExportTask(const EL::Value& value) const;
-  std::unique_ptr<Model::CompilationTask> parseCopyTask(const EL::Value& value) const;
-  std::unique_ptr<Model::CompilationTask> parseToolTask(const EL::Value& value) const;
-
   deleteCopyAndMove(CompilationConfigParser);
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

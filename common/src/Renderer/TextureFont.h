@@ -21,23 +21,28 @@
 
 #include "Macros.h"
 
-#include <vecmath/forward.h>
-#include <vecmath/vec.h>
+#include "vm/forward.h"
+#include "vm/vec.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom
+{
+namespace Renderer
+{
 class AttrString;
 class FontGlyph;
 class FontTexture;
 
-class TextureFont {
+class TextureFont
+{
 private:
   std::unique_ptr<FontTexture> m_texture;
   std::vector<FontGlyph> m_glyphs;
+  int m_ascend;
+  int m_descend;
   int m_lineHeight;
 
   unsigned char m_firstChar;
@@ -45,18 +50,31 @@ private:
 
 public:
   TextureFont(
-    std::unique_ptr<FontTexture> texture, const std::vector<FontGlyph>& glyphs, int lineHeight,
-    unsigned char firstChar, unsigned char charCount);
+    std::unique_ptr<FontTexture> texture,
+    const std::vector<FontGlyph>& glyphs,
+    int ascend,
+    int descend,
+    int lineHeight,
+    unsigned char firstChar,
+    unsigned char charCount);
   ~TextureFont();
 
   deleteCopyAndMove(TextureFont);
 
+  int ascend() const;
+  int descend() const;
+  int lineHeight() const;
+
   std::vector<vm::vec2f> quads(
-    const AttrString& string, bool clockwise, const vm::vec2f& offset = vm::vec2f::zero()) const;
+    const AttrString& string,
+    bool clockwise,
+    const vm::vec2f& offset = vm::vec2f::zero()) const;
   vm::vec2f measure(const AttrString& string) const;
 
   std::vector<vm::vec2f> quads(
-    const std::string& string, bool clockwise, const vm::vec2f& offset = vm::vec2f::zero()) const;
+    const std::string& string,
+    bool clockwise,
+    const vm::vec2f& offset = vm::vec2f::zero()) const;
   vm::vec2f measure(const std::string& string) const;
 
   void activate();

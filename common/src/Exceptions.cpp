@@ -19,49 +19,54 @@
 
 #include "Exceptions.h"
 
+#include "FileLocation.h"
+
 #include <sstream>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 Exception::Exception() noexcept {}
 
-Exception::Exception(std::string&& str) noexcept
-  : m_msg(std::move(str)) {}
+Exception::Exception(std::string str) noexcept
+  : m_msg(std::move(str))
+{
+}
 
-const char* Exception::what() const noexcept {
+const char* Exception::what() const noexcept
+{
   return m_msg.c_str();
 }
 
-ParserException::ParserException(const size_t line, const size_t column, const std::string& str)
-  : Exception(buildMessage(line, column, str)) {}
-
-ParserException::ParserException(const size_t line, const std::string& str)
-  : Exception(buildMessage(line, str)) {}
-
-std::string ParserException::buildMessage(
-  const size_t line, const size_t column, const std::string& str) {
+namespace
+{
+std::string buildMessage(
+  const std::optional<FileLocation>& location, const std::string& str)
+{
   auto msg = std::stringstream();
-  msg << "At line " << line << ", column " << column << ":";
-  if (!str.empty()) {
+
+  msg << "At ";
+  if (location)
+  {
+    msg << *location;
+  }
+  else
+  {
+    msg << "unknown location";
+  }
+
+  msg << ":";
+  if (!str.empty())
+  {
     msg << " " << str;
   }
   return msg.str();
 }
+} // namespace
 
-std::string ParserException::buildMessage(const size_t line, const std::string& str) {
-  auto msg = std::stringstream();
-  msg << "At line " << line << ":";
-  if (!str.empty()) {
-    msg << " " << str;
-  }
-  return msg.str();
+ParserException::ParserException(
+  const std::optional<FileLocation>& location, const std::string& str)
+  : Exception(buildMessage(location, str))
+{
 }
 
-FileSystemException::FileSystemException(const std::string& str, const PathException& e)
-  : Exception(str + " (" + e.what() + ")") {}
-
-FileNotFoundException::FileNotFoundException(const std::string& path)
-  : Exception("File not found: '" + path + "'") {}
-
-FileNotFoundException::FileNotFoundException(const std::string& path, const PathException& e)
-  : Exception("File not found: '" + path + "' (" + e.what() + ")") {}
 } // namespace TrenchBroom

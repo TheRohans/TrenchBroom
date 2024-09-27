@@ -19,44 +19,46 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "NotifierConnection.h"
 
 #include <memory>
-
-#include <QWidget>
 
 class QSpinBox;
 class QWidget;
 class QAbstractButton;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class Selection;
 class GLContextManager;
 class MapDocument;
 class UVView;
 
-class UVEditor : public QWidget {
+class UVEditor : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
 
-  UVView* m_uvView;
-  QSpinBox* m_xSubDivisionEditor;
-  QSpinBox* m_ySubDivisionEditor;
+  UVView* m_uvView = nullptr;
+  QSpinBox* m_xSubDivisionEditor = nullptr;
+  QSpinBox* m_ySubDivisionEditor = nullptr;
 
-  QAbstractButton* m_resetTextureButton;
-  QAbstractButton* m_resetTextureToWorldButton;
-  QAbstractButton* m_flipTextureHButton;
-  QAbstractButton* m_flipTextureVButton;
-  QAbstractButton* m_rotateTextureCCWButton;
-  QAbstractButton* m_rotateTextureCWButton;
+  QAbstractButton* m_resetUVButton = nullptr;
+  QAbstractButton* m_resetUVToWorldButton = nullptr;
+  QAbstractButton* m_flipUAxisButton = nullptr;
+  QAbstractButton* m_flipVAxisButton = nullptr;
+  QAbstractButton* m_rotateUVCCWButton = nullptr;
+  QAbstractButton* m_rotateUVCWButton = nullptr;
 
   NotifierConnection m_notifierConnection;
 
 public:
   explicit UVEditor(
-    std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    std::weak_ptr<MapDocument> document,
+    GLContextManager& contextManager,
     QWidget* parent = nullptr);
 
   bool cancelMouseDrag();
@@ -71,13 +73,13 @@ private:
 
   void connectObservers();
 
-  void resetTextureClicked();
-  void resetTextureToWorldClicked();
-  void flipTextureHClicked();
-  void flipTextureVClicked();
-  void rotateTextureCCWClicked();
-  void rotateTextureCWClicked();
+  void resetUVClicked();
+  void resetUVToWorldClicked();
+  void flipUVHClicked();
+  void flipUVVClicked();
+  void rotateUVCCWClicked();
+  void rotateUVCWClicked();
   void subDivisionChanged();
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

@@ -20,20 +20,22 @@
 #pragma once
 
 #include "IO/ImageFileSystem.h"
+#include "Result.h"
 
+#include <filesystem>
 #include <memory>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
+namespace TrenchBroom::IO
+{
+class CFile;
 
-class IdPakFileSystem : public ImageFileSystem {
+class IdPakFileSystem : public ImageFileSystem<CFile>
+{
 public:
-  explicit IdPakFileSystem(const Path& path);
-  IdPakFileSystem(std::shared_ptr<FileSystem> next, const Path& path);
+  using ImageFileSystem::ImageFileSystem;
 
 private:
-  void doReadDirectory() override;
+  Result<void> doReadDirectory() override;
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

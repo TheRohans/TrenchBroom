@@ -25,14 +25,18 @@
 #include <iosfwd>
 #include <string>
 
-namespace TrenchBroom {
-namespace Model {
-class CompilationConfig;
-class CompilationProfile;
+namespace TrenchBroom
+{
+namespace Model
+{
+struct CompilationConfig;
+struct CompilationProfile;
 } // namespace Model
 
-namespace IO {
-class CompilationConfigWriter {
+namespace IO
+{
+class CompilationConfigWriter
+{
 private:
   const Model::CompilationConfig& m_config;
   std::ostream& m_stream;
@@ -44,10 +48,9 @@ public:
 
 private:
   EL::Value writeProfiles(const Model::CompilationConfig& config) const;
-  EL::Value writeProfile(const Model::CompilationProfile* profile) const;
+  EL::Value writeProfile(const Model::CompilationProfile& profile) const;
 
-  class WriteCompilationTaskVisitor;
-  EL::Value writeTasks(const Model::CompilationProfile* profile) const;
+  EL::Value writeTasks(const Model::CompilationProfile& profile) const;
 
   std::string escape(const std::string& str) const;
 

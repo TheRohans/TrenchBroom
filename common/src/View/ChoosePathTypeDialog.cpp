@@ -19,83 +19,118 @@
 
 #include "ChoosePathTypeDialog.h"
 
-#include "IO/PathQt.h"
-#include "IO/SystemPaths.h"
-#include "View/QtUtils.h"
-#include "View/ViewConstants.h"
-
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QRadioButton>
 
-namespace TrenchBroom {
-namespace View {
-ChoosePathTypeDialog::ChoosePathTypeDialog()
-  : QDialog(nullptr)
-  , m_absPath("")
-  , m_docRelativePath("")
-  , m_gameRelativePath("")
-  , m_appRelativePath("") {
-  createGui();
+#include "IO/PathQt.h"
+#include "IO/SystemPaths.h"
+#include "Macros.h"
+#include "View/BorderLine.h"
+#include "View/DialogHeader.h"
+#include "View/QtUtils.h"
+#include "View/ViewConstants.h"
+
+namespace TrenchBroom::View
+{
+
+std::filesystem::path convertToPathType(
+  const PathType pathType,
+  const std::filesystem::path& absPath,
+  const std::filesystem::path& docPath,
+  const std::filesystem::path& gamePath)
+{
+  switch (pathType)
+  {
+  case PathType::Absolute:
+    return absPath;
+  case PathType::DocumentRelative:
+    return absPath.lexically_relative(docPath.parent_path());
+  case PathType::GameRelative:
+    return absPath.lexically_relative(gamePath);
+  case PathType::AppRelative:
+    return absPath.lexically_relative(IO::SystemPaths::appDirectory());
+    switchDefault();
+  }
 }
 
 ChoosePathTypeDialog::ChoosePathTypeDialog(
-  QWidget* parent, const IO::Path& absPath, const IO::Path& docPath, const IO::Path& gamePath)
-  : QDialog(parent)
-  , m_absPath(absPath)
-  , m_docRelativePath(makeRelativePath(absPath, docPath.deleteLastComponent()))
-  , m_gameRelativePath(makeRelativePath(absPath, gamePath))
-  , m_appRelativePath(makeRelativePath(absPath, IO::SystemPaths::appDirectory())) {
-  createGui();
+  QWidget* parent,
+  const std::filesystem::path& absPath,
+  const std::filesystem::path& docPath,
+  const std::filesystem::path& gamePath)
+  : QDialog{parent}
+{
+  createGui(absPath, docPath, gamePath);
 }
 
-void ChoosePathTypeDialog::createGui() {
+void ChoosePathTypeDialog::createGui(
+  const std::filesystem::path& absPath,
+  const std::filesystem::path& docPath,
+  const std::filesystem::path& gamePath)
+{
+  const auto docRelativePath =
+    convertToPathType(PathType::DocumentRelative, absPath, docPath, gamePath);
+  const auto gameRelativePath =
+    convertToPathType(PathType::GameRelative, absPath, docPath, gamePath);
+  const auto appRelativePath =
+    convertToPathType(PathType::AppRelative, absPath, docPath, gamePath);
+
   setWindowTitle(tr("Path Type"));
   setWindowIconTB(this);
 
-  QLabel* infoText = new QLabel(tr("Paths can be stored either as absolute paths or as relative "
-                                   "paths. Please choose how you want to store this path."));
+  auto* infoText = new QLabel{
+    tr("You can convert a path to be relative to some reference path, or you can choose "
+       "to keep it absolute. A relative can make it easier to collaborate on a map.")};
   infoText->setMaximumWidth(370);
   infoText->setWordWrap(true);
 
-  m_absRadio = new QRadioButton(tr("Absolute"));
-  QFont boldFont = m_absRadio->font();
+  auto boldFont = infoText->font();
   boldFont.setBold(true);
-  m_absRadio->setFont(boldFont);
+
+  m_absRadio = new QRadioButton{tr("Absolute")};
+  makeEmphasized(m_absRadio);
   m_absRadio->setChecked(true);
-  QLabel* absolutePathText = new QLabel(IO::pathAsQString(m_absPath));
 
-  m_docRelativeRadio = new QRadioButton(tr("Relative to map file"));
-  m_docRelativeRadio->setFont(boldFont);
-  if (m_docRelativePath.isEmpty())
-    m_docRelativeRadio->setEnabled(false);
-  QLabel* mapRelativePathText = new QLabel(
-    m_docRelativePath.isEmpty() ? tr("Could not build a path.")
-                                : IO::pathAsQString(m_docRelativePath));
+  auto* absolutePathText = makeInfo(new QLabel{IO::pathAsQString(absPath)});
 
-  m_appRelativeRadio = new QRadioButton(tr("Relative to application executable"));
-  m_appRelativeRadio->setFont(boldFont);
-  if (m_appRelativePath.isEmpty())
-    m_appRelativeRadio->setEnabled(false);
-  QLabel* appRelativePathText = new QLabel(
-    m_appRelativePath.isEmpty() ? tr("Could not build a path.")
-                                : IO::pathAsQString(m_appRelativePath));
+  m_docRelativeRadio = new QRadioButton{tr("Relative to map file")};
+  makeEmphasized(m_docRelativeRadio);
+  m_docRelativeRadio->setEnabled(!docRelativePath.empty());
 
-  m_gameRelativeRadio = new QRadioButton(tr("Relative to game directory"));
-  if (m_gameRelativePath.isEmpty())
-    m_gameRelativeRadio->setEnabled(false);
-  m_gameRelativeRadio->setFont(boldFont);
-  QLabel* gameRelativePathText = new QLabel(
-    m_gameRelativePath.isEmpty() ? tr("Could not build a path.")
-                                 : IO::pathAsQString(m_gameRelativePath));
+  auto* mapRelativePathText = makeInfo(new QLabel{
+    docRelativePath.empty() ? tr("Could not build a path.")
+                            : IO::pathAsQString(docRelativePath)});
 
-  auto* innerLayout = new QVBoxLayout();
+  m_appRelativeRadio = new QRadioButton{tr("Relative to application executable")};
+  makeEmphasized(m_appRelativeRadio);
+  m_appRelativeRadio->setEnabled(!appRelativePath.empty());
+
+  auto* appRelativePathText = makeInfo(new QLabel{
+    appRelativePath.empty() ? tr("Could not build a path.")
+                            : IO::pathAsQString(appRelativePath)});
+
+  m_gameRelativeRadio = new QRadioButton{tr("Relative to game directory")};
+  makeEmphasized(m_gameRelativeRadio);
+  m_gameRelativeRadio->setEnabled(!gameRelativePath.empty());
+
+  auto* gameRelativePathText = makeInfo(new QLabel{
+    gameRelativePath.empty() ? tr("Could not build a path.")
+                             : IO::pathAsQString(gameRelativePath)});
+
+  auto* okCancelButtons =
+    new QDialogButtonBox{QDialogButtonBox::Ok | QDialogButtonBox::Cancel};
+
+  auto* innerLayout = new QVBoxLayout{};
   innerLayout->setContentsMargins(
-    LayoutConstants::WideHMargin, LayoutConstants::WideVMargin, LayoutConstants::WideHMargin,
-    LayoutConstants::WideVMargin);
-  innerLayout->setSpacing(0);
+    LayoutConstants::DialogOuterMargin,
+    LayoutConstants::DialogOuterMargin,
+    LayoutConstants::DialogOuterMargin,
+    LayoutConstants::DialogOuterMargin);
+  innerLayout->setSpacing(LayoutConstants::NarrowVMargin);
 
   innerLayout->addWidget(infoText);
+  innerLayout->addSpacing(LayoutConstants::WideVMargin);
   innerLayout->addSpacing(LayoutConstants::WideVMargin);
 
   innerLayout->addWidget(m_absRadio);
@@ -113,15 +148,13 @@ void ChoosePathTypeDialog::createGui() {
   innerLayout->addWidget(m_gameRelativeRadio);
   innerLayout->addWidget(gameRelativePathText);
 
-  auto* outerLayout = new QVBoxLayout();
+  auto* outerLayout = new QVBoxLayout{};
   outerLayout->setContentsMargins(0, 0, 0, 0);
-  outerLayout->setSpacing(LayoutConstants::MediumVMargin);
+  outerLayout->setSpacing(0);
+  outerLayout->addWidget(new DialogHeader{"Choose Path Type"});
+  outerLayout->addWidget(new BorderLine{BorderLine::Direction::Horizontal});
   outerLayout->addLayout(innerLayout);
-
-  auto* okCancelButtons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
   outerLayout->addLayout(wrapDialogButtonBox(okCancelButtons));
-
-  insertTitleBarSeparator(outerLayout);
 
   setLayout(outerLayout);
 
@@ -129,21 +162,21 @@ void ChoosePathTypeDialog::createGui() {
   connect(okCancelButtons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
-const IO::Path& ChoosePathTypeDialog::path() const {
+PathType ChoosePathTypeDialog::pathType() const
+{
   if (m_docRelativeRadio->isChecked())
-    return m_docRelativePath;
+  {
+    return PathType::DocumentRelative;
+  }
   if (m_appRelativeRadio->isChecked())
-    return m_appRelativePath;
+  {
+    return PathType::AppRelative;
+  }
   if (m_gameRelativeRadio->isChecked())
-    return m_gameRelativePath;
-  return m_absPath;
+  {
+    return PathType::GameRelative;
+  }
+  return PathType::Absolute;
 }
 
-IO::Path ChoosePathTypeDialog::makeRelativePath(
-  const IO::Path& absPath, const IO::Path& newRootPath) {
-  if (!newRootPath.canMakeRelative(absPath))
-    return IO::Path("");
-  return newRootPath.makeRelative(absPath);
-}
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

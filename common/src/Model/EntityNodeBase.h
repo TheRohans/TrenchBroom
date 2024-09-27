@@ -23,28 +23,33 @@
 #include "Model/EntityProperties.h"
 #include "Model/Node.h"
 
-#include <vecmath/bbox.h>
+#include "vm/bbox.h"
 
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 class PropertyDefinition;
 class EntityDefinition;
-} // namespace Assets
+} // namespace TrenchBroom::Assets
 
-namespace Model {
-const Assets::EntityDefinition* selectEntityDefinition(const std::vector<EntityNodeBase*>& nodes);
+namespace TrenchBroom::Model
+{
+
+const Assets::EntityDefinition* selectEntityDefinition(
+  const std::vector<EntityNodeBase*>& nodes);
 const Assets::PropertyDefinition* propertyDefinition(
   const EntityNodeBase* node, const std::string& key);
 const Assets::PropertyDefinition* selectPropertyDefinition(
   const std::string& key, const std::vector<EntityNodeBase*>& nodes);
-std::string selectPRopertyValue(const std::string& key, const std::vector<EntityNodeBase*>& nodes);
+std::string selectPropertyValue(
+  const std::string& key, const std::vector<EntityNodeBase*>& nodes);
 
-class EntityNodeBase : public Node {
+class EntityNodeBase : public Node
+{
 protected:
-  EntityNodeBase(Entity entity);
+  explicit EntityNodeBase(Entity entity);
 
   Entity m_entity;
 
@@ -54,7 +59,7 @@ protected:
   std::vector<EntityNodeBase*> m_killTargets;
 
 public:
-  virtual ~EntityNodeBase() override;
+  ~EntityNodeBase() override;
 
 public: // entity access
   const Entity& entity() const;
@@ -64,14 +69,15 @@ public: // definition
   void setDefinition(Assets::EntityDefinition* definition);
 
 private: // property management internals
-  class NotifyPropertyChange {
+  class NotifyPropertyChange
+  {
   private:
     NotifyNodeChange m_nodeChange;
     EntityNodeBase& m_node;
     vm::bbox3 m_oldPhysicalBounds;
 
   public:
-    NotifyPropertyChange(EntityNodeBase& node);
+    explicit NotifyPropertyChange(EntityNodeBase& node);
     ~NotifyPropertyChange();
   };
 
@@ -94,7 +100,9 @@ private: // search index management
   void addPropertyToIndex(const std::string& key, const std::string& value);
   void removePropertyFromIndex(const std::string& key, const std::string& value);
   void updatePropertyIndex(
-    const std::string& oldKey, const std::string& oldValue, const std::string& newKey,
+    const std::string& oldKey,
+    const std::string& oldValue,
+    const std::string& newKey,
     const std::string& newValue);
 
 public: // link management
@@ -111,12 +119,15 @@ public: // link management
   std::vector<std::string> findMissingKillTargets() const;
 
 private: // link management internals
-  void findMissingTargets(const std::string& prefix, std::vector<std::string>& result) const;
+  void findMissingTargets(
+    const std::string& prefix, std::vector<std::string>& result) const;
 
   void addLinks(const std::string& name, const std::string& value);
   void removeLinks(const std::string& name, const std::string& value);
   void updateLinks(
-    const std::string& oldName, const std::string& oldValue, const std::string& newName,
+    const std::string& oldName,
+    const std::string& oldValue,
+    const std::string& newName,
     const std::string& newValue);
 
   void addLinkTargets(const std::string& targetname);
@@ -158,8 +169,8 @@ protected:
 
 private: // implemenation of node interface
   const std::string& doGetName() const override;
-  virtual void doAncestorWillChange() override;
-  virtual void doAncestorDidChange() override;
+  void doAncestorWillChange() override;
+  void doAncestorDidChange() override;
 
 private: // subclassing interface
   virtual void doPropertiesDidChange(const vm::bbox3& oldBounds) = 0;
@@ -173,5 +184,5 @@ private: // hide copy constructor and assignment operator
 
 bool operator==(const EntityNodeBase& lhs, const EntityNodeBase& rhs);
 bool operator!=(const EntityNodeBase& lhs, const EntityNodeBase& rhs);
-} // namespace Model
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Model

@@ -19,14 +19,15 @@
 
 #pragma once
 
-#include "Color.h"
-#include "IO/Path.h"
-#include "Preference.h"
-
 #include <QAbstractTableModel>
 
-namespace TrenchBroom::View {
-class ColorModel : public QAbstractTableModel {
+#include "Color.h"
+#include "Preference.h"
+
+namespace TrenchBroom::View
+{
+class ColorModel : public QAbstractTableModel
+{
   Q_OBJECT
 private:
   std::vector<Preference<Color>*> m_colors;

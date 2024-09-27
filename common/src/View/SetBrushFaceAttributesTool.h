@@ -26,8 +26,8 @@
 #include <memory>
 #include <optional>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class DragTracker;
 class MapDocument;
 
@@ -35,21 +35,22 @@ class MapDocument;
  * Functionality summary:
  *
  * Modifier combinations:
- * - Alt:       transfer texture and alignment from selected
- * - Alt+Shift: transfer texture and alignment (rotation method) from selected
- * - Alt+Ctrl:  transfer texture (but not alignment) from selected
+ * - Alt:       transfer material and alignment from selected
+ * - Alt+Shift: transfer material and alignment (rotation method) from selected
+ * - Alt+Ctrl:  transfer material (but not alignment) from selected
  *
  * Actions:
  * - LMB Click: applies to clicked faces
  * - LMB Drag: applies to all faces dragged over
  * - LMB Double click: applies to all faces of target brush
  */
-class SetBrushFaceAttributesTool : public ToolController, public Tool {
+class SetBrushFaceAttributesTool : public ToolController, public Tool
+{
 private:
   std::weak_ptr<MapDocument> m_document;
 
 public:
-  SetBrushFaceAttributesTool(std::weak_ptr<MapDocument> document);
+  explicit SetBrushFaceAttributesTool(std::weak_ptr<MapDocument> document);
 
 private:
   Tool& tool() override;
@@ -65,5 +66,5 @@ private:
   void copyAttributesFromSelection(const InputState& inputState, bool applyToBrush);
   bool canCopyAttributesFromSelection(const InputState& inputState) const;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

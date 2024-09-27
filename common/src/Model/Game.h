@@ -19,16 +19,18 @@
 
 #pragma once
 
+#include "Assets/TextureResource.h"
 #include "FloatType.h"
 #include "IO/EntityDefinitionLoader.h"
-#include "IO/EntityModelLoader.h"
 #include "IO/ExportOptions.h"
 #include "Model/GameConfig.h"
 #include "Model/MapFormat.h"
+#include "Result.h"
 
-#include <vecmath/bbox.h>
-#include <vecmath/forward.h>
+#include "vm/bbox.h"
+#include "vm/forward.h"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
@@ -36,187 +38,128 @@
 #include <utility>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+} // namespace TrenchBroom
 
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 class EntityDefinitionFileSpec;
-class TextureManager;
-} // namespace Assets
+class MaterialManager;
+} // namespace TrenchBroom::Assets
 
-namespace Model {
+namespace TrenchBroom::IO
+{
+class FileSystem;
+}
+
+namespace TrenchBroom::Model
+{
 class EntityNodeBase;
 class BrushFace;
 class BrushFaceAttributes;
-class CompilationConfig;
+struct CompilationConfig;
 class Entity;
 struct FlagsConfig;
 class Node;
 class SmartTag;
 class WorldNode;
 
-class Game : public IO::EntityDefinitionLoader, public IO::EntityModelLoader {
-public:
-  enum class TexturePackageType {
-    File,
-    Directory
-  };
+class Game : public IO::EntityDefinitionLoader
+{
+public: // game configuration
+  virtual const GameConfig& config() const = 0;
+  virtual const IO::FileSystem& gameFileSystem() const = 0;
 
-public:
-  const std::string& gameName() const;
-  bool isGamePathPreference(const IO::Path& prefPath) const;
+  bool isGamePathPreference(const std::filesystem::path& prefPath) const;
 
-  IO::Path gamePath() const;
-  void setGamePath(const IO::Path& gamePath, Logger& logger);
-  void setAdditionalSearchPaths(const std::vector<IO::Path>& searchPaths, Logger& logger);
+  virtual std::filesystem::path gamePath() const = 0;
+  virtual void setGamePath(const std::filesystem::path& gamePath, Logger& logger) = 0;
 
-  using PathErrors = std::map<IO::Path, std::string>;
-  PathErrors checkAdditionalSearchPaths(const std::vector<IO::Path>& searchPaths) const;
+  virtual void setAdditionalSearchPaths(
+    const std::vector<std::filesystem::path>& searchPaths, Logger& logger) = 0;
 
-  const CompilationConfig& compilationConfig();
+  using PathErrors = std::map<std::filesystem::path, std::string>;
+  virtual PathErrors checkAdditionalSearchPaths(
+    const std::vector<std::filesystem::path>& searchPaths) const = 0;
 
-  size_t maxPropertyLength() const;
-
-  const std::vector<SmartTag>& smartTags() const;
-
-  enum class SoftMapBoundsType {
+  enum class SoftMapBoundsType
+  {
     Game,
     Map
   };
-  struct SoftMapBounds {
+
+  struct SoftMapBounds
+  {
     SoftMapBoundsType source;
     /**
      * std::nullopt indicates unlimited soft map bounds
      */
     std::optional<vm::bbox3> bounds;
   };
+
   /**
-   * Returns the soft map bounds configured in the game config
+   * Returns the soft map bounds specified in the given World entity, or if unset, the
+   * value from softMapBounds()
    */
-  std::optional<vm::bbox3> softMapBounds() const;
-  /**
-   * Returns the soft map bounds specified in the given World entity, or if unset, the value from
-   * softMapBounds()
-   */
-  SoftMapBounds extractSoftMapBounds(const Entity& entity) const;
+  virtual SoftMapBounds extractSoftMapBounds(const Entity& entity) const = 0;
 
 public: // loading and writing map files
-  std::unique_ptr<WorldNode> newMap(
-    MapFormat format, const vm::bbox3& worldBounds, Logger& logger) const;
-  std::unique_ptr<WorldNode> loadMap(
-    MapFormat format, const vm::bbox3& worldBounds, const IO::Path& path, Logger& logger) const;
-  void writeMap(WorldNode& world, const IO::Path& path) const;
-  void exportMap(WorldNode& world, const IO::ExportOptions& options) const;
+  virtual Result<std::unique_ptr<WorldNode>> newMap(
+    MapFormat format, const vm::bbox3& worldBounds, Logger& logger) const = 0;
+  virtual Result<std::unique_ptr<WorldNode>> loadMap(
+    MapFormat format,
+    const vm::bbox3& worldBounds,
+    const std::filesystem::path& path,
+    Logger& logger) const = 0;
+  virtual Result<void> writeMap(
+    WorldNode& world, const std::filesystem::path& path) const = 0;
+  virtual Result<void> exportMap(
+    WorldNode& world, const IO::ExportOptions& options) const = 0;
 
 public: // parsing and serializing objects
-  std::vector<Node*> parseNodes(
-    const std::string& str, MapFormat mapFormat, const vm::bbox3& worldBounds,
-    Logger& logger) const;
-  std::vector<BrushFace> parseBrushFaces(
-    const std::string& str, MapFormat mapFormat, const vm::bbox3& worldBounds,
-    Logger& logger) const;
+  virtual std::vector<Node*> parseNodes(
+    const std::string& str,
+    MapFormat mapFormat,
+    const vm::bbox3& worldBounds,
+    Logger& logger) const = 0;
+  virtual std::vector<BrushFace> parseBrushFaces(
+    const std::string& str,
+    MapFormat mapFormat,
+    const vm::bbox3& worldBounds,
+    Logger& logger) const = 0;
 
-  void writeNodesToStream(
-    WorldNode& world, const std::vector<Node*>& nodes, std::ostream& stream) const;
-  void writeBrushFacesToStream(
-    WorldNode& world, const std::vector<BrushFace>& faces, std::ostream& stream) const;
+  virtual void writeNodesToStream(
+    WorldNode& world, const std::vector<Node*>& nodes, std::ostream& stream) const = 0;
+  virtual void writeBrushFacesToStream(
+    WorldNode& world,
+    const std::vector<BrushFace>& faces,
+    std::ostream& stream) const = 0;
 
-public: // texture collection handling
-  TexturePackageType texturePackageType() const;
-  void loadTextureCollections(
-    const Entity& entity, const IO::Path& documentPath, Assets::TextureManager& textureManager,
-    Logger& logger) const;
-  bool isTextureCollection(const IO::Path& path) const;
-  std::vector<std::string> fileTextureCollectionExtensions() const;
+public: // material collection handling
+  virtual void loadMaterialCollections(
+    Assets::MaterialManager& materialManager,
+    const Assets::CreateTextureResource& createResource) const = 0;
 
-  std::vector<IO::Path> findTextureCollections() const;
-  std::vector<IO::Path> extractTextureCollections(const Entity& entity) const;
-  void updateTextureCollections(Entity& entity, const std::vector<IO::Path>& paths) const;
-  void reloadShaders();
+  virtual void reloadWads(
+    const std::filesystem::path& documentPath,
+    const std::vector<std::filesystem::path>& wadPaths,
+    Logger& logger) = 0;
 
 public: // entity definition handling
-  bool isEntityDefinitionFile(const IO::Path& path) const;
-  std::vector<Assets::EntityDefinitionFileSpec> allEntityDefinitionFiles() const;
-  Assets::EntityDefinitionFileSpec extractEntityDefinitionFile(const Entity& entity) const;
-  IO::Path findEntityDefinitionFile(
-    const Assets::EntityDefinitionFileSpec& spec, const std::vector<IO::Path>& searchPaths) const;
+  virtual bool isEntityDefinitionFile(const std::filesystem::path& path) const = 0;
+  virtual std::vector<Assets::EntityDefinitionFileSpec> allEntityDefinitionFiles()
+    const = 0;
+  virtual Assets::EntityDefinitionFileSpec extractEntityDefinitionFile(
+    const Entity& entity) const = 0;
+  virtual std::filesystem::path findEntityDefinitionFile(
+    const Assets::EntityDefinitionFileSpec& spec,
+    const std::vector<std::filesystem::path>& searchPaths) const = 0;
 
 public: // mods
-  std::vector<std::string> availableMods() const;
-  std::vector<std::string> extractEnabledMods(const Entity& entity) const;
-  std::string defaultMod() const;
-
-public: // configs for faces
-  const FlagsConfig& surfaceFlags() const;
-  const FlagsConfig& contentFlags() const;
-  const BrushFaceAttributes& defaultFaceAttribs() const;
-
-public: // compilation tools
-  const std::vector<CompilationTool>& compilationTools() const;
-
-private: // subclassing interface
-  virtual const std::string& doGameName() const = 0;
-  virtual IO::Path doGamePath() const = 0;
-  virtual void doSetGamePath(const IO::Path& gamePath, Logger& logger) = 0;
-  virtual void doSetAdditionalSearchPaths(
-    const std::vector<IO::Path>& searchPaths, Logger& logger) = 0;
-  virtual PathErrors doCheckAdditionalSearchPaths(
-    const std::vector<IO::Path>& searchPaths) const = 0;
-
-  virtual const CompilationConfig& doCompilationConfig() = 0;
-  virtual size_t doMaxPropertyLength() const = 0;
-  virtual std::optional<vm::bbox3> doSoftMapBounds() const = 0;
-  virtual SoftMapBounds doExtractSoftMapBounds(const Entity& entity) const = 0;
-
-  virtual const std::vector<SmartTag>& doSmartTags() const = 0;
-
-  virtual std::unique_ptr<WorldNode> doNewMap(
-    MapFormat format, const vm::bbox3& worldBounds, Logger& logger) const = 0;
-  virtual std::unique_ptr<WorldNode> doLoadMap(
-    MapFormat format, const vm::bbox3& worldBounds, const IO::Path& path, Logger& logger) const = 0;
-  virtual void doWriteMap(WorldNode& world, const IO::Path& path) const = 0;
-  virtual void doExportMap(WorldNode& world, const IO::ExportOptions& options) const = 0;
-
-  virtual std::vector<Node*> doParseNodes(
-    const std::string& str, MapFormat mapFormat, const vm::bbox3& worldBounds,
-    Logger& logger) const = 0;
-  virtual std::vector<BrushFace> doParseBrushFaces(
-    const std::string& str, MapFormat mapFormat, const vm::bbox3& worldBounds,
-    Logger& logger) const = 0;
-  virtual void doWriteNodesToStream(
-    WorldNode& world, const std::vector<Node*>& nodes, std::ostream& stream) const = 0;
-  virtual void doWriteBrushFacesToStream(
-    WorldNode& world, const std::vector<BrushFace>& faces, std::ostream& stream) const = 0;
-
-  virtual TexturePackageType doTexturePackageType() const = 0;
-  virtual void doLoadTextureCollections(
-    const Entity& entity, const IO::Path& documentPath, Assets::TextureManager& textureManager,
-    Logger& logger) const = 0;
-  virtual bool doIsTextureCollection(const IO::Path& path) const = 0;
-  virtual std::vector<std::string> doFileTextureCollectionExtensions() const = 0;
-  virtual std::vector<IO::Path> doFindTextureCollections() const = 0;
-  virtual std::vector<IO::Path> doExtractTextureCollections(const Entity& entity) const = 0;
-  virtual void doUpdateTextureCollections(
-    Entity& entity, const std::vector<IO::Path>& paths) const = 0;
-  virtual void doReloadShaders() = 0;
-
-  virtual bool doIsEntityDefinitionFile(const IO::Path& path) const = 0;
-  virtual std::vector<Assets::EntityDefinitionFileSpec> doAllEntityDefinitionFiles() const = 0;
-  virtual Assets::EntityDefinitionFileSpec doExtractEntityDefinitionFile(
-    const Entity& entity) const = 0;
-  virtual IO::Path doFindEntityDefinitionFile(
-    const Assets::EntityDefinitionFileSpec& spec,
-    const std::vector<IO::Path>& searchPaths) const = 0;
-
-  virtual std::vector<std::string> doAvailableMods() const = 0;
-  virtual std::vector<std::string> doExtractEnabledMods(const Entity& entity) const = 0;
-  virtual std::string doDefaultMod() const = 0;
-
-  virtual const FlagsConfig& doSurfaceFlags() const = 0;
-  virtual const FlagsConfig& doContentFlags() const = 0;
-  virtual const BrushFaceAttributes& doDefaultFaceAttribs() const = 0;
-
-  virtual const std::vector<CompilationTool>& doCompilationTools() const = 0;
+  virtual Result<std::vector<std::string>> availableMods() const = 0;
+  virtual std::vector<std::string> extractEnabledMods(const Entity& entity) const = 0;
+  virtual std::string defaultMod() const = 0;
 };
-} // namespace Model
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Model

@@ -21,80 +21,105 @@
 
 #include "IO/PathQt.h"
 #include "Macros.h"
-#include "Uuid.h"
 
+#include <fstream>
 #include <string>
-
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
-#include <QTextStream>
 
 #include "Catch2.h"
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom::IO
+{
+
 TestEnvironment::TestEnvironment(const std::string& dir, const SetupFunction& setup)
-  : m_sandboxPath{pathFromQString(QDir::current().path()) + Path{generateUuid()}}
-  , m_dir{m_sandboxPath + Path{dir}} {
+  : m_sandboxPath{std::filesystem::current_path() / generateUuid()}
+  , m_dir{m_sandboxPath / dir}
+{
   createTestEnvironment(setup);
 }
 
 TestEnvironment::TestEnvironment(const SetupFunction& setup)
-  : TestEnvironment{Catch::getResultCapture().getCurrentTestName(), setup} {}
+  : TestEnvironment{Catch::getResultCapture().getCurrentTestName(), setup}
+{
+}
 
-TestEnvironment::~TestEnvironment() {
+TestEnvironment::~TestEnvironment()
+{
   assertResult(deleteTestEnvironment());
 }
 
-const Path& TestEnvironment::dir() const {
+const std::filesystem::path& TestEnvironment::dir() const
+{
   return m_dir;
 }
 
-void TestEnvironment::createTestEnvironment(const SetupFunction& setup) {
+void TestEnvironment::createTestEnvironment(const SetupFunction& setup)
+{
   deleteTestEnvironment();
-  createDirectory(Path{});
+  createDirectory({});
   setup(*this);
 }
 
-void TestEnvironment::createDirectory(const Path& path) {
-  const auto dir = QDir{IO::pathAsQString(m_dir + path)};
-  assertResult(dir.mkpath("."));
+void TestEnvironment::createDirectory(const std::filesystem::path& path)
+{
+  std::filesystem::create_directories(m_dir / path);
 }
 
-void TestEnvironment::createFile(const Path& path, const std::string& contents) {
-  auto file = QFile{IO::pathAsQString(m_dir + path)};
-  assertResult(file.open(QIODevice::ReadWrite));
-
-  auto stream = QTextStream{&file};
-  stream << QString::fromStdString(contents);
-  stream.flush();
-  assert(stream.status() == QTextStream::Ok);
+void TestEnvironment::createFile(
+  const std::filesystem::path& path, const std::string& contents)
+{
+  auto stream = std::ofstream{m_dir / path, std::ios::out};
+  stream << contents;
 }
 
-static bool deleteDirectoryAbsolute(const Path& absolutePath) {
-  auto dir = QDir{IO::pathAsQString(absolutePath)};
-  if (!dir.exists()) {
-    return true;
+void TestEnvironment::createSymLink(
+  const std::filesystem::path& target, const std::filesystem::path& link)
+{
+  if (std::filesystem::is_directory(m_dir / target))
+  {
+    std::filesystem::create_directory_symlink(m_dir / target, m_dir / link);
   }
-
-  return dir.removeRecursively();
+  else
+  {
+    std::filesystem::create_symlink(m_dir / target, m_dir / link);
+  }
 }
 
-bool TestEnvironment::deleteTestEnvironment() {
+static bool deleteDirectoryAbsolute(const std::filesystem::path& absolutePath)
+{
+  return std::filesystem::remove_all(absolutePath);
+}
+
+bool TestEnvironment::deleteTestEnvironment()
+{
   return deleteDirectoryAbsolute(m_sandboxPath);
 }
 
-bool TestEnvironment::directoryExists(const Path& path) const {
-  const auto file = QFileInfo{IO::pathAsQString(m_dir + path)};
-
-  return file.exists() && file.isDir();
+bool TestEnvironment::directoryExists(const std::filesystem::path& path) const
+{
+  return std::filesystem::is_directory(m_dir / path);
 }
 
-bool TestEnvironment::fileExists(const Path& path) const {
-  const auto file = QFileInfo{IO::pathAsQString(m_dir + path)};
-
-  return file.exists() && file.isFile();
+bool TestEnvironment::fileExists(const std::filesystem::path& path) const
+{
+  return std::filesystem::is_regular_file(m_dir / path);
 }
-} // namespace IO
-} // namespace TrenchBroom
+
+std::vector<std::filesystem::path> TestEnvironment::directoryContents(
+  const std::filesystem::path& path) const
+{
+  auto result = std::vector<std::filesystem::path>{};
+  for (const auto& entry : std::filesystem::directory_iterator{m_dir / path})
+  {
+    result.push_back(entry.path().lexically_relative(m_dir));
+  }
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+std::string TestEnvironment::loadFile(const std::filesystem::path& path) const
+{
+  auto stream = std::ifstream{m_dir / path, std::ios::in};
+  return std::string{std::istreambuf_iterator<char>{stream}, {}};
+}
+
+} // namespace TrenchBroom::IO

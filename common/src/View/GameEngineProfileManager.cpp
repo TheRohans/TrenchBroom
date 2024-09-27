@@ -19,7 +19,9 @@
 
 #include "GameEngineProfileManager.h"
 
-#include "IO/Path.h"
+#include <QBoxLayout>
+#include <QToolButton>
+
 #include "Model/GameEngineConfig.h"
 #include "Model/GameEngineProfile.h"
 #include "View/BorderLine.h"
@@ -28,22 +30,23 @@
 #include "View/QtUtils.h"
 #include "View/TitledPanel.h"
 
-#include <QAbstractButton>
-#include <QBoxLayout>
+#include "kdl/vector_utils.h"
 
-namespace TrenchBroom {
-namespace View {
-GameEngineProfileManager::GameEngineProfileManager(Model::GameEngineConfig config, QWidget* parent)
-  : QWidget(parent)
-  , m_config(std::move(config))
-  , m_profileList(nullptr)
-  , m_profileEditor(nullptr)
-  , m_removeProfileButton(nullptr) {
-  auto* listPanel = new TitledPanel("Profiles");
-  auto* editorPanel = new TitledPanel("Details");
+#include <filesystem>
 
-  m_profileList = new GameEngineProfileListBox(&m_config, listPanel->getPanel());
-  m_profileEditor = new GameEngineProfileEditor(editorPanel->getPanel());
+namespace TrenchBroom::View
+{
+
+GameEngineProfileManager::GameEngineProfileManager(
+  Model::GameEngineConfig config, QWidget* parent)
+  : QWidget{parent}
+  , m_config{std::move(config)}
+{
+  auto* listPanel = new TitledPanel{"Profiles"};
+  auto* editorPanel = new TitledPanel{"Details"};
+
+  m_profileList = new GameEngineProfileListBox{m_config, listPanel->getPanel()};
+  m_profileEditor = new GameEngineProfileEditor{editorPanel->getPanel()};
 
   auto* addProfileButton = createBitmapButton("Add.svg", "Add profile");
   m_removeProfileButton = createBitmapButton("Remove.svg", "Remove the selected profile");
@@ -51,73 +54,81 @@ GameEngineProfileManager::GameEngineProfileManager(Model::GameEngineConfig confi
 
   auto* buttonLayout = createMiniToolBarLayout(addProfileButton, m_removeProfileButton);
 
-  auto* listLayout = new QVBoxLayout();
-  listLayout->setContentsMargins(QMargins());
+  auto* listLayout = new QVBoxLayout{};
+  listLayout->setContentsMargins(QMargins{});
   listLayout->setSpacing(0);
   listPanel->getPanel()->setLayout(listLayout);
   listLayout->addWidget(m_profileList, 1);
-  listLayout->addWidget(new BorderLine(BorderLine::Direction::Horizontal));
+  listLayout->addWidget(new BorderLine{BorderLine::Direction::Horizontal});
   listLayout->addLayout(buttonLayout);
 
-  auto* editorLayout = new QHBoxLayout();
-  editorLayout->setContentsMargins(QMargins());
+  auto* editorLayout = new QHBoxLayout{};
+  editorLayout->setContentsMargins(QMargins{});
   editorLayout->setSpacing(0);
   editorPanel->getPanel()->setLayout(editorLayout);
   editorLayout->addWidget(m_profileEditor);
 
-  auto* outerLayout = new QHBoxLayout();
-  outerLayout->setContentsMargins(QMargins());
+  auto* outerLayout = new QHBoxLayout{};
+  outerLayout->setContentsMargins(QMargins{});
   outerLayout->setSpacing(0);
   setLayout(outerLayout);
   outerLayout->addWidget(listPanel, 1);
-  outerLayout->addWidget(new BorderLine(BorderLine::Direction::Vertical));
+  outerLayout->addWidget(new BorderLine{BorderLine::Direction::Vertical});
   outerLayout->addWidget(editorPanel, 1);
 
   listPanel->setMaximumWidth(250);
 
-  connect(addProfileButton, &QAbstractButton::clicked, this, &GameEngineProfileManager::addProfile);
   connect(
-    m_removeProfileButton, &QAbstractButton::clicked, this,
+    addProfileButton,
+    &QAbstractButton::clicked,
+    this,
+    &GameEngineProfileManager::addProfile);
+  connect(
+    m_removeProfileButton,
+    &QAbstractButton::clicked,
+    this,
     &GameEngineProfileManager::removeProfile);
   connect(
-    m_profileList, &GameEngineProfileListBox::currentProfileChanged, this,
+    m_profileList,
+    &GameEngineProfileListBox::currentProfileChanged,
+    this,
     &GameEngineProfileManager::currentProfileChanged);
   connect(m_profileEditor, &GameEngineProfileEditor::profileChanged, this, [&]() {
-    // update the names in the list box (but don't refresh() the list) when a profile is edited
+    // update the names in the list box (but don't refresh() the list) when a profile is
+    // edited
     m_profileList->updateProfiles();
   });
 }
 
-const Model::GameEngineConfig& GameEngineProfileManager::config() const {
+const Model::GameEngineConfig& GameEngineProfileManager::config() const
+{
   return m_config;
 }
 
-void GameEngineProfileManager::addProfile() {
-  m_config.addProfile(std::make_unique<Model::GameEngineProfile>("", IO::Path(), ""));
+void GameEngineProfileManager::addProfile()
+{
+  m_config.profiles.push_back(Model::GameEngineProfile{"", {}, ""});
   m_profileList->reloadProfiles();
-  m_profileList->setCurrentRow(static_cast<int>(m_config.profileCount() - 1));
+  m_profileList->setCurrentRow(int(m_config.profiles.size() - 1));
 }
 
-void GameEngineProfileManager::removeProfile() {
-  const int index = m_profileList->currentRow();
-
-  if (index < 0) {
+void GameEngineProfileManager::removeProfile()
+{
+  const auto index = m_profileList->currentRow();
+  if (index < 0)
+  {
     return;
   }
 
-  m_config.removeProfile(static_cast<size_t>(index));
+  m_config.profiles = kdl::vec_erase_at(std::move(m_config.profiles), size_t(index));
   m_profileList->reloadProfiles();
-
-  if (index >= m_profileList->count()) {
-    m_profileList->setCurrentRow(index - 1);
-  } else {
-    m_profileList->setCurrentRow(index);
-  }
+  m_profileList->setCurrentRow(index >= m_profileList->count() ? index - 1 : index);
 }
 
-void GameEngineProfileManager::currentProfileChanged(Model::GameEngineProfile* profile) {
+void GameEngineProfileManager::currentProfileChanged(Model::GameEngineProfile* profile)
+{
   m_profileEditor->setProfile(profile);
   m_removeProfileButton->setEnabled(profile != nullptr);
 }
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

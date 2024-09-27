@@ -21,15 +21,19 @@
 
 #include "FloatType.h"
 
-#include <vecmath/ray.h>
+#include "vm/ray.h"
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom
+{
+namespace Renderer
+{
 class Camera;
 }
 
-namespace View {
-class PickRequest {
+namespace View
+{
+class PickRequest
+{
 private:
   vm::ray3 m_pickRay;
   const Renderer::Camera* m_camera;

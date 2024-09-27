@@ -25,8 +25,8 @@ class QLineEdit;
 class QPushButton;
 class QStackedWidget;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class GameListBox;
 class GamePreferencePane;
 class MapDocument;
@@ -34,14 +34,15 @@ class MapDocument;
 /**
  * List of all games with the ability to edit game path, compile tools for each game
  */
-class GamesPreferencePane : public PreferencePane {
+class GamesPreferencePane : public PreferencePane
+{
   Q_OBJECT
 private:
-  MapDocument* m_document;
-  GameListBox* m_gameListBox;
-  QStackedWidget* m_stackedWidget;
-  QWidget* m_defaultPage;
-  GamePreferencePane* m_currentGamePage;
+  MapDocument* m_document = nullptr;
+  GameListBox* m_gameListBox = nullptr;
+  QStackedWidget* m_stackedWidget = nullptr;
+  QWidget* m_defaultPage = nullptr;
+  GamePreferencePane* m_currentGamePage = nullptr;
 
 public:
   explicit GamesPreferencePane(MapDocument* document, QWidget* parent = nullptr);
@@ -60,16 +61,17 @@ private:
 /**
  * Widget for configuring a single game
  */
-class GamePreferencePane : public QWidget {
+class GamePreferencePane : public QWidget
+{
   Q_OBJECT
 private:
   std::string m_gameName;
-  QLineEdit* m_gamePathText;
-  QPushButton* m_chooseGamePathButton;
+  QLineEdit* m_gamePathText = nullptr;
+  QPushButton* m_chooseGamePathButton = nullptr;
   std::vector<std::tuple<std::string, QLineEdit*>> m_toolPathEditors;
 
 public:
-  explicit GamePreferencePane(const std::string& gameName, QWidget* parent = nullptr);
+  explicit GamePreferencePane(std::string gameName, QWidget* parent = nullptr);
 
 private:
   void createGui();
@@ -92,5 +94,4 @@ signals:
    */
   void requestUpdate();
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

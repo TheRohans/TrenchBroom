@@ -23,17 +23,20 @@
 #include "Model/Hit.h"
 #include "Model/HitFilter.h"
 
-#include <vecmath/util.h>
+#include "vm/util.h"
 
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class CompareHits;
 class HitQuery;
 
-class PickResult {
+class PickResult
+{
 private:
   std::vector<Hit> m_hits;
   std::shared_ptr<CompareHits> m_compare;

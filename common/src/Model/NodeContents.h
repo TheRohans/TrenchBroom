@@ -27,16 +27,19 @@
 
 #include <variant>
 
-namespace TrenchBroom {
-namespace Model {
-class NodeContents {
+namespace TrenchBroom
+{
+namespace Model
+{
+class NodeContents
+{
 private:
   std::variant<Layer, Group, Entity, Brush, BezierPatch> m_contents;
 
 public:
   /** Unsets cached and derived information of the given objects, i.e.
    *  - for entities, unsets the entity definition and the model
-   *  - for brushes, unsets the textures
+   *  - for brushes, unsets the materials
    */
   explicit NodeContents(std::variant<Layer, Group, Entity, Brush, BezierPatch> contents);
 

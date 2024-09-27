@@ -20,22 +20,19 @@
 #include "GameConfig.h"
 
 #include "Ensure.h"
-#include "IO/DiskFileSystem.h"
 
-#include <kdl/overload.h>
-#include <kdl/reflection_impl.h>
-#include <kdl/string_utils.h>
+#include "kdl/reflection_impl.h"
 
-#include <vecmath/bbox_io.h>
-#include <vecmath/vec_io.h>
+#include "vm/bbox_io.h" // IWYU pragma: keep
+#include "vm/vec_io.h"  // IWYU pragma: keep
 
 #include <cassert>
 #include <ostream>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
 
 kdl_reflect_impl(MapFormatConfig);
 
@@ -43,32 +40,7 @@ kdl_reflect_impl(PackageFormatConfig);
 
 kdl_reflect_impl(FileSystemConfig);
 
-kdl_reflect_impl(TextureFilePackageConfig);
-
-kdl_reflect_impl(TextureDirectoryPackageConfig);
-
-std::ostream& operator<<(std::ostream& str, const TexturePackageConfig& config) {
-  std::visit(
-    [&](const auto& c) {
-      str << c;
-    },
-    config);
-  return str;
-}
-
-IO::Path getRootDirectory(const TexturePackageConfig& texturePackageConfig) {
-  return std::visit(
-    kdl::overload(
-      [](const TextureFilePackageConfig&) {
-        return IO::Path{};
-      },
-      [](const TextureDirectoryPackageConfig& directoryConfig) {
-        return directoryConfig.rootDirectory;
-      }),
-    texturePackageConfig);
-}
-
-kdl_reflect_impl(TextureConfig);
+kdl_reflect_impl(MaterialConfig);
 
 kdl_reflect_impl(EntityConfig);
 
@@ -76,28 +48,36 @@ kdl_reflect_impl(FlagConfig);
 
 kdl_reflect_impl(FlagsConfig);
 
-int FlagsConfig::flagValue(const std::string& flagName) const {
-  for (size_t i = 0; i < flags.size(); ++i) {
-    if (flags[i].name == flagName) {
+int FlagsConfig::flagValue(const std::string& flagName) const
+{
+  for (size_t i = 0; i < flags.size(); ++i)
+  {
+    if (flags[i].name == flagName)
+    {
       return flags[i].value;
     }
   }
   return 0;
 }
 
-std::string FlagsConfig::flagName(const size_t index) const {
+std::string FlagsConfig::flagName(const size_t index) const
+{
   ensure(index < flags.size(), "index out of range");
   return flags[index].name;
 }
 
-std::vector<std::string> FlagsConfig::flagNames(const int mask) const {
-  if (mask == 0) {
+std::vector<std::string> FlagsConfig::flagNames(const int mask) const
+{
+  if (mask == 0)
+  {
     return {};
   }
 
   std::vector<std::string> names;
-  for (size_t i = 0; i < flags.size(); ++i) {
-    if (mask & (1 << i)) {
+  for (size_t i = 0; i < flags.size(); ++i)
+  {
+    if (mask & (1 << i))
+    {
       names.push_back(flags[i].name);
     }
   }
@@ -110,21 +90,33 @@ kdl_reflect_impl(CompilationTool);
 
 kdl_reflect_impl(GameConfig);
 
-IO::Path GameConfig::findInitialMap(const std::string& formatName) const {
-  for (const auto& format : fileFormats) {
-    if (format.format == formatName) {
-      if (!format.initialMap.isEmpty()) {
+std::filesystem::path GameConfig::configFileFolder() const
+{
+  return path.parent_path().filename();
+}
+
+std::filesystem::path GameConfig::findInitialMap(const std::string& formatName) const
+{
+  for (const auto& format : fileFormats)
+  {
+    if (format.format == formatName)
+    {
+      if (!format.initialMap.empty())
+      {
         return findConfigFile(format.initialMap);
-      } else {
+      }
+      else
+      {
         break;
       }
     }
   }
-  return IO::Path("");
+  return std::filesystem::path{};
 }
 
-IO::Path GameConfig::findConfigFile(const IO::Path& filePath) const {
-  return path.deleteLastComponent() + filePath;
+std::filesystem::path GameConfig::findConfigFile(
+  const std::filesystem::path& filePath) const
+{
+  return path.parent_path() / filePath;
 }
-} // namespace Model
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Model

@@ -22,62 +22,52 @@
 #include "Model/Brush.h"
 #include "Model/Entity.h"
 #include "Model/Node.h"
-#include "Model/UpdateLinkedGroupsError.h"
 #include "View/MapDocumentCommandFacade.h"
 
-#include <kdl/result.h>
-#include <kdl/vector_utils.h>
+#include "kdl/result.h"
+#include "kdl/vector_utils.h"
 
-namespace TrenchBroom {
-namespace View {
-const Command::CommandType SwapNodeContentsCommand::Type = Command::freeType();
-
+namespace TrenchBroom
+{
+namespace View
+{
 SwapNodeContentsCommand::SwapNodeContentsCommand(
-  const std::string& name, std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes,
-  std::vector<std::pair<const Model::GroupNode*, std::vector<Model::GroupNode*>>>
-    linkedGroupsToUpdate)
-  : UndoableCommand(Type, name, true)
+  const std::string& name,
+  std::vector<std::pair<Model::Node*, Model::NodeContents>> nodes)
+  : UpdateLinkedGroupsCommandBase(name, true)
   , m_nodes(std::move(nodes))
-  , m_updateLinkedGroupsHelper(std::move(linkedGroupsToUpdate)) {}
+{
+}
 
 SwapNodeContentsCommand::~SwapNodeContentsCommand() = default;
 
 std::unique_ptr<CommandResult> SwapNodeContentsCommand::doPerformDo(
-  MapDocumentCommandFacade* document) {
+  MapDocumentCommandFacade* document)
+{
   document->performSwapNodeContents(m_nodes);
-
-  const auto success = m_updateLinkedGroupsHelper.applyLinkedGroupUpdates(*document).handle_errors(
-    [&](const Model::UpdateLinkedGroupsError& e) {
-      document->error() << e;
-      document->performSwapNodeContents(m_nodes);
-    });
-
-  return std::make_unique<CommandResult>(success);
-}
-
-std::unique_ptr<CommandResult> SwapNodeContentsCommand::doPerformUndo(
-  MapDocumentCommandFacade* document) {
-  document->performSwapNodeContents(m_nodes);
-  m_updateLinkedGroupsHelper.undoLinkedGroupUpdates(*document);
   return std::make_unique<CommandResult>(true);
 }
 
-bool SwapNodeContentsCommand::doCollateWith(UndoableCommand* command) {
-  auto* other = static_cast<SwapNodeContentsCommand*>(command);
+std::unique_ptr<CommandResult> SwapNodeContentsCommand::doPerformUndo(
+  MapDocumentCommandFacade* document)
+{
+  document->performSwapNodeContents(m_nodes);
+  return std::make_unique<CommandResult>(true);
+}
 
-  auto myNodes = kdl::vec_transform(m_nodes, [](const auto& pair) {
-    return pair.first;
-  });
-  auto theirNodes = kdl::vec_transform(other->m_nodes, [](const auto& pair) {
-    return pair.first;
-  });
+bool SwapNodeContentsCommand::doCollateWith(UndoableCommand& command)
+{
+  if (auto* other = dynamic_cast<SwapNodeContentsCommand*>(&command))
+  {
+    auto myNodes =
+      kdl::vec_transform(m_nodes, [](const auto& pair) { return pair.first; });
+    auto theirNodes =
+      kdl::vec_transform(other->m_nodes, [](const auto& pair) { return pair.first; });
 
-  kdl::vec_sort(myNodes);
-  kdl::vec_sort(theirNodes);
+    kdl::vec_sort(myNodes);
+    kdl::vec_sort(theirNodes);
 
-  if (myNodes == theirNodes) {
-    m_updateLinkedGroupsHelper.collateWith(other->m_updateLinkedGroupsHelper);
-    return true;
+    return myNodes == theirNodes;
   }
 
   return false;

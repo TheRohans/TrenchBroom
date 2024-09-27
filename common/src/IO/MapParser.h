@@ -22,43 +22,68 @@
 #include "FloatType.h"
 #include "Model/MapFormat.h"
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
 #include <cassert>
 #include <map>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+struct FileLocation;
+}
+
+namespace TrenchBroom::Model
+{
 class EntityProperty;
 class BrushFaceAttributes;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace IO {
+namespace TrenchBroom::IO
+{
 class ParserStatus;
 
-class MapParser {
+class MapParser
+{
 public:
   virtual ~MapParser();
 
 protected: // subclassing interface for users of the parser
   virtual void onBeginEntity(
-    size_t line, std::vector<Model::EntityProperty> properties, ParserStatus& status) = 0;
-  virtual void onEndEntity(size_t startLine, size_t lineCount, ParserStatus& status) = 0;
-  virtual void onBeginBrush(size_t line, ParserStatus& status) = 0;
-  virtual void onEndBrush(size_t startLine, size_t lineCount, ParserStatus& status) = 0;
+    const FileLocation& startLocation,
+    std::vector<Model::EntityProperty> properties,
+    ParserStatus& status) = 0;
+  virtual void onEndEntity(const FileLocation& endLocation, ParserStatus& status) = 0;
+  virtual void onBeginBrush(const FileLocation& location, ParserStatus& status) = 0;
+  virtual void onEndBrush(const FileLocation& endLocation, ParserStatus& status) = 0;
   virtual void onStandardBrushFace(
-    size_t line, Model::MapFormat targetMapFormat, const vm::vec3& point1, const vm::vec3& point2,
-    const vm::vec3& point3, const Model::BrushFaceAttributes& attribs, ParserStatus& status) = 0;
+    const FileLocation& location,
+    Model::MapFormat targetMapFormat,
+    const vm::vec3& point1,
+    const vm::vec3& point2,
+    const vm::vec3& point3,
+    const Model::BrushFaceAttributes& attribs,
+    ParserStatus& status) = 0;
   virtual void onValveBrushFace(
-    size_t line, Model::MapFormat targetMapFormat, const vm::vec3& point1, const vm::vec3& point2,
-    const vm::vec3& point3, const Model::BrushFaceAttributes& attribs, const vm::vec3& texAxisX,
-    const vm::vec3& texAxisY, ParserStatus& status) = 0;
+    const FileLocation& location,
+    Model::MapFormat targetMapFormat,
+    const vm::vec3& point1,
+    const vm::vec3& point2,
+    const vm::vec3& point3,
+    const Model::BrushFaceAttributes& attribs,
+    const vm::vec3& uAxis,
+    const vm::vec3& vAxis,
+    ParserStatus& status) = 0;
   virtual void onPatch(
-    size_t startLine, size_t lineCount, Model::MapFormat targetMapFormat, size_t rowCount,
-    size_t columnCount, std::vector<vm::vec<FloatType, 5>> controlPoints, std::string textureName,
+    const FileLocation& startLocation,
+    const FileLocation& endLocation,
+    Model::MapFormat targetMapFormat,
+    size_t rowCount,
+    size_t columnCount,
+    std::vector<vm::vec<FloatType, 5>> controlPoints,
+    std::string materialName,
     ParserStatus& status) = 0;
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

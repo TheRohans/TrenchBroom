@@ -19,40 +19,41 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "NotifierConnection.h"
 
-#include <memory>
+#include <functional>
 #include <string>
 #include <vector>
 
-#include <QWidget>
-
 class QStackedLayout;
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class EntityNodeBase;
 class Node;
 } // namespace Model
 
-namespace View {
+namespace View
+{
 class MapDocument;
 class Selection;
 class SmartPropertyEditor;
-class SmartPropertyEditorMatcher;
 
-class SmartPropertyEditorManager : public QWidget {
+using SmartPropertyEditorMatcher =
+  std::function<bool(const std::string&, const std::vector<Model::EntityNodeBase*>&)>;
+
+class SmartPropertyEditorManager : public QWidget
+{
 private:
-  using EditorPtr = SmartPropertyEditor*;
-  using MatcherPtr = std::shared_ptr<SmartPropertyEditorMatcher>;
-  using MatcherEditorPair = std::pair<MatcherPtr, EditorPtr>;
-  using EditorList = std::vector<MatcherEditorPair>;
-
   std::weak_ptr<MapDocument> m_document;
 
-  EditorList m_editors;
+  std::vector<std::tuple<SmartPropertyEditorMatcher, SmartPropertyEditor*>> m_editors;
   std::string m_propertyKey;
-  QStackedLayout* m_stackedLayout;
+  QStackedLayout* m_stackedLayout{nullptr};
 
   NotifierConnection m_notifierConnection;
 
@@ -73,11 +74,12 @@ private:
   void selectionDidChange(const Selection& selection);
   void nodesDidChange(const std::vector<Model::Node*>& nodes);
 
-  EditorPtr selectEditor(
-    const std::string& propertyKey, const std::vector<Model::EntityNodeBase*>& nodes) const;
-  EditorPtr defaultEditor() const;
+  SmartPropertyEditor* selectEditor(
+    const std::string& propertyKey,
+    const std::vector<Model::EntityNodeBase*>& nodes) const;
+  SmartPropertyEditor* defaultEditor() const;
 
-  void activateEditor(EditorPtr editor, const std::string& propertyKey);
+  void activateEditor(SmartPropertyEditor* editor, const std::string& propertyKey);
   void deactivateEditor();
   void updateEditor();
 };

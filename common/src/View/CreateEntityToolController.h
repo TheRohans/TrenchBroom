@@ -23,47 +23,54 @@
 
 #include <string>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class CreateEntityTool;
 
-class CreateEntityToolController : public ToolController {
+class CreateEntityToolController : public ToolController
+{
 protected:
   CreateEntityTool& m_tool;
 
 protected:
-  CreateEntityToolController(CreateEntityTool& tool);
+  explicit CreateEntityToolController(CreateEntityTool& tool);
 
 public:
-  virtual ~CreateEntityToolController() override;
+  ~CreateEntityToolController() override;
 
 private:
   Tool& tool() override;
   const Tool& tool() const override;
 
+  bool shouldAcceptDrop(
+    const InputState& inputState, const std::string& payload) const override;
   std::unique_ptr<DropTracker> acceptDrop(
     const InputState& inputState, const std::string& payload) override;
 
   bool cancel() override;
 
 private:
-  virtual std::unique_ptr<DropTracker> createDropTracker(const InputState& inputState) const = 0;
+  virtual std::unique_ptr<DropTracker> createDropTracker(
+    const InputState& inputState) const = 0;
 };
 
-class CreateEntityToolController2D : public CreateEntityToolController {
+class CreateEntityToolController2D : public CreateEntityToolController
+{
 public:
-  CreateEntityToolController2D(CreateEntityTool& tool);
+  explicit CreateEntityToolController2D(CreateEntityTool& tool);
 
 private:
-  std::unique_ptr<DropTracker> createDropTracker(const InputState& inputState) const override;
+  std::unique_ptr<DropTracker> createDropTracker(
+    const InputState& inputState) const override;
 };
 
-class CreateEntityToolController3D : public CreateEntityToolController {
+class CreateEntityToolController3D : public CreateEntityToolController
+{
 public:
-  CreateEntityToolController3D(CreateEntityTool& tool);
+  explicit CreateEntityToolController3D(CreateEntityTool& tool);
 
 private:
-  std::unique_ptr<DropTracker> createDropTracker(const InputState& inputState) const override;
+  std::unique_ptr<DropTracker> createDropTracker(
+    const InputState& inputState) const override;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

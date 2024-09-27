@@ -19,20 +19,28 @@
 
 #pragma once
 
-#include "FloatType.h"
+#include <string>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
+
 class GroupNode;
 class LayerNode;
 class Node;
 
-class Object {
+class Object
+{
 protected:
+  std::string m_linkId;
+
   Object();
 
 public:
   virtual ~Object();
+
+  const std::string& linkId() const;
+  void setLinkId(std::string linkId);
+  void cloneLinkId(Object& object) const;
 
   Node* container();
   const Node* container() const;
@@ -51,5 +59,5 @@ private: // subclassing interface
   virtual LayerNode* doGetContainingLayer() = 0;
   virtual GroupNode* doGetContainingGroup() = 0;
 };
-} // namespace Model
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Model

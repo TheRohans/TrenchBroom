@@ -19,40 +19,54 @@
 
 #pragma once
 
-#include "IO/Path.h"
-
 #include <QDialog>
+
+#include <filesystem>
+#include <optional>
 
 class QRadioButton;
 class QWidget;
 
-namespace TrenchBroom {
-namespace View {
-class ChoosePathTypeDialog : public QDialog {
+namespace TrenchBroom::View
+{
+
+enum class PathType
+{
+  Absolute,
+  DocumentRelative,
+  GameRelative,
+  AppRelative,
+};
+
+std::filesystem::path convertToPathType(
+  PathType pathType,
+  const std::filesystem::path& absPath,
+  const std::filesystem::path& docPath,
+  const std::filesystem::path& gamePath);
+
+class ChoosePathTypeDialog : public QDialog
+{
   Q_OBJECT
 private:
-  IO::Path m_absPath;
-  IO::Path m_docRelativePath;
-  IO::Path m_gameRelativePath;
-  IO::Path m_appRelativePath;
-
   QRadioButton* m_absRadio;
   QRadioButton* m_docRelativeRadio;
   QRadioButton* m_appRelativeRadio;
   QRadioButton* m_gameRelativeRadio;
 
 private:
-  void createGui();
+  void createGui(
+    const std::filesystem::path& absPath,
+    const std::filesystem::path& docPath,
+    const std::filesystem::path& gamePath);
 
 public:
-  ChoosePathTypeDialog();
   ChoosePathTypeDialog(
-    QWidget* parent, const IO::Path& absPath, const IO::Path& docPath, const IO::Path& gamePath);
+    QWidget* parent,
+    const std::filesystem::path& absPath,
+    const std::filesystem::path& docPath,
+    const std::filesystem::path& gamePath);
 
-  const IO::Path& path() const;
-
-private:
-  static IO::Path makeRelativePath(const IO::Path& absPath, const IO::Path& newRootPath);
+  PathType pathType() const;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

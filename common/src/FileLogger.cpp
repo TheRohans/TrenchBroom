@@ -21,45 +21,44 @@
 
 #include "Ensure.h"
 #include "IO/DiskIO.h"
-#include "IO/IOUtils.h"
-#include "IO/Path.h"
 #include "IO/SystemPaths.h"
 
 #include <cassert>
-#include <string>
 
-#include <QString>
-
-namespace TrenchBroom {
-FileLogger::FileLogger(const IO::Path& filePath)
-  : m_file(nullptr) {
-  const auto fixedPath = IO::Disk::fixPath(filePath);
-  IO::Disk::ensureDirectoryExists(fixedPath.deleteLastComponent());
-  m_file = openPathAsFILE(fixedPath, "w");
-  ensure(m_file != nullptr, "log file could not be opened");
+namespace TrenchBroom
+{
+namespace
+{
+std::ofstream openLogFile(const std::filesystem::path& path)
+{
+  return IO::Disk::createDirectory(path.parent_path()) | kdl::transform([&](auto) {
+           return std::ofstream{path, std::ios::out};
+         })
+         | kdl::if_error([](const auto& e) {
+             throw std::runtime_error{"Could not open log file: " + e.msg};
+           })
+         | kdl::value();
+}
+} // namespace
+FileLogger::FileLogger(const std::filesystem::path& filePath)
+  : m_stream{openLogFile(filePath)}
+{
+  ensure(m_stream, "log file could not be opened");
 }
 
-FileLogger::~FileLogger() {
-  if (m_file != nullptr) {
-    fclose(m_file);
-    m_file = nullptr;
-  }
-}
-
-FileLogger& FileLogger::instance() {
-  static FileLogger Instance(IO::SystemPaths::logFilePath());
+FileLogger& FileLogger::instance()
+{
+  static auto Instance = FileLogger{IO::SystemPaths::logFilePath()};
   return Instance;
 }
 
-void FileLogger::doLog(const LogLevel /* level */, const std::string& message) {
-  assert(m_file != nullptr);
-  if (m_file != nullptr) {
-    std::fprintf(m_file, "%s\n", message.c_str());
-    std::fflush(m_file);
+void FileLogger::doLog(const LogLevel /* level */, const std::string_view message)
+{
+  assert(m_stream);
+  if (m_stream)
+  {
+    m_stream << message << std::endl;
   }
 }
 
-void FileLogger::doLog(const LogLevel level, const QString& message) {
-  log(level, message.toStdString());
-}
 } // namespace TrenchBroom

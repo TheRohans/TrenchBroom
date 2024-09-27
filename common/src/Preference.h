@@ -19,135 +19,139 @@
 
 #pragma once
 
-#include "IO/Path.h"
-#include "Macros.h"
-#include "View/KeyboardShortcut.h"
-
-#include <optional>
-
 #include <QJsonValue>
 #include <QString>
 #include <QTextStream>
 
+#include "Macros.h"
+#include "View/KeyboardShortcut.h"
+
+#include <filesystem>
+#include <optional>
+
 class QKeySequence;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Color;
 
-class PrefSerializer {
+/**
+ * Used by Qt version of TrenchBroom
+ *
+ * - bool serializes to JSON bool
+ * - float and int serializes to JSON double
+ * - QKeySequence serializes to JSON string, but with a different format than wxWidgets
+ * - other types are not overridden (Color, std::filesystem::path, QString) so serialize
+ * to JSON string using the same format as wxWidgets
+ */
+class PreferenceSerializer
+{
 public:
-  virtual ~PrefSerializer();
+  bool readFromJson(const QJsonValue& in, bool& out) const;
+  bool readFromJson(const QJsonValue& in, Color& out) const;
+  bool readFromJson(const QJsonValue& in, float& out) const;
+  bool readFromJson(const QJsonValue& in, int& out) const;
+  bool readFromJson(const QJsonValue& in, std::filesystem::path& out) const;
+  bool readFromJson(const QJsonValue& in, QKeySequence& out) const;
+  bool readFromJson(const QJsonValue& in, QString& out) const;
 
-  virtual bool readFromJSON(const QJsonValue& in, bool* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, Color* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, float* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, int* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, IO::Path* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, QKeySequence* out) const = 0;
-  virtual bool readFromJSON(const QJsonValue& in, QString* out) const = 0;
-
-  virtual QJsonValue writeToJSON(bool in) const = 0;
-  virtual QJsonValue writeToJSON(const Color& in) const = 0;
-  virtual QJsonValue writeToJSON(float in) const = 0;
-  virtual QJsonValue writeToJSON(int in) const = 0;
-  virtual QJsonValue writeToJSON(const IO::Path& in) const = 0;
-  virtual QJsonValue writeToJSON(const QKeySequence& in) const = 0;
-  virtual QJsonValue writeToJSON(const QString& in) const = 0;
+  QJsonValue writeToJson(bool in) const;
+  QJsonValue writeToJson(const Color& in) const;
+  QJsonValue writeToJson(float in) const;
+  QJsonValue writeToJson(int in) const;
+  QJsonValue writeToJson(const std::filesystem::path& in) const;
+  QJsonValue writeToJson(const QKeySequence& in) const;
+  QJsonValue writeToJson(const QString& in) const;
 };
 
-template <class T>
-std::optional<QJsonValue> migratePreference(
-  const PrefSerializer& from, const PrefSerializer& to, const QJsonValue& input) {
-  T result;
-  if (!from.readFromJSON(input, &result)) {
-    return {};
-  }
-
-  return {to.writeToJSON(result)};
-}
-
-class PreferenceBase {
+class PreferenceBase
+{
 public:
-  PreferenceBase() = default;
+  PreferenceBase();
   virtual ~PreferenceBase();
 
-  PreferenceBase(const PreferenceBase& other) = default;
-  PreferenceBase(PreferenceBase&& other) noexcept = default;
-  PreferenceBase& operator=(const PreferenceBase& other) = default;
-  PreferenceBase& operator=(PreferenceBase&& other) = default;
+  PreferenceBase(const PreferenceBase& other);
+  PreferenceBase(PreferenceBase&& other) noexcept;
+  PreferenceBase& operator=(const PreferenceBase& other);
+  PreferenceBase& operator=(PreferenceBase&& other);
 
-  bool operator==(const PreferenceBase& other) const { return this == &other; }
+  friend bool operator==(const PreferenceBase& lhs, const PreferenceBase& rhs);
+  friend bool operator!=(const PreferenceBase& lhs, const PreferenceBase& rhs);
 
-  virtual const IO::Path& path() const = 0;
+  virtual const std::filesystem::path& path() const = 0;
 
 public: // private to PreferenceManager
   virtual void resetToDefault() = 0;
   virtual bool valid() const = 0;
   virtual void setValid(bool _valid) = 0;
-  virtual std::optional<QJsonValue> migratePreferenceForThisType(
-    const PrefSerializer& from, const PrefSerializer& to, const QJsonValue& input) const = 0;
-  virtual bool loadFromJSON(const PrefSerializer& format, const QJsonValue& value) = 0;
-  virtual QJsonValue writeToJSON(const PrefSerializer& format) const = 0;
+  virtual bool loadFromJson(
+    const PreferenceSerializer& format, const QJsonValue& value) = 0;
+  virtual QJsonValue writeToJson(const PreferenceSerializer& format) const = 0;
   virtual bool isDefault() const = 0;
 };
 
-class DynamicPreferencePatternBase {
+class DynamicPreferencePatternBase
+{
 public:
   virtual ~DynamicPreferencePatternBase();
-  virtual const IO::Path& pathPattern() const = 0;
-  virtual std::optional<QJsonValue> migratePreferenceForThisType(
-    const PrefSerializer& from, const PrefSerializer& to, const QJsonValue& input) const = 0;
+  virtual const std::filesystem::path& pathPattern() const = 0;
 };
 
-template <typename T> class DynamicPreferencePattern : public DynamicPreferencePatternBase {
+template <typename T>
+class DynamicPreferencePattern : public DynamicPreferencePatternBase
+{
 private:
-  IO::Path m_pathPattern;
+  std::filesystem::path m_pathPattern;
 
 public:
-  explicit DynamicPreferencePattern(const IO::Path& pathPattern)
-    : m_pathPattern(pathPattern) {}
-
-  const IO::Path& pathPattern() const override { return m_pathPattern; }
-
-  std::optional<QJsonValue> migratePreferenceForThisType(
-    const PrefSerializer& from, const PrefSerializer& to, const QJsonValue& input) const override {
-    return migratePreference<T>(from, to, input);
+  explicit DynamicPreferencePattern(std::filesystem::path pathPattern)
+    : m_pathPattern{std::move(pathPattern)}
+  {
   }
+
+  const std::filesystem::path& pathPattern() const override { return m_pathPattern; }
 };
 
 /**
  * Stores the current value and default value of a preference, in deserialized form.
  * No public API for reading/writing the value, use PreferenceManager instead.
  */
-template <typename T> class Preference : public PreferenceBase {
+template <typename T>
+class Preference : public PreferenceBase
+{
 private:
-  IO::Path m_path;
+  std::filesystem::path m_path;
   T m_defaultValue;
   T m_value;
   bool m_valid;
   bool m_readOnly;
 
 public:
-  Preference(const IO::Path& path, const T& defaultValue, const bool readOnly = false)
-    : m_path(path)
-    , m_defaultValue(defaultValue)
-    , m_value(m_defaultValue)
-    , m_valid(false)
-    , m_readOnly(readOnly) {}
+  Preference(
+    std::filesystem::path path, const T& defaultValue, const bool readOnly = false)
+    : m_path{std::move(path)}
+    , m_defaultValue{defaultValue}
+    , m_value{m_defaultValue}
+    , m_valid{false}
+    , m_readOnly{readOnly}
+  {
+  }
 
   Preference(const Preference& other) = default;
-  Preference(Preference&& other) =
-    default; // cannot be noexcept because it will call QKeySequence's copy constructor
+
+  // cannot be noexcept because it will call QKeySequence's copy constructor
+  Preference(Preference&& other) = default;
 
   Preference& operator=(const Preference& other) = default;
   Preference& operator=(Preference&& other) = default;
 
-  const IO::Path& path() const override { return m_path; }
+  const std::filesystem::path& path() const override { return m_path; }
 
   const T& defaultValue() const { return m_defaultValue; }
 
 public: // PreferenceManager private
-  void setValue(const T& value) {
+  void setValue(const T& value)
+  {
     assert(!m_readOnly);
     m_value = value;
   }
@@ -158,27 +162,26 @@ public: // PreferenceManager private
 
   void setValid(const bool _valid) override { m_valid = _valid; }
 
-  const T& value() const {
+  const T& value() const
+  {
     assert(m_valid);
     return m_value;
   }
 
-  std::optional<QJsonValue> migratePreferenceForThisType(
-    const PrefSerializer& from, const PrefSerializer& to, const QJsonValue& input) const override {
-    return migratePreference<T>(from, to, input);
-  }
-
-  bool loadFromJSON(const PrefSerializer& format, const QJsonValue& value) override {
-    T res;
-    bool ok = format.readFromJSON(value, &res);
-    if (ok) {
-      m_value = res;
+  bool loadFromJson(const PreferenceSerializer& format, const QJsonValue& value) override
+  {
+    auto result = T{};
+    if (format.readFromJson(value, result))
+    {
+      m_value = result;
+      return true;
     }
-    return ok;
+    return false;
   }
 
-  QJsonValue writeToJSON(const PrefSerializer& format) const override {
-    return format.writeToJSON(value());
+  QJsonValue writeToJson(const PreferenceSerializer& format) const override
+  {
+    return format.writeToJson(value());
   }
 
   bool isDefault() const override { return m_defaultValue == m_value; }

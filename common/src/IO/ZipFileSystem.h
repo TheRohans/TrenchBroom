@@ -20,43 +20,27 @@
 #pragma once
 
 #include "IO/ImageFileSystem.h"
-
-#include <memory>
+#include "Result.h"
 
 #include <miniz/miniz.h>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
+#include <mutex>
 
-class ZipFileSystem : public ImageFileSystem {
+namespace TrenchBroom::IO
+{
+class CFile;
+
+class ZipFileSystem : public ImageFileSystem<CFile>
+{
 private:
   mz_zip_archive m_archive;
-
-private:
-  class ZipCompressedFile : public FileEntry {
-  private:
-    ZipFileSystem* m_owner;
-    mz_uint m_fileIndex;
-
-  public:
-    ZipCompressedFile(ZipFileSystem* owner, mz_uint fileIndex);
-
-  private:
-    std::shared_ptr<File> doOpen() const override;
-  };
-  friend class ZipCompressedFile;
+  std::mutex m_mutex;
 
 public:
-  explicit ZipFileSystem(const Path& path);
-  ZipFileSystem(std::shared_ptr<FileSystem> next, const Path& path);
+  using ImageFileSystem::ImageFileSystem;
   ~ZipFileSystem() override;
 
 private:
-  void doReadDirectory() override;
-
-private:
-  std::string filename(mz_uint fileIndex);
+  Result<void> doReadDirectory() override;
 };
-} // namespace IO
-} // namespace TrenchBroom
+} // namespace TrenchBroom::IO

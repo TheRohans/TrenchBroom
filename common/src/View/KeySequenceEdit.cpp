@@ -19,35 +19,44 @@
 
 #include "KeySequenceEdit.h"
 
+#include <QBoxLayout>
+#include <QStyle>
+#include <QToolButton>
+
 #include "View/LimitedKeySequenceEdit.h"
 #include "View/QtUtils.h"
 #include "View/ViewConstants.h"
 
-#include <QAbstractButton>
-#include <QBoxLayout>
-#include <QStyle>
-
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 KeySequenceEdit::KeySequenceEdit(QWidget* parent)
-  : KeySequenceEdit(LimitedKeySequenceEdit::MaxCount, parent) {}
+  : KeySequenceEdit(LimitedKeySequenceEdit::MaxCount, parent)
+{
+}
 
 KeySequenceEdit::KeySequenceEdit(const size_t maxCount, QWidget* parent)
   : QWidget(parent)
   , m_keySequenceEdit(nullptr)
-  , m_clearButton(nullptr) {
+  , m_clearButton(nullptr)
+{
   m_keySequenceEdit = new LimitedKeySequenceEdit(maxCount);
   m_keySequenceEdit->setToolTip("Click to start editing, then press the shortcut keys");
-  m_clearButton =
-    createBitmapButton(style()->standardIcon(QStyle::SP_LineEditClearButton), "Clear shortcut");
+  m_clearButton = createBitmapButton(
+    style()->standardIcon(QStyle::SP_LineEditClearButton), "Clear shortcut");
 
   setFocusProxy(m_keySequenceEdit);
 
   connect(
-    m_keySequenceEdit, &LimitedKeySequenceEdit::editingFinished, this,
+    m_keySequenceEdit,
+    &LimitedKeySequenceEdit::editingFinished,
+    this,
     &KeySequenceEdit::editingFinished);
   connect(
-    m_keySequenceEdit, &LimitedKeySequenceEdit::keySequenceChanged, this,
+    m_keySequenceEdit,
+    &LimitedKeySequenceEdit::keySequenceChanged,
+    this,
     &KeySequenceEdit::keySequenceChanged);
   connect(m_clearButton, &QAbstractButton::clicked, this, &KeySequenceEdit::clear);
 
@@ -59,15 +68,18 @@ KeySequenceEdit::KeySequenceEdit(const size_t maxCount, QWidget* parent)
   setLayout(layout);
 }
 
-const QKeySequence KeySequenceEdit::keySequence() const {
+const QKeySequence KeySequenceEdit::keySequence() const
+{
   return m_keySequenceEdit->keySequence();
 }
 
-void KeySequenceEdit::setKeySequence(const QKeySequence& keySequence) {
+void KeySequenceEdit::setKeySequence(const QKeySequence& keySequence)
+{
   m_keySequenceEdit->setKeySequence(keySequence);
 }
 
-void KeySequenceEdit::clear() {
+void KeySequenceEdit::clear()
+{
   m_keySequenceEdit->clear();
 }
 } // namespace View

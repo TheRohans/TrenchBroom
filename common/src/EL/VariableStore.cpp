@@ -22,96 +22,128 @@
 #include "EL/ELExceptions.h"
 #include "EL/Value.h"
 
-#include <kdl/map_utils.h>
+#include "kdl/map_utils.h"
 
+#include <fmt/format.h>
+
+#include <algorithm>
+#include <ostream>
 #include <string>
 
-namespace TrenchBroom {
-namespace EL {
-VariableStore* VariableStore::clone() const {
-  return doClone();
+namespace TrenchBroom::EL
+{
+
+void VariableStore::appendToStream(std::ostream& str) const
+{
+  str << "{\n";
+
+  const auto& allNames = names();
+  for (size_t i = 0; i < allNames.size(); ++i)
+  {
+    const auto& name = allNames[i];
+    str << "  " << name << ": " << value(name);
+    if (i < allNames.size() - 1)
+    {
+      str << ", ";
+    }
+  }
+
+  str << "}";
 }
 
-size_t VariableStore::size() const {
-  return doGetSize();
+std::ostream& operator<<(std::ostream& lhs, const VariableStore& rhs)
+{
+  rhs.appendToStream(lhs);
+  return lhs;
 }
 
-Value VariableStore::value(const std::string& name) const {
-  return doGetValue(name);
+bool operator==(const VariableStore& lhs, const VariableStore& rhs)
+{
+  const auto names = lhs.names();
+  return names == rhs.names()
+         && std::all_of(std::begin(names), std::end(names), [&](const auto& name) {
+              return lhs.value(name) == rhs.value(name);
+            });
 }
 
-const std::vector<std::string> VariableStore::names() const {
-  return doGetNames();
-}
-
-void VariableStore::declare(const std::string& name, const Value& value) {
-  doDeclare(name, value);
-}
-
-void VariableStore::assign(const std::string& name, const Value& value) {
-  doAssign(name, value);
+bool operator!=(const VariableStore& lhs, const VariableStore& rhs)
+{
+  return !(lhs == rhs);
 }
 
 VariableTable::VariableTable() = default;
 
 VariableTable::VariableTable(Table variables)
-  : m_variables(std::move(variables)) {}
+  : m_variables{std::move(variables)}
+{
+}
 
-VariableStore* VariableTable::doClone() const {
+VariableStore* VariableTable::clone() const
+{
   return new VariableTable(m_variables);
 }
 
-size_t VariableTable::doGetSize() const {
+size_t VariableTable::size() const
+{
   return m_variables.size();
 }
 
-Value VariableTable::doGetValue(const std::string& name) const {
-  auto it = m_variables.find(name);
-  if (it != std::end(m_variables)) {
+Value VariableTable::value(const std::string& name) const
+{
+  if (const auto it = m_variables.find(name); it != std::end(m_variables))
+  {
     return it->second;
-  } else {
-    return Value::Undefined;
   }
+  return Value::Undefined;
 }
 
-std::vector<std::string> VariableTable::doGetNames() const {
+std::vector<std::string> VariableTable::names() const
+{
   return kdl::map_keys(m_variables);
 }
 
-void VariableTable::doDeclare(const std::string& name, const Value& value) {
-  if (!m_variables.try_emplace(name, value).second) {
-    throw EvaluationError("Variable '" + name + "' already declared");
+void VariableTable::declare(const std::string& name, const Value& value)
+{
+  if (!m_variables.try_emplace(name, value).second)
+  {
+    throw EvaluationError{fmt::format("Variable '{}' already declared", name)};
   }
 }
 
-void VariableTable::doAssign(const std::string& name, const Value& value) {
-  auto it = m_variables.find(name);
-  if (it == std::end(m_variables)) {
-    throw EvaluationError("Cannot assign to undeclared variable '" + name + "'");
-  } else {
+void VariableTable::assign(const std::string& name, const Value& value)
+{
+  if (auto it = m_variables.find(name); it != std::end(m_variables))
+  {
     it->second = value;
   }
+  throw EvaluationError{fmt::format("Cannot assign to undeclared variable '{}'", name)};
 }
 
 NullVariableStore::NullVariableStore() = default;
 
-VariableStore* NullVariableStore::doClone() const {
-  return new NullVariableStore();
+VariableStore* NullVariableStore::clone() const
+{
+  return new NullVariableStore{};
 }
 
-size_t NullVariableStore::doGetSize() const {
+size_t NullVariableStore::size() const
+{
   return 0;
 }
 
-Value NullVariableStore::doGetValue(const std::string& /* name */) const {
+Value NullVariableStore::value(const std::string& /* name */) const
+{
   return Value::Null;
 }
 
-std::vector<std::string> NullVariableStore::doGetNames() const {
-  return std::vector<std::string>();
+std::vector<std::string> NullVariableStore::names() const
+{
+  return std::vector<std::string>{};
 }
 
-void NullVariableStore::doDeclare(const std::string& /* name */, const Value& /* value */) {}
-void NullVariableStore::doAssign(const std::string& /* name */, const Value& /* value */) {}
-} // namespace EL
-} // namespace TrenchBroom
+void NullVariableStore::declare(const std::string& /* name */, const Value& /* value */)
+{
+}
+void NullVariableStore::assign(const std::string& /* name */, const Value& /* value */) {}
+
+} // namespace TrenchBroom::EL

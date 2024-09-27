@@ -24,22 +24,24 @@
 class QLineEdit;
 class QStackedWidget;
 
-namespace TrenchBroom {
-namespace Model {
-class GameEngineProfile;
+namespace TrenchBroom::Model
+{
+struct GameEngineProfile;
 }
 
-namespace View {
+namespace TrenchBroom::View
+{
 /**
  * Editor widget for a single game engine profile.
  */
-class GameEngineProfileEditor : public QWidget {
+class GameEngineProfileEditor : public QWidget
+{
   Q_OBJECT
 private:
-  Model::GameEngineProfile* m_profile;
-  QStackedWidget* m_stackedWidget;
-  QLineEdit* m_nameEdit;
-  QLineEdit* m_pathEdit;
+  Model::GameEngineProfile* m_profile = nullptr;
+  QStackedWidget* m_stackedWidget = nullptr;
+  QLineEdit* m_nameEdit = nullptr;
+  QLineEdit* m_pathEdit = nullptr;
 
 public:
   explicit GameEngineProfileEditor(QWidget* parent = nullptr);
@@ -65,5 +67,5 @@ signals:
    */
   void profileChanged();
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

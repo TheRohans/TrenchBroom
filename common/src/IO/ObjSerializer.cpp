@@ -19,7 +19,7 @@
 
 #include "ObjSerializer.h"
 
-#include "Assets/Texture.h"
+#include "Assets/Material.h"
 #include "Ensure.h"
 #include "IO/ExportOptions.h"
 #include "Model/BrushFace.h"
@@ -28,27 +28,32 @@
 #include "Model/PatchNode.h"
 #include "Model/Polyhedron.h"
 
-#include <kdl/overload.h>
+#include "kdl/overload.h"
 
 #include <fmt/format.h>
 
 #include <iostream>
 #include <utility>
 
-namespace TrenchBroom {
-namespace IO {
-std::ostream& operator<<(std::ostream& str, const ObjSerializer::IndexedVertex& vertex) {
-  str << " " << (vertex.vertex + 1u) << "/" << (vertex.texCoords + 1u) << "/"
+namespace TrenchBroom::IO
+{
+
+std::ostream& operator<<(std::ostream& str, const ObjSerializer::IndexedVertex& vertex)
+{
+  str << " " << (vertex.vertex + 1u) << "/" << (vertex.uvCoords + 1u) << "/"
       << (vertex.normal + 1u);
   return str;
 }
 
-std::ostream& operator<<(std::ostream& str, const ObjSerializer::BrushObject& object) {
+std::ostream& operator<<(std::ostream& str, const ObjSerializer::BrushObject& object)
+{
   str << "o entity" << object.entityNo << "_brush" << object.brushNo << "\n";
-  for (const auto& face : object.faces) {
-    str << "usemtl " << face.textureName << "\n";
+  for (const auto& face : object.faces)
+  {
+    str << "usemtl " << face.materialName << "\n";
     str << "f";
-    for (const auto& vertex : face.verts) {
+    for (const auto& vertex : face.verts)
+    {
       str << " " << vertex;
     }
     str << "\n";
@@ -56,12 +61,15 @@ std::ostream& operator<<(std::ostream& str, const ObjSerializer::BrushObject& ob
   return str;
 }
 
-std::ostream& operator<<(std::ostream& str, const ObjSerializer::PatchObject& object) {
+std::ostream& operator<<(std::ostream& str, const ObjSerializer::PatchObject& object)
+{
   str << "o entity" << object.entityNo << "_patch" << object.patchNo << "\n";
-  str << "usemtl " << object.textureName << "\n";
-  for (const auto& quad : object.quads) {
+  str << "usemtl " << object.materialName << "\n";
+  for (const auto& quad : object.quads)
+  {
     str << "f";
-    for (const auto& vertex : quad.verts) {
+    for (const auto& vertex : quad.verts)
+    {
       str << " " << vertex;
     }
     str << "\n";
@@ -69,26 +77,26 @@ std::ostream& operator<<(std::ostream& str, const ObjSerializer::PatchObject& ob
   return str;
 }
 
-std::ostream& operator<<(std::ostream& str, const ObjSerializer::Object& object) {
+std::ostream& operator<<(std::ostream& str, const ObjSerializer::Object& object)
+{
   std::visit(
     kdl::overload(
-      [&](const ObjSerializer::BrushObject& brushObject) {
-        str << brushObject;
-      },
-      [&](const ObjSerializer::PatchObject& patchObject) {
-        str << patchObject;
-      }),
+      [&](const ObjSerializer::BrushObject& brushObject) { str << brushObject; },
+      [&](const ObjSerializer::PatchObject& patchObject) { str << patchObject; }),
     object);
   return str;
 }
 
 ObjSerializer::ObjSerializer(
-  std::ostream& objStream, std::ostream& mtlStream, std::string mtlFilename,
+  std::ostream& objStream,
+  std::ostream& mtlStream,
+  std::string mtlFilename,
   IO::ObjExportOptions options)
   : m_objStream{objStream}
   , m_mtlStream{mtlStream}
   , m_mtlFilename{std::move(mtlFilename)}
-  , m_options{std::move(options)} {
+  , m_options{std::move(options)}
+{
   ensure(m_objStream.good(), "obj stream is good");
   ensure(m_mtlStream.good(), "mtl stream is good");
 }
@@ -96,140 +104,176 @@ ObjSerializer::ObjSerializer(
 void ObjSerializer::doBeginFile(const std::vector<const Model::Node*>& /* rootNodes */) {}
 
 static void writeMtlFile(
-  std::ostream& str, const std::vector<ObjSerializer::Object>& objects,
-  const IO::ObjExportOptions& options) {
-  auto usedTextures = std::map<std::string, const Assets::Texture*>{};
+  std::ostream& str,
+  const std::vector<ObjSerializer::Object>& objects,
+  const IO::ObjExportOptions& options)
+{
+  auto usedMaterials = std::map<std::string, const Assets::Material*>{};
 
-  for (const auto& object : objects) {
+  for (const auto& object : objects)
+  {
     std::visit(
       kdl::overload(
         [&](const ObjSerializer::BrushObject& brushObject) {
-          for (const auto& face : brushObject.faces) {
-            usedTextures[face.textureName] = face.texture;
+          for (const auto& face : brushObject.faces)
+          {
+            usedMaterials[face.materialName] = face.material;
           }
         },
         [&](const ObjSerializer::PatchObject& patchObject) {
-          usedTextures[patchObject.textureName] = patchObject.texture;
+          usedMaterials[patchObject.materialName] = patchObject.material;
         }),
       object);
   }
 
-  const auto basePath = options.exportPath.deleteLastComponent();
-  for (const auto& [textureName, texture] : usedTextures) {
-    str << "newmtl " << textureName << "\n";
-    if (texture) {
-      switch (options.mtlPathMode) {
-        case ObjMtlPathMode::RelativeToGamePath:
-          str << "map_Kd " << texture->relativePath() << "\n";
-          break;
-        case ObjMtlPathMode::RelativeToExportPath:
-          // textures loaded from image files (pak files) don't have absolute paths
-          if (!texture->absolutePath().isEmpty()) {
-            const auto mtlPath = basePath.makeRelative(texture->absolutePath());
-            str << "map_Kd " << mtlPath << "\n";
-          }
-          break;
+  const auto basePath = options.exportPath.parent_path();
+  for (const auto& [materialName, material] : usedMaterials)
+  {
+    str << "newmtl " << materialName << "\n";
+    if (material)
+    {
+      switch (options.mtlPathMode)
+      {
+      case ObjMtlPathMode::RelativeToGamePath:
+        str << "map_Kd " << material->relativePath().generic_string() << "\n";
+        break;
+      case ObjMtlPathMode::RelativeToExportPath:
+        // materials loaded from image files (pak files) don't have absolute paths
+        if (!material->absolutePath().empty())
+        {
+          const auto mtlPath = material->absolutePath().lexically_relative(basePath);
+          str << "map_Kd " << mtlPath.generic_string() << "\n";
+        }
+        break;
       }
     }
     str << "\n";
   }
 }
 
-static void writeVertices(std::ostream& str, const std::vector<vm::vec3>& vertices) {
+static void writeVertices(std::ostream& str, const std::vector<vm::vec3>& vertices)
+{
   str << "# vertices\n";
-  for (const vm::vec3& elem : vertices) {
+  for (const auto& elem : vertices)
+  {
     // no idea why I have to switch Y and Z
     fmt::format_to(
       std::ostreambuf_iterator<char>(str), "v {} {} {}\n", elem.x(), elem.z(), -elem.y());
   }
 }
 
-static void writeTexCoords(std::ostream& str, const std::vector<vm::vec2f>& texCoords) {
+static void writeUVCoords(std::ostream& str, const std::vector<vm::vec2f>& uvCoords)
+{
   str << "# texture coordinates\n";
-  for (const vm::vec2f& elem : texCoords) {
+  for (const auto& elem : uvCoords)
+  {
     // multiplying Y by -1 needed to get the UV's to appear correct in Blender and UE4
     // (see: https://github.com/TrenchBroom/TrenchBroom/issues/2851 )
-    fmt::format_to(std::ostreambuf_iterator<char>(str), "vt {} {}\n", elem.x(), -elem.y());
+    fmt::format_to(
+      std::ostreambuf_iterator<char>(str), "vt {} {}\n", elem.x(), -elem.y());
   }
 }
 
-static void writeNormals(std::ostream& str, const std::vector<vm::vec3>& normals) {
+static void writeNormals(std::ostream& str, const std::vector<vm::vec3>& normals)
+{
   str << "# normals\n";
-  for (const vm::vec3& elem : normals) {
+  for (const auto& elem : normals)
+  {
     // no idea why I have to switch Y and Z
     fmt::format_to(
-      std::ostreambuf_iterator<char>(str), "vn {} {} {}\n", elem.x(), elem.z(), -elem.y());
+      std::ostreambuf_iterator<char>(str),
+      "vn {} {} {}\n",
+      elem.x(),
+      elem.z(),
+      -elem.y());
   }
 }
 
 static void writeObjFile(
-  std::ostream& str, const std::string mtlFilename, const std::vector<vm::vec3>& vertices,
-  const std::vector<vm::vec2f>& texCoords, const std::vector<vm::vec3>& normals,
-  const std::vector<ObjSerializer::Object>& objects) {
+  std::ostream& str,
+  const std::string mtlFilename,
+  const std::vector<vm::vec3>& vertices,
+  const std::vector<vm::vec2f>& uvCoords,
+  const std::vector<vm::vec3>& normals,
+  const std::vector<ObjSerializer::Object>& objects)
+{
 
   str << "mtllib " << mtlFilename << "\n";
   writeVertices(str, vertices);
   str << "\n";
-  writeTexCoords(str, texCoords);
+  writeUVCoords(str, uvCoords);
   str << "\n";
   writeNormals(str, normals);
   str << "\n";
 
-  for (const auto& object : objects) {
+  for (const auto& object : objects)
+  {
     str << object;
     str << "\n";
   }
 }
 
-void ObjSerializer::doEndFile() {
+void ObjSerializer::doEndFile()
+{
   writeMtlFile(m_mtlStream, m_objects, m_options);
   writeObjFile(
-    m_objStream, m_mtlFilename, m_vertices.list(), m_texCoords.list(), m_normals.list(), m_objects);
+    m_objStream,
+    m_mtlFilename,
+    m_vertices.list(),
+    m_uvCoords.list(),
+    m_normals.list(),
+    m_objects);
 }
 
-void ObjSerializer::doBeginEntity(const Model::Node* /* node */) {}
-void ObjSerializer::doEndEntity(const Model::Node* /* node */) {}
-void ObjSerializer::doEntityProperty(const Model::EntityProperty& /* property */) {}
+void ObjSerializer::doBeginEntity(const Model::Node*) {}
+void ObjSerializer::doEndEntity(const Model::Node*) {}
+void ObjSerializer::doEntityProperty(const Model::EntityProperty&) {}
 
-void ObjSerializer::doBrush(const Model::BrushNode* brush) {
+void ObjSerializer::doBrush(const Model::BrushNode* brush)
+{
   m_currentBrush = BrushObject{entityNo(), brushNo(), {}};
   m_currentBrush->faces.reserve(brush->brush().faceCount());
 
   // Vertex positions inserted from now on should get new indices
   m_vertices.clearIndices();
 
-  for (const Model::BrushFace& face : brush->brush().faces()) {
+  for (const auto& face : brush->brush().faces())
+  {
     doBrushFace(face);
   }
 
-  m_objects.push_back(std::move(*m_currentBrush));
+  m_objects.emplace_back(std::move(*m_currentBrush));
   m_currentBrush = std::nullopt;
 }
 
-void ObjSerializer::doBrushFace(const Model::BrushFace& face) {
-  const vm::vec3& normal = face.boundary().normal;
-  const size_t normalIndex = m_normals.index(normal);
+void ObjSerializer::doBrushFace(const Model::BrushFace& face)
+{
+  const auto& normal = face.boundary().normal;
+  const auto normalIndex = m_normals.index(normal);
 
   auto indexedVertices = std::vector<IndexedVertex>{};
   indexedVertices.reserve(face.vertexCount());
 
-  for (const Model::BrushVertex* vertex : face.vertices()) {
-    const vm::vec3& position = vertex->position();
-    const vm::vec2f texCoords = face.textureCoords(position);
+  for (const auto* vertex : face.vertices())
+  {
+    const auto& position = vertex->position();
+    const auto uvCoords = face.uvCoords(position);
 
-    const size_t vertexIndex = m_vertices.index(position);
-    const size_t texCoordsIndex = m_texCoords.index(texCoords);
+    const auto vertexIndex = m_vertices.index(position);
+    const auto uvCoordsIndex = m_uvCoords.index(uvCoords);
 
-    indexedVertices.push_back(IndexedVertex{vertexIndex, texCoordsIndex, normalIndex});
+    indexedVertices.push_back(IndexedVertex{vertexIndex, uvCoordsIndex, normalIndex});
   }
 
-  m_currentBrush->faces.push_back(
-    BrushFace{std::move(indexedVertices), face.attributes().textureName(), face.texture()});
+  m_currentBrush->faces.emplace_back(BrushFace{
+    std::move(indexedVertices), face.attributes().materialName(), face.material()});
 }
 
-void ObjSerializer::doPatch(const Model::PatchNode* patchNode) {
+void ObjSerializer::doPatch(const Model::PatchNode* patchNode)
+{
   const auto& patch = patchNode->patch();
-  auto patchObject = PatchObject{entityNo(), brushNo(), {}, patch.textureName(), patch.texture()};
+  auto patchObject =
+    PatchObject{entityNo(), brushNo(), {}, patch.materialName(), patch.material()};
 
   const auto& patchGrid = patchNode->grid();
   patchObject.quads.reserve(patchGrid.quadRowCount() * patchGrid.quadColumnCount());
@@ -238,15 +282,17 @@ void ObjSerializer::doPatch(const Model::PatchNode* patchNode) {
   m_vertices.clearIndices();
 
   const auto makeIndexedVertex = [&](const auto& p) {
-    const size_t positionIndex = m_vertices.index(p.position);
-    const size_t texCoordsIndex = m_texCoords.index(vm::vec2f{p.texCoords});
-    const size_t normalIndex = m_normals.index(p.normal);
+    const auto positionIndex = m_vertices.index(p.position);
+    const auto uvCoordsIndex = m_uvCoords.index(vm::vec2f{p.uvCoords});
+    const auto normalIndex = m_normals.index(p.normal);
 
-    return IndexedVertex{positionIndex, texCoordsIndex, normalIndex};
+    return IndexedVertex{positionIndex, uvCoordsIndex, normalIndex};
   };
 
-  for (size_t row = 0u; row < patchGrid.pointRowCount - 1u; ++row) {
-    for (size_t col = 0u; col < patchGrid.pointColumnCount - 1u; ++col) {
+  for (size_t row = 0u; row < patchGrid.pointRowCount - 1u; ++row)
+  {
+    for (size_t col = 0u; col < patchGrid.pointColumnCount - 1u; ++col)
+    {
       // counter clockwise order
       patchObject.quads.push_back(PatchQuad{{
         makeIndexedVertex(patchGrid.point(row, col)),
@@ -257,7 +303,7 @@ void ObjSerializer::doPatch(const Model::PatchNode* patchNode) {
     }
   }
 
-  m_objects.push_back(std::move(patchObject));
+  m_objects.emplace_back(std::move(patchObject));
 }
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

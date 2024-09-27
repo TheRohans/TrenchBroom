@@ -28,32 +28,37 @@
 #include "Model/Object.h"
 #include "Model/TagType.h"
 
-#include <kdl/result_forward.h>
+#include "kdl/result_forward.h"
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
-class Texture;
+namespace TrenchBroom
+{
+namespace Assets
+{
+class Material;
 }
 
-namespace Renderer {
+namespace Renderer
+{
 class BrushRendererBrushCache;
 }
 
-namespace Model {
+namespace Model
+{
 class BrushFace;
 class GroupNode;
 class LayerNode;
 
 class ModelFactory;
 
-class BrushNode : public Node, public Object {
+class BrushNode : public Node, public Object
+{
 public:
   static const HitType::Type BrushHitType;
 
@@ -72,8 +77,6 @@ public:
   ~BrushNode() override;
 
 public:
-  BrushNode* clone(const vm::bbox3& worldBounds) const;
-
   EntityNodeBase* entity();
   const EntityNodeBase* entity() const;
 
@@ -86,7 +89,7 @@ public:
 
   void updateFaceTags(size_t faceIndex, TagManager& tagManager);
 
-  void setFaceTexture(size_t faceIndex, Assets::Texture* texture);
+  void setFaceMaterial(size_t faceIndex, Assets::Material* material);
 
   bool contains(const Node* node) const;
   bool intersects(const Node* node) const;
@@ -112,13 +115,14 @@ private: // implement Node interface
 
   bool doSelectable() const override;
 
-  void doGenerateIssues(const IssueGenerator* generator, std::vector<Issue*>& issues) override;
   void doAccept(NodeVisitor& visitor) override;
   void doAccept(ConstNodeVisitor& visitor) const override;
 
 private: // implement Object interface
   void doPick(
-    const EditorContext& editorContext, const vm::ray3& ray, PickResult& pickResult) override;
+    const EditorContext& editorContext,
+    const vm::ray3& ray,
+    PickResult& pickResult) override;
   void doFindNodesContaining(const vm::vec3& point, std::vector<Node*>& result) override;
 
   std::optional<std::tuple<FloatType, size_t>> findFaceHit(const vm::ray3& ray) const;

@@ -19,13 +19,15 @@
 
 #pragma once
 
+#include "Assets/DecalDefinition.h"
 #include "Assets/ModelDefinition.h"
 #include "Color.h"
+#include "FileLocation.h"
 #include "FloatType.h"
 
-#include <vecmath/bbox.h>
+#include "kdl/reflection_decl.h"
 
-#include <kdl/reflection_decl.h>
+#include "vm/bbox.h" // IWYU pragma: keep
 
 #include <iosfwd>
 #include <memory>
@@ -33,13 +35,17 @@
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom
+{
+namespace Assets
+{
 class PropertyDefinition;
 }
 
-namespace IO {
-enum class EntityDefinitionClassType {
+namespace IO
+{
+enum class EntityDefinitionClassType
+{
   PointClass,
   BrushClass,
   BaseClass
@@ -47,23 +53,33 @@ enum class EntityDefinitionClassType {
 
 std::ostream& operator<<(std::ostream& str, EntityDefinitionClassType type);
 
-struct EntityDefinitionClassInfo {
+struct EntityDefinitionClassInfo
+{
   EntityDefinitionClassType type;
-  size_t line;
-  size_t column;
+  FileLocation location;
   std::string name;
 
   std::optional<std::string> description;
   std::optional<Color> color;
   std::optional<vm::bbox3> size;
   std::optional<Assets::ModelDefinition> modelDefinition;
+  std::optional<Assets::DecalDefinition> decalDefinition;
 
   std::vector<std::shared_ptr<Assets::PropertyDefinition>> propertyDefinitions;
   std::vector<std::string> superClasses;
 
   kdl_reflect_decl(
-    EntityDefinitionClassInfo, type, line, column, name, description, color, size, modelDefinition,
-    propertyDefinitions, superClasses);
+    EntityDefinitionClassInfo,
+    type,
+    location,
+    name,
+    description,
+    color,
+    size,
+    modelDefinition,
+    decalDefinition,
+    propertyDefinitions,
+    superClasses);
 };
 
 bool addPropertyDefinition(

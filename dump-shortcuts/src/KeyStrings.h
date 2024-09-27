@@ -25,9 +25,11 @@
 #include <utility>
 #include <vector>
 
-namespace TrenchBroom {
-namespace View {
-class KeyStrings {
+namespace TrenchBroom::View
+{
+
+class KeyStrings
+{
 private:
   /**
    * Maps Qt portable key name to Qt native key name
@@ -50,5 +52,4 @@ private:
   void putKey(Qt::Key key);
   void putModifier(int key);
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

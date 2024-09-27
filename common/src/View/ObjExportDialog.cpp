@@ -20,9 +20,15 @@
 
 #include "ObjExportDialog.h"
 
+#include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QRadioButton>
+
 #include "Ensure.h"
 #include "IO/ExportOptions.h"
-#include "IO/Path.h"
 #include "IO/PathQt.h"
 #include "QtUtils.h"
 #include "View/BorderLine.h"
@@ -31,15 +37,14 @@
 #include "View/MapDocument.h"
 #include "View/MapFrame.h"
 
-#include <QDialogButtonBox>
-#include <QFileDialog>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QRadioButton>
+#include "kdl/path_utils.h"
 
-namespace TrenchBroom {
-namespace View {
+#include <filesystem>
+
+namespace TrenchBroom
+{
+namespace View
+{
 ObjExportDialog::ObjExportDialog(MapFrame* mapFrame)
   : QDialog{mapFrame}
   , m_mapFrame{mapFrame}
@@ -48,14 +53,16 @@ ObjExportDialog::ObjExportDialog(MapFrame* mapFrame)
   , m_relativeToGamePathRadioButton{nullptr}
   , m_relativeToExportPathRadioButton{nullptr}
   , m_exportButton{nullptr}
-  , m_closeButton{nullptr} {
+  , m_closeButton{nullptr}
+{
   ensure(m_mapFrame != nullptr, "Map frame is not null");
   createGui();
   resize(500, 0);
   // setFixedHeight(height());
 }
 
-void ObjExportDialog::createGui() {
+void ObjExportDialog::createGui()
+{
   setWindowIconTB(this);
   setWindowTitle("Export");
 
@@ -129,9 +136,12 @@ void ObjExportDialog::createGui() {
   connect(m_closeButton, &QPushButton::clicked, this, &ObjExportDialog::close);
   connect(m_browseExportPathButton, &QPushButton::clicked, this, [&]() {
     const QString newFileName = QFileDialog::getSaveFileName(
-      this, tr("Export Wavefront OBJ file"), m_exportPathEdit->text(),
+      this,
+      tr("Export Wavefront OBJ file"),
+      m_exportPathEdit->text(),
       "Wavefront OBJ files (*.obj)");
-    if (!newFileName.isEmpty()) {
+    if (!newFileName.isEmpty())
+    {
       m_exportPathEdit->setText(newFileName);
     }
   });
@@ -146,10 +156,11 @@ void ObjExportDialog::createGui() {
   });
 }
 
-void ObjExportDialog::updateExportPath() {
+void ObjExportDialog::updateExportPath()
+{
   const auto document = m_mapFrame->document();
   const auto& originalPath = document->path();
-  const auto objPath = originalPath.replaceExtension("obj");
+  const auto objPath = kdl::path_replace_extension(originalPath, ".obj");
   m_exportPathEdit->setText(IO::pathAsQString(objPath));
 }
 } // namespace View

@@ -21,16 +21,18 @@
 
 #include "View/Animation.h"
 
-#include <vecmath/forward.h>
-#include <vecmath/vec.h>
+#include "vm/forward.h"
+#include "vm/vec.h"
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class Camera;
 }
 
-namespace View {
-class CameraAnimation : public Animation {
+namespace TrenchBroom::View
+{
+class CameraAnimation : public Animation
+{
 private:
   static const Type AnimationType;
 
@@ -39,17 +41,22 @@ private:
   const vm::vec3f m_startPosition;
   const vm::vec3f m_startDirection;
   const vm::vec3f m_startUp;
+  const float m_startZoom;
   const vm::vec3f m_targetPosition;
   const vm::vec3f m_targetDirection;
   const vm::vec3f m_targetUp;
+  const float m_targetZoom;
 
 public:
   CameraAnimation(
-    Renderer::Camera& camera, const vm::vec3f& targetPosition, const vm::vec3f& targetDirection,
-    const vm::vec3f& targetUp, double duration);
+    Renderer::Camera& camera,
+    const vm::vec3f& targetPosition,
+    const vm::vec3f& targetDirection,
+    const vm::vec3f& targetUp,
+    float targetZoom,
+    double duration);
 
 private:
   void doUpdate(double progress) override;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

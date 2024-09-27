@@ -24,27 +24,28 @@
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderUtils.h"
 
-#include <vecmath/vec.h>
-
-namespace TrenchBroom {
-namespace Renderer {
-Sphere::Sphere(const float radius, const size_t iterations) {
+namespace TrenchBroom::Renderer
+{
+Sphere::Sphere(const float radius, const size_t iterations)
+{
   using Vertex = GLVertexTypes::P3::Vertex;
 
-  const auto positions = sphere3D(radius, iterations);
+  const auto positions = sphere(radius, iterations);
   m_array = VertexArray::move(Vertex::toList(positions.size(), std::begin(positions)));
 }
 
-bool Sphere::prepared() const {
+bool Sphere::prepared() const
+{
   return m_array.prepared();
 }
 
-void Sphere::prepare(VboManager& vboManager) {
+void Sphere::prepare(VboManager& vboManager)
+{
   m_array.prepare(vboManager);
 }
 
-void Sphere::render() {
+void Sphere::render()
+{
   m_array.render(PrimType::Triangles);
 }
-} // namespace Renderer
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Renderer

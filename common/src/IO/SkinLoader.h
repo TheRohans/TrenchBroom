@@ -19,24 +19,32 @@
 
 #pragma once
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
 
-namespace Assets {
+namespace Assets
+{
+class Material;
 class Palette;
-class Texture;
 } // namespace Assets
 
-namespace IO {
+namespace IO
+{
 class FileSystem;
-class Path;
 
-Assets::Texture loadSkin(const Path& path, const FileSystem& fs, Logger& logger);
-Assets::Texture loadSkin(
-  const Path& path, const FileSystem& fs, Logger& logger, const Assets::Palette& palette);
+Assets::Material loadSkin(
+  const std::filesystem::path& path, const FileSystem& fs, Logger& logger);
 
-Assets::Texture loadShader(const Path& path, const FileSystem& fs, Logger& logger);
+Assets::Material loadSkin(
+  const std::filesystem::path& path,
+  const FileSystem& fs,
+  const std::optional<Assets::Palette>& palette,
+  Logger& logger);
+
 } // namespace IO
 } // namespace TrenchBroom

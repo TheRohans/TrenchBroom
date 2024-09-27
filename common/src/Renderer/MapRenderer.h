@@ -22,60 +22,67 @@
 #include "Macros.h"
 #include "NotifierConnection.h"
 
+#include <filesystem>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Color;
-
-namespace IO {
-class Path;
 }
 
-namespace View {
+namespace TrenchBroom::Assets
+{
+class ResourceId;
+}
+
+namespace TrenchBroom::View
+{
 // FIXME: Renderer should not depend on View
 class MapDocument;
 class Selection;
-} // namespace View
+} // namespace TrenchBroom::View
 
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushNode;
 class BrushFaceHandle;
 class GroupNode;
 class LayerNode;
 class Node;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
+class EntityDecalRenderer;
 class EntityLinkRenderer;
 class GroupLinkRenderer;
 class ObjectRenderer;
 class RenderBatch;
 class RenderContext;
 
-class MapRenderer {
+class MapRenderer
+{
 private:
-  class SelectedBrushRendererFilter;
-  class LockedBrushRendererFilter;
-  class UnselectedBrushRendererFilter;
-
   std::weak_ptr<View::MapDocument> m_document;
 
   std::unique_ptr<ObjectRenderer> m_defaultRenderer;
   std::unique_ptr<ObjectRenderer> m_selectionRenderer;
   std::unique_ptr<ObjectRenderer> m_lockedRenderer;
+  std::unique_ptr<EntityDecalRenderer> m_entityDecalRenderer;
   std::unique_ptr<EntityLinkRenderer> m_entityLinkRenderer;
   std::unique_ptr<GroupLinkRenderer> m_groupLinkRenderer;
 
-  typedef enum {
-    Renderer_Default = 1,
-    Renderer_Selection = 2,
-    Renderer_Locked = 4,
-    Renderer_All = Renderer_Default | Renderer_Selection | Renderer_Locked
-  } Renderer;
+  enum class Renderer
+  {
+    Default = 1,
+    Selection = 2,
+    Locked = 4,
+    All = Default | Selection | Locked
+  };
 
-  std::unordered_map<Model::Node*, Renderer> m_trackedNodes;
+  std::unordered_map<Model::Node*, int> m_trackedNodes;
 
   NotifierConnection m_notifierConnection;
 
@@ -85,15 +92,6 @@ public:
 
   deleteCopyAndMove(MapRenderer);
 
-private:
-  static std::unique_ptr<ObjectRenderer> createDefaultRenderer(
-    std::weak_ptr<View::MapDocument> document);
-  static std::unique_ptr<ObjectRenderer> createSelectionRenderer(
-    std::weak_ptr<View::MapDocument> document);
-  static std::unique_ptr<ObjectRenderer> createLockRenderer(
-    std::weak_ptr<View::MapDocument> document);
-  void clear();
-
 public: // color config
   void overrideSelectionColors(const Color& color, float mix);
   void restoreSelectionColors();
@@ -102,7 +100,7 @@ public: // rendering
   void render(RenderContext& renderContext, RenderBatch& renderBatch);
 
 private:
-  void commitPendingChanges();
+  void clear();
   void setupGL(RenderBatch& renderBatch);
   void renderDefaultOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderDefaultTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
@@ -110,6 +108,7 @@ private:
   void renderSelectionTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderLockedOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderLockedTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
+  void renderEntityDecals(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderEntityLinks(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderGroupLinks(RenderContext& renderContext, RenderBatch& renderBatch);
 
@@ -118,7 +117,7 @@ private:
   void setupSelectionRenderer(ObjectRenderer& renderer);
   void setupLockedRenderer(ObjectRenderer& renderer);
 
-  static Renderer determineDesiredRenderers(Model::Node* node);
+  static int determineDesiredRenderers(Model::Node* node);
   void updateAndInvalidateNode(Model::Node* node);
   void updateAndInvalidateNodeRecursive(Model::Node* node);
   void removeNode(Model::Node* node);
@@ -126,6 +125,7 @@ private:
   void updateAllNodes();
 
   void invalidateRenderers(Renderer renderers);
+  void invalidateEntityDecalRenderer();
   void invalidateEntityLinkRenderer();
   void invalidateGroupLinkRenderer();
   void reloadEntityModels();
@@ -150,13 +150,15 @@ private: // notification
 
   void selectionDidChange(const View::Selection& selection);
 
-  void textureCollectionsWillChange();
+  void resourcesWereProcessed(const std::vector<Assets::ResourceId>& resourceIds);
+
+  void materialCollectionsWillChange();
   void entityDefinitionsDidChange();
   void modsDidChange();
 
   void editorContextDidChange();
 
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

@@ -19,42 +19,50 @@
 
 #pragma once
 
-#include "IO/Path.h"
 #include "Model/MapFormat.h"
+#include "Result.h"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
 
-template <typename T> class Preference;
+template <typename T>
+class Preference;
+} // namespace TrenchBroom
 
-namespace IO {
+namespace TrenchBroom::IO
+{
 class Path;
-class WritableDiskFileSystem;
-} // namespace IO
+class WritableVirtualFileSystem;
+} // namespace TrenchBroom::IO
 
-namespace Model {
-class CompilationConfig;
+namespace TrenchBroom::Model
+{
+struct CompilationConfig;
 class Game;
 struct GameConfig;
-class GameEngineConfig;
+struct GameEngineConfig;
 
-struct GamePathConfig {
-  std::vector<IO::Path> gameConfigSearchDirs;
-  IO::Path userGameDir;
+struct GamePathConfig
+{
+  std::vector<std::filesystem::path> gameConfigSearchDirs;
+  std::filesystem::path userGameDir;
 };
 
-class GameFactory {
+class GameFactory
+{
 private:
   using ConfigMap = std::map<std::string, GameConfig>;
-  using GamePathMap = std::map<std::string, Preference<IO::Path>>;
+  using GamePathMap = std::map<std::string, Preference<std::filesystem::path>>;
 
-  IO::Path m_userGameDir;
-  std::unique_ptr<IO::WritableDiskFileSystem> m_configFS;
+  std::filesystem::path m_userGameDir;
+  std::unique_ptr<IO::WritableVirtualFileSystem> m_configFs;
 
   std::vector<std::string> m_names;
   ConfigMap m_configs;
@@ -65,70 +73,83 @@ public:
   static GameFactory& instance();
 
   /**
-   * Initializes the game factory, must be called once when the application starts. Initialization
-   * comprises building a file system to find the builtin and user-provided game configurations and
-   * loading them.
+   * Initializes the game factory, must be called once when the application starts.
+   * Initialization comprises building a file system to find the builtin and user-provided
+   * game configurations and loading them.
    *
-   * If the file system cannot be built, a FileSystemException is thrown. Since this is a fatal
+   * If the file system cannot be built, a Error is returned. Since this is a fatal
    * error, the caller should inform the user of the error and terminate the application.
    *
-   * If a game configuration cannot be loaded due to parsing errors, the errors are collected in a
-   * string list, but loading game configurations continues. The string list is then thrown and
-   * should be caught by the caller to inform the user of any errors.
+   * If a game configuration cannot be loaded due to parsing errors, the errors are
+   * collected in a string list, but loading game configurations continues. The string
+   * list is then thrown and should be caught by the caller to inform the user of any
+   * errors.
    *
    * The given path config is used to build the file systems.
    *
-   * @throw FileSystemException if the file system cannot be built.
-   * @throw std::vector<std::string> if loading game configurations fails
+   * @return a result containing error messages for game configurations that could not be
+   * loaded or a Error if a fatal error occurs
    */
-  void initialize(const GamePathConfig& gamePathConfig);
+  Result<std::vector<std::string>> initialize(const GamePathConfig& gamePathConfig);
+
+  /**
+   * Resets all state so that we can call initialize again.
+   */
+  void reset();
+
   /**
    * Saves the game engine configurations for the game with the given name.
    *
    * @param gameName the game for which the configurations should be saved
    * @param gameEngineConfig new config to save
-   *
-   * @throw GameException if no game with the given name exists
    */
-  void saveGameEngineConfig(const std::string& gameName, const GameEngineConfig& gameEngineConfig);
+  void saveGameEngineConfig(
+    const std::string& gameName,
+    const GameEngineConfig& gameEngineConfig,
+    Logger& logger);
   /**
    * Saves the compilation configurations for the game with the given name.
    *
    * @param gameName the game for which the configurations should be saved
    * @param compilationConfig new config to save
    * @param logger the logger
-   *
-   * @throw GameException if no config with the given name exists
    */
   void saveCompilationConfig(
-    const std::string& gameName, const CompilationConfig& compilationConfig, Logger& logger);
+    const std::string& gameName,
+    const CompilationConfig& compilationConfig,
+    Logger& logger);
 
   const std::vector<std::string>& gameList() const;
   size_t gameCount() const;
   std::shared_ptr<Game> createGame(const std::string& gameName, Logger& logger);
 
   std::vector<std::string> fileFormats(const std::string& gameName) const;
-  IO::Path iconPath(const std::string& gameName) const;
-  IO::Path gamePath(const std::string& gameName) const;
-  bool setGamePath(const std::string& gameName, const IO::Path& gamePath);
-  bool isGamePathPreference(const std::string& gameName, const IO::Path& prefPath) const;
+  std::filesystem::path iconPath(const std::string& gameName) const;
+  std::filesystem::path gamePath(const std::string& gameName) const;
+  bool setGamePath(const std::string& gameName, const std::filesystem::path& gamePath);
+  bool isGamePathPreference(
+    const std::string& gameName, const std::filesystem::path& prefPath) const;
 
-  IO::Path compilationToolPath(const std::string& gameName, const std::string& toolName) const;
+  std::filesystem::path compilationToolPath(
+    const std::string& gameName, const std::string& toolName) const;
   bool setCompilationToolPath(
-    const std::string& gameName, const std::string& toolName, const IO::Path& gamePath);
+    const std::string& gameName,
+    const std::string& toolName,
+    const std::filesystem::path& gamePath);
 
   GameConfig& gameConfig(const std::string& gameName);
   const GameConfig& gameConfig(const std::string& gameName) const;
 
   /**
-   * Scans the map file at the given path to find game type and map format comments and returns the
-   * name of the game and the map format.
+   * Scans the map file at the given path to find game type and map format comments and
+   * returns the name of the game and the map format.
    *
-   * If no game comment is found or the game is unknown, an empty string is returned as the game
-   * name. If no map format comment is found or the format is unknown, MapFormat::Unknown is
-   * returned as the map format.
+   * If no game comment is found or the game is unknown, an empty string is returned as
+   * the game name. If no map format comment is found or the format is unknown,
+   * MapFormat::Unknown is returned as the map format.
    */
-  std::pair<std::string, MapFormat> detectGame(const IO::Path& path) const;
+  Result<std::pair<std::string, MapFormat>> detectGame(
+    const std::filesystem::path& path) const;
 
   /**
    * Returns the directory for user game configurations.
@@ -136,20 +157,20 @@ public:
    *
    * Must not be called before initialize() was called.
    */
-  const IO::Path& userGameConfigsPath() const;
+  const std::filesystem::path& userGameConfigsPath() const;
 
 private:
   GameFactory();
-  void initializeFileSystem(const GamePathConfig& gamePathConfig);
-  void loadGameConfigs();
-  void loadGameConfig(const IO::Path& path);
-  void doLoadGameConfig(const IO::Path& path);
+  Result<void> initializeFileSystem(const GamePathConfig& gamePathConfig);
+  Result<std::vector<std::string>> loadGameConfigs(const GamePathConfig& gamePathConfig);
+  Result<void> loadGameConfig(
+    const GamePathConfig& gamePathConfig, const std::filesystem::path& path);
   void loadCompilationConfig(GameConfig& gameConfig);
   void loadGameEngineConfig(GameConfig& gameConfig);
 
   void writeCompilationConfig(
-    GameConfig& gameConfig, const CompilationConfig& compilationConfig, Logger& logger);
-  void writeGameEngineConfig(GameConfig& gameConfig, const GameEngineConfig& gameEngineConfig);
+    GameConfig& gameConfig, CompilationConfig compilationConfig, Logger& logger);
+  void writeGameEngineConfig(
+    GameConfig& gameConfig, GameEngineConfig gameEngineConfig, Logger& logger);
 };
-} // namespace Model
-} // namespace TrenchBroom
+} // namespace TrenchBroom::Model

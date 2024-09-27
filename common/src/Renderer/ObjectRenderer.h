@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "Macros.h"
 #include "Renderer/BrushRenderer.h"
 #include "Renderer/EntityRenderer.h"
 #include "Renderer/GroupRenderer.h"
@@ -26,15 +27,19 @@
 
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Color;
 class Logger;
 
-namespace Assets {
+namespace Assets
+{
+class EntityModel;
 class EntityModelManager;
-}
+} // namespace Assets
 
-namespace Model {
+namespace Model
+{
 class BrushNode;
 class EditorContext;
 class EntityNode;
@@ -43,11 +48,13 @@ class Node;
 class PatchNode;
 } // namespace Model
 
-namespace Renderer {
+namespace Renderer
+{
 class FontManager;
 class RenderBatch;
 
-class ObjectRenderer {
+class ObjectRenderer
+{
 private:
   GroupRenderer m_groupRenderer;
   EntityRenderer m_entityRenderer;
@@ -57,16 +64,23 @@ private:
 public:
   template <typename BrushFilterT>
   ObjectRenderer(
-    Logger& logger, Assets::EntityModelManager& entityModelManager,
-    const Model::EditorContext& editorContext, const BrushFilterT& brushFilter)
-    : m_groupRenderer(editorContext)
-    , m_entityRenderer(logger, entityModelManager, editorContext)
-    , m_brushRenderer(brushFilter)
-    , m_patchRenderer{} {}
+    Logger& logger,
+    Assets::EntityModelManager& entityModelManager,
+    const Model::EditorContext& editorContext,
+    const BrushFilterT& brushFilter)
+    : m_groupRenderer{editorContext}
+    , m_entityRenderer{logger, entityModelManager, editorContext}
+    , m_brushRenderer{brushFilter}
+    , m_patchRenderer{editorContext}
+  {
+  }
 
 public: // object management
   void addNode(Model::Node* node);
   void removeNode(Model::Node* node);
+  void invalidateMaterials(const std::vector<const Assets::Material*>& materials);
+  void invalidateEntityModels(
+    const std::vector<const Assets::EntityModel*>& entityModels);
   void invalidateNode(Model::Node* node);
   void invalidate();
   void clear();
@@ -105,9 +119,7 @@ public: // rendering
   void renderOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
   void renderTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
 
-private:
-  ObjectRenderer(const ObjectRenderer&);
-  ObjectRenderer& operator=(const ObjectRenderer&);
+  deleteCopy(ObjectRenderer);
 };
 } // namespace Renderer
 } // namespace TrenchBroom

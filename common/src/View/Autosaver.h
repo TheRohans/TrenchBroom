@@ -19,33 +19,26 @@
 
 #pragma once
 
-#include "IO/Path.h"
+#include "IO/PathMatcher.h"
 
 #include <chrono>
+#include <filesystem>
 #include <memory>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+} // namespace TrenchBroom
 
-namespace IO {
-class WritableDiskFileSystem;
-}
-
-namespace View {
+namespace TrenchBroom::View
+{
 class Command;
 class MapDocument;
 
-class Autosaver {
-public:
-  class BackupFileMatcher {
-  private:
-    const IO::Path m_mapBasename;
+IO::PathMatcher makeBackupPathMatcher(std::filesystem::path mapBasename);
 
-  public:
-    explicit BackupFileMatcher(const IO::Path& mapBasename);
-    bool operator()(const IO::Path& path, bool directory) const;
-  };
-
+class Autosaver
+{
 private:
   using Clock = std::chrono::system_clock;
 
@@ -57,8 +50,8 @@ private:
   std::chrono::milliseconds m_saveInterval;
 
   /**
-   * The maximum number of backups to create. When this number is exceeded, old backups are deleted
-   * until the number of backups is equal to the number of backups again.
+   * The maximum number of backups to create. When this number is exceeded, old backups
+   * are deleted until the number of backups is equal to the number of backups again.
    */
   size_t m_maxBackups;
 
@@ -82,17 +75,5 @@ public:
 
 private:
   void autosave(Logger& logger, std::shared_ptr<View::MapDocument> document);
-  IO::WritableDiskFileSystem createBackupFileSystem(Logger& logger, const IO::Path& mapPath) const;
-  std::vector<IO::Path> collectBackups(
-    const IO::WritableDiskFileSystem& fs, const IO::Path& mapBasename) const;
-  void thinBackups(
-    Logger& logger, IO::WritableDiskFileSystem& fs, std::vector<IO::Path>& backups) const;
-  void cleanBackups(
-    IO::WritableDiskFileSystem& fs, std::vector<IO::Path>& backups,
-    const IO::Path& mapBasename) const;
-  IO::Path makeBackupName(const IO::Path& mapBasename, const size_t index) const;
 };
-
-size_t extractBackupNo(const IO::Path& path);
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

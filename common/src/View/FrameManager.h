@@ -24,12 +24,13 @@
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class MapDocument;
 class MapFrame;
 
-class FrameManager : public QObject {
+class FrameManager : public QObject
+{
   Q_OBJECT
 private:
   bool m_singleFrame;
@@ -54,5 +55,5 @@ private:
 
   friend class MapFrame;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

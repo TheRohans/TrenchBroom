@@ -20,30 +20,21 @@
 #pragma once
 
 #include "IO/ImageFileSystem.h"
+#include "Result.h"
 
+#include <filesystem>
 #include <memory>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
+namespace TrenchBroom::IO
+{
+class CFile;
 
-class DkPakFileSystem : public ImageFileSystem {
-private:
-  class DkCompressedFile : public CompressedFileEntry {
-  public:
-    using CompressedFileEntry::CompressedFileEntry;
-
-  private:
-    std::unique_ptr<char[]> decompress(
-      std::shared_ptr<File> file, size_t uncompressedSize) const override;
-  };
-
+class DkPakFileSystem : public ImageFileSystem<CFile>
+{
 public:
-  explicit DkPakFileSystem(const Path& path);
-  DkPakFileSystem(std::shared_ptr<FileSystem> next, const Path& path);
+  using ImageFileSystem::ImageFileSystem;
 
 private:
-  void doReadDirectory() override;
+  Result<void> doReadDirectory() override;
 };
-} // namespace IO
-} // namespace TrenchBroom
+} // namespace TrenchBroom::IO

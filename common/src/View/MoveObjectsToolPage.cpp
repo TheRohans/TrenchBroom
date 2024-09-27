@@ -19,37 +19,44 @@
 
 #include "MoveObjectsToolPage.h"
 
-#include "View/MapDocument.h"
-#include "View/ViewConstants.h"
-
-#include <kdl/memory_utils.h>
-#include <vecmath/vec.h>
-#include <vecmath/vec_io.h>
-
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 
-namespace TrenchBroom {
-namespace View {
-MoveObjectsToolPage::MoveObjectsToolPage(std::weak_ptr<MapDocument> document, QWidget* parent)
+#include "View/MapDocument.h"
+#include "View/ViewConstants.h"
+
+#include "kdl/memory_utils.h"
+
+#include "vm/vec.h"
+#include "vm/vec_io.h"
+
+namespace TrenchBroom
+{
+namespace View
+{
+MoveObjectsToolPage::MoveObjectsToolPage(
+  std::weak_ptr<MapDocument> document, QWidget* parent)
   : QWidget(parent)
   , m_document(document)
   , m_offset(nullptr)
-  , m_button(nullptr) {
+  , m_button(nullptr)
+{
   createGui();
   connectObservers();
   updateGui();
 }
 
-void MoveObjectsToolPage::connectObservers() {
+void MoveObjectsToolPage::connectObservers()
+{
   auto document = kdl::mem_lock(m_document);
-  m_notifierConnection +=
-    document->selectionDidChangeNotifier.connect(this, &MoveObjectsToolPage::selectionDidChange);
+  m_notifierConnection += document->selectionDidChangeNotifier.connect(
+    this, &MoveObjectsToolPage::selectionDidChange);
 }
 
-void MoveObjectsToolPage::createGui() {
+void MoveObjectsToolPage::createGui()
+{
   QLabel* text = new QLabel(tr("Move objects by"));
   m_offset = new QLineEdit("0.0 0.0 0.0");
   m_button = new QPushButton(tr("Apply"));
@@ -69,17 +76,21 @@ void MoveObjectsToolPage::createGui() {
   setLayout(layout);
 }
 
-void MoveObjectsToolPage::updateGui() {
+void MoveObjectsToolPage::updateGui()
+{
   auto document = kdl::mem_lock(m_document);
   m_button->setEnabled(document->hasSelectedNodes());
 }
 
-void MoveObjectsToolPage::selectionDidChange(const Selection&) {
+void MoveObjectsToolPage::selectionDidChange(const Selection&)
+{
   updateGui();
 }
 
-void MoveObjectsToolPage::applyMove() {
-  if (const auto delta = vm::parse<FloatType, 3>(m_offset->text().toStdString())) {
+void MoveObjectsToolPage::applyMove()
+{
+  if (const auto delta = vm::parse<FloatType, 3>(m_offset->text().toStdString()))
+  {
     auto document = kdl::mem_lock(m_document);
     document->translateObjects(*delta);
   }

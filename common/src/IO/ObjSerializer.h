@@ -23,7 +23,7 @@
 #include "IO/ExportOptions.h"
 #include "IO/NodeSerializer.h"
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
 #include <array>
 #include <iosfwd>
@@ -33,22 +33,27 @@
 #include <variant>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
-class Texture;
+namespace TrenchBroom::Assets
+{
+class Material;
 }
 
-namespace Model {
+namespace TrenchBroom::Model
+{
 class BrushNode;
 class BrushFace;
 class EntityProperty;
 class Node;
-} // namespace Model
+} // namespace TrenchBroom::Model
 
-namespace IO {
-class ObjSerializer : public NodeSerializer {
+namespace TrenchBroom::IO
+{
+class ObjSerializer : public NodeSerializer
+{
 public:
-  template <typename V> class IndexMap {
+  template <typename V>
+  class IndexMap
+  {
   private:
     std::map<V, size_t> m_map;
     std::vector<V> m_list;
@@ -56,10 +61,12 @@ public:
   public:
     const std::vector<V>& list() const { return m_list; }
 
-    size_t index(const V& v) {
+    size_t index(const V& v)
+    {
       const auto it = m_map.emplace(v, m_list.size()).first;
       const size_t index = it->second;
-      if (index == m_list.size()) {
+      if (index == m_list.size())
+      {
         m_list.push_back(v);
       }
       return index;
@@ -72,34 +79,39 @@ public:
     void clearIndices() { m_map.clear(); }
   };
 
-  struct IndexedVertex {
+  struct IndexedVertex
+  {
     size_t vertex;
-    size_t texCoords;
+    size_t uvCoords;
     size_t normal;
   };
 
-  struct BrushFace {
+  struct BrushFace
+  {
     std::vector<IndexedVertex> verts;
-    std::string textureName;
-    const Assets::Texture* texture;
+    std::string materialName;
+    const Assets::Material* material;
   };
 
-  struct BrushObject {
+  struct BrushObject
+  {
     size_t entityNo;
     size_t brushNo;
     std::vector<BrushFace> faces;
   };
 
-  struct PatchQuad {
+  struct PatchQuad
+  {
     std::array<IndexedVertex, 4u> verts;
   };
 
-  struct PatchObject {
+  struct PatchObject
+  {
     size_t entityNo;
     size_t patchNo;
     std::vector<PatchQuad> quads;
-    std::string textureName;
-    const Assets::Texture* texture;
+    std::string materialName;
+    const Assets::Material* material;
   };
 
   using Object = std::variant<BrushObject, PatchObject>;
@@ -118,7 +130,7 @@ private:
   ObjExportOptions m_options;
 
   IndexMap<vm::vec3> m_vertices;
-  IndexMap<vm::vec2f> m_texCoords;
+  IndexMap<vm::vec2f> m_uvCoords;
   IndexMap<vm::vec3> m_normals;
 
   std::optional<BrushObject> m_currentBrush;
@@ -126,7 +138,9 @@ private:
 
 public:
   ObjSerializer(
-    std::ostream& objStream, std::ostream& mtlStream, std::string mtlFilename,
+    std::ostream& objStream,
+    std::ostream& mtlStream,
+    std::string mtlFilename,
     ObjExportOptions options);
 
 private:
@@ -142,5 +156,5 @@ private:
 
   void doPatch(const Model::PatchNode* patchNode) override;
 };
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

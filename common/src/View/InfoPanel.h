@@ -19,20 +19,23 @@
 
 #pragma once
 
-#include <memory>
-
 #include <QWidget>
 
-namespace TrenchBroom {
+#include <memory>
+
+namespace TrenchBroom
+{
 class Logger;
 
-namespace View {
+namespace View
+{
 class Console;
 class IssueBrowser;
 class MapDocument;
 class TabBook;
 
-class InfoPanel : public QWidget {
+class InfoPanel : public QWidget
+{
   Q_OBJECT
 private:
   TabBook* m_tabBook;

@@ -19,13 +19,16 @@
 
 #pragma once
 
-#include "View/BorderPanel.h"
-
 #include <QObject>
 
-namespace TrenchBroom {
-namespace View {
-class ContainerBar : public BorderPanel {
+#include "View/BorderPanel.h"
+
+namespace TrenchBroom
+{
+namespace View
+{
+class ContainerBar : public BorderPanel
+{
   Q_OBJECT
 public:
   explicit ContainerBar(Sides borders, QWidget* parent = nullptr);

@@ -19,26 +19,28 @@
 
 #pragma once
 
+#include "Result.h"
+
+#include <filesystem>
+#include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom::Assets
+{
 class EntityDefinition;
-}
+} // namespace TrenchBroom::Assets
 
-namespace IO {
+namespace TrenchBroom::IO
+{
 class ParserStatus;
-class Path;
 
-class EntityDefinitionLoader {
+class EntityDefinitionLoader
+{
 public:
   virtual ~EntityDefinitionLoader();
-  std::vector<Assets::EntityDefinition*> loadEntityDefinitions(
-    ParserStatus& status, const Path& path) const;
 
-private:
-  virtual std::vector<Assets::EntityDefinition*> doLoadEntityDefinitions(
-    ParserStatus& status, const Path& path) const = 0;
+  virtual Result<std::vector<std::unique_ptr<Assets::EntityDefinition>>>
+  loadEntityDefinitions(
+    ParserStatus& status, const std::filesystem::path& path) const = 0;
 };
-} // namespace IO
-} // namespace TrenchBroom
+} // namespace TrenchBroom::IO

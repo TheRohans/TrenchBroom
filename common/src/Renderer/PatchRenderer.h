@@ -21,44 +21,49 @@
 
 #include "Color.h"
 #include "Renderer/EdgeRenderer.h"
+#include "Renderer/MaterialIndexArrayRenderer.h"
 #include "Renderer/Renderable.h"
-#include "Renderer/TexturedIndexArrayRenderer.h"
 
-#include <kdl/vector_set.h>
+#include "kdl/vector_set.h"
 
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom::Model
+{
+class EditorContext;
 class PatchNode;
-}
+} // namespace TrenchBroom::Model
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class RenderBatch;
 class RenderContext;
 class VboManager;
 
-class PatchRenderer : public IndexedRenderable {
+class PatchRenderer : public IndexedRenderable
+{
 private:
+  const Model::EditorContext& m_editorContext;
+
   bool m_valid = true;
   kdl::vector_set<const Model::PatchNode*> m_patchNodes;
 
-  TexturedIndexArrayRenderer m_patchMeshRenderer;
+  MaterialIndexArrayRenderer m_patchMeshRenderer;
   DirectEdgeRenderer m_edgeRenderer;
 
   Color m_defaultColor;
-  bool m_grayscale;
-  bool m_tint;
+  bool m_grayscale = false;
+  bool m_tint = false;
   Color m_tintColor;
-  float m_alpha;
+  float m_alpha = 1.0f;
 
-  bool m_showEdges;
+  bool m_showEdges = true;
   Color m_edgeColor;
-  bool m_showOccludedEdges;
+  bool m_showOccludedEdges = false;
   Color m_occludedEdgeColor;
 
 public:
-  PatchRenderer();
+  explicit PatchRenderer(const Model::EditorContext& editorContext);
 
   void setDefaultColor(const Color& faceColor);
   void setGrayscale(bool grayscale);
@@ -96,8 +101,8 @@ public:
   void clear();
 
   /**
-   * Adds a patch. Calling with an already-added patch is allowed, but ignored (not guaranteed to
-   * invalidate it).
+   * Adds a patch. Calling with an already-added patch is allowed, but ignored (not
+   * guaranteed to invalidate it).
    */
   void addPatch(const Model::PatchNode* patchNode);
   /**
@@ -105,7 +110,8 @@ public:
    */
   void removePatch(const Model::PatchNode* patchNode);
   /**
-   * Causes cached renderer data to be rebuilt for the given patch (on the next render() call).
+   * Causes cached renderer data to be rebuilt for the given patch (on the next render()
+   * call).
    */
   void invalidatePatch(const Model::PatchNode* patchNode);
 
@@ -118,5 +124,5 @@ private: // implement IndexedRenderable interface
   void prepareVerticesAndIndices(VboManager& vboManager) override;
   void doRender(RenderContext& renderContext) override;
 };
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

@@ -22,68 +22,83 @@
 #include "FloatType.h"
 #include "View/MapViewContainer.h"
 
-#include <vecmath/vec.h>
+#include "vm/vec.h"
 
-namespace TrenchBroom {
-namespace View {
-MapView::MapView()
-  : m_container(nullptr) {}
-
+namespace TrenchBroom::View
+{
 MapView::~MapView() = default;
 
-void MapView::setContainer(MapViewContainer* container) {
+void MapView::setContainer(MapViewContainer* container)
+{
   m_container = container;
 }
 
-void MapView::installActivationTracker(MapViewActivationTracker& activationTracker) {
+void MapView::installActivationTracker(MapViewActivationTracker& activationTracker)
+{
   doInstallActivationTracker(activationTracker);
 }
 
-bool MapView::isCurrent() const {
+bool MapView::isCurrent() const
+{
   return doGetIsCurrent();
 }
 
-MapViewBase* MapView::firstMapViewBase() {
+MapViewBase* MapView::firstMapViewBase()
+{
   return doGetFirstMapViewBase();
 }
 
-bool MapView::canSelectTall() {
+bool MapView::canSelectTall()
+{
   return doCanSelectTall();
 }
 
-void MapView::selectTall() {
+void MapView::selectTall()
+{
   doSelectTall();
 }
 
 vm::vec3 MapView::pasteObjectsDelta(
-  const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const {
+  const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const
+{
   return doGetPasteObjectsDelta(bounds, referenceBounds);
 }
 
-void MapView::focusCameraOnSelection(const bool animate) {
+void MapView::reset2dCameras(const Renderer::Camera& masterCamera, const bool animate)
+{
+  doReset2dCameras(masterCamera, animate);
+}
+
+void MapView::focusCameraOnSelection(const bool animate)
+{
   doFocusCameraOnSelection(animate);
 }
 
-void MapView::moveCameraToPosition(const vm::vec3& position, const bool animate) {
+void MapView::moveCameraToPosition(const vm::vec3f& position, const bool animate)
+{
   doMoveCameraToPosition(position, animate);
 }
 
-void MapView::moveCameraToCurrentTracePoint() {
+void MapView::moveCameraToCurrentTracePoint()
+{
   doMoveCameraToCurrentTracePoint();
 }
 
-bool MapView::cancelMouseDrag() {
+bool MapView::cancelMouseDrag()
+{
   return doCancelMouseDrag();
 }
 
-void MapView::cycleMapView() {
-  if (m_container != nullptr) {
+void MapView::cycleMapView()
+{
+  if (m_container != nullptr)
+  {
     m_container->cycleChildMapView(this);
   }
 }
 
-void MapView::refreshViews() {
+void MapView::refreshViews()
+{
   doRefreshViews();
 }
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

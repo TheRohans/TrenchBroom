@@ -19,16 +19,19 @@
 
 #pragma once
 
+#include <QObject>
+
 #include "Model/Tag.h"
 
 #include <string>
 #include <vector>
 
-#include <QObject>
-
-namespace TrenchBroom {
-namespace View {
-class EnableDisableTagCallback : public QObject, public Model::TagMatcherCallback {
+namespace TrenchBroom
+{
+namespace View
+{
+class EnableDisableTagCallback : public QObject, public Model::TagMatcherCallback
+{
   Q_OBJECT
 private:
   size_t m_selectedOption;

@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2010-2017 Kristian Duske
+ Copyright (C) 2024 Kristian Duske
 
  This file is part of TrenchBroom.
 
@@ -21,187 +21,145 @@
 
 #include "Assets/TextureBuffer.h"
 #include "Color.h"
-#include "IO/Path.h"
 #include "Renderer/GL.h"
 
-#include <vecmath/forward.h>
+#include "kdl/reflection_decl.h"
 
-#include <kdl/reflection_decl.h>
-
-#include <atomic>
-#include <iosfwd>
-#include <set>
-#include <string>
 #include <variant>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
-class TextureCollection;
+namespace TrenchBroom::Assets
+{
 
-enum class TextureType {
-  Opaque,
+enum class TextureMask
+{
   /**
    * Modifies texture uploading to support mask textures.
    */
-  Masked
+  On,
+  Off,
 };
 
-enum class TextureCulling {
-  CullDefault,
-  CullNone,
-  CullFront,
-  CullBack,
-  CullBoth
+std::ostream& operator<<(std::ostream& lhs, const TextureMask& rhs);
+
+struct NoEmbeddedDefaults
+{
+  kdl_reflect_decl_empty(NoEmbeddedDefaults);
 };
 
-struct TextureBlendFunc {
-  enum class Enable {
-    /**
-     * Don't change GL_BLEND and don't change the blend function.
-     */
-    UseDefault,
-    /**
-     * Don't change GL_BLEND, but set the blend function.
-     */
-    UseFactors,
-    /**
-     * Set GL_BLEND to off.
-     */
-    DisableBlend
-  };
-
-  Enable enable;
-  GLenum srcFactor;
-  GLenum destFactor;
-};
-
-struct Q2Data {
+struct Q2EmbeddedDefaults
+{
   int flags;
   int contents;
   int value;
 
-  kdl_reflect_decl(Q2Data, flags, contents, value);
+  kdl_reflect_decl(Q2EmbeddedDefaults, flags, contents, value);
 };
 
-using GameData = std::variant<std::monostate, Q2Data>;
+using EmbeddedDefaults = std::variant<NoEmbeddedDefaults, Q2EmbeddedDefaults>;
 
-class Texture {
+std::ostream& operator<<(std::ostream& lhs, const EmbeddedDefaults& rhs);
+
+struct TextureLoadedState
+{
+  std::vector<TextureBuffer> buffers;
+
+  kdl_reflect_decl(TextureLoadedState, buffers);
+};
+
+struct TextureReadyState
+{
+  GLuint textureId;
+
+  kdl_reflect_decl(TextureReadyState, textureId);
+};
+
+struct TextureDroppedState
+{
+  kdl_reflect_decl_empty(TextureDroppedState);
+};
+
+using TextureState =
+  std::variant<TextureLoadedState, TextureReadyState, TextureDroppedState>;
+
+class Texture
+{
 private:
-  using Buffer = TextureBuffer;
-  using BufferList = std::vector<Buffer>;
-
-private:
-  std::string m_name;
-  IO::Path m_absolutePath;
-  IO::Path m_relativePath;
-
   size_t m_width;
   size_t m_height;
   Color m_averageColor;
 
-  std::atomic<size_t> m_usageCount;
-  bool m_overridden;
-
   GLenum m_format;
-  TextureType m_type;
+  TextureMask m_mask;
 
-  // TODO: move these to a Q3Data variant case of m_gameData if possible
-  // Quake 3 surface parameters; move these to materials when we add proper support for those.
-  std::set<std::string> m_surfaceParms;
+  EmbeddedDefaults m_embeddedDefaults;
 
-  // Quake 3 surface culling; move to materials
-  TextureCulling m_culling;
+  mutable TextureState m_state;
 
-  // Quake 3 blend function, move to materials
-  TextureBlendFunc m_blendFunc;
-
-  mutable GLuint m_textureId;
-  mutable BufferList m_buffers;
-
-  GameData m_gameData;
+  kdl_reflect_decl(
+    Texture,
+    m_width,
+    m_height,
+    m_averageColor,
+    m_format,
+    m_mask,
+    m_embeddedDefaults,
+    m_state);
 
 public:
   Texture(
-    const std::string& name, size_t width, size_t height, const Color& averageColor,
-    Buffer&& buffer, GLenum format, TextureType type, GameData gameData = std::monostate{});
+    size_t width,
+    size_t height,
+    Color averageColor,
+    GLenum format,
+    TextureMask mask,
+    EmbeddedDefaults embeddedDefaults,
+    std::vector<TextureBuffer> buffers);
+
   Texture(
-    const std::string& name, size_t width, size_t height, const Color& averageColor,
-    BufferList&& buffers, GLenum format, TextureType type, GameData gameData = std::monostate{});
-  Texture(
-    const std::string& name, size_t width, size_t height, GLenum format = GL_RGB,
-    TextureType type = TextureType::Opaque, GameData gameData = std::monostate{});
+    size_t width,
+    size_t height,
+    Color averageColor,
+    GLenum format,
+    TextureMask mask,
+    EmbeddedDefaults embeddedDefaults,
+    TextureBuffer buffer);
 
-  Texture(const Texture&) = delete;
-  Texture& operator=(const Texture&) = delete;
+  Texture(size_t width, size_t height);
 
-  Texture(Texture&& other);
-  Texture& operator=(Texture&& other);
+  Texture(const Texture& other) = delete;
+  Texture(Texture&& other) = default;
 
-  ~Texture();
+  Texture& operator=(const Texture& other) = delete;
+  Texture& operator=(Texture&& other) = default;
 
-  static TextureType selectTextureType(bool masked);
-
-  const std::string& name() const;
-
-  /**
-   * Absolute path of the texture
-   *
-   * Currently, only set for textures loaded by DirectoryTextureCollectionLoader
-   */
-  const IO::Path& absolutePath() const;
-  void setAbsolutePath(const IO::Path& absolutePath);
-
-  /**
-   * Relative path of the texture in the game filesystem
-   *
-   * Currently, only set for textures loaded by DirectoryTextureCollectionLoader
-   */
-  const IO::Path& relativePath() const;
-  void setRelativePath(const IO::Path& relativePath);
+  ~Texture() = default;
 
   size_t width() const;
   size_t height() const;
+  vm::vec2f sizef() const;
   const Color& averageColor() const;
 
-  bool masked() const;
-  void setOpaque();
-
-  const std::set<std::string>& surfaceParms() const;
-  void setSurfaceParms(const std::set<std::string>& surfaceParms);
-
-  TextureCulling culling() const;
-  void setCulling(TextureCulling culling);
-
-  void setBlendFunc(GLenum srcFactor, GLenum destFactor);
-  void disableBlend();
-
-  const GameData& gameData() const;
-
-  size_t usageCount() const;
-  void incUsageCount();
-  void decUsageCount();
-  bool overridden() const;
-  void setOverridden(bool overridden);
-
-  bool isPrepared() const;
-  void prepare(GLuint textureId, int minFilter, int magFilter);
-  void setMode(int minFilter, int magFilter);
-
-  void activate() const;
-  void deactivate() const;
-
-public: // exposed for tests only
-  /**
-   * Returns the texture data in the format returned by format().
-   * Once prepare() is called, this will be an empty vector.
-   */
-  const BufferList& buffersIfUnprepared() const;
-  /**
-   * Will be one of GL_RGB, GL_BGR, GL_RGBA, GL_BGRA.
-   */
   GLenum format() const;
-  TextureType type() const;
+
+  TextureMask mask() const;
+  void setMask(TextureMask mask);
+
+  const EmbeddedDefaults& embeddedDefaults() const;
+
+  bool isReady() const;
+
+  bool activate(int minFilter, int magFilter) const;
+  bool deactivate() const;
+
+  void upload(bool glContextAvailable);
+  void drop(bool glContextAvailable);
+
+  const std::vector<TextureBuffer>& buffersIfLoaded() const;
+
+private:
+  void setFilterMode(int minFilter, int magFilter) const;
 };
-} // namespace Assets
-} // namespace TrenchBroom
+
+
+} // namespace TrenchBroom::Assets

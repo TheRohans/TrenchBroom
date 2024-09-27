@@ -27,7 +27,8 @@
 
 #include "Catch2.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
   TrenchBroom::PreferenceManager::createInstance<TrenchBroom::TestPreferenceManager>();
   TrenchBroom::View::TrenchBroomApp app(argc, argv);
 
@@ -38,7 +39,5 @@ int main(int argc, char** argv) {
   // set the locale to US so that we can parse floats attribute
   std::setlocale(LC_NUMERIC, "C");
 
-  const int result = Catch::Session().run(argc, argv);
-
-  return result;
+  return Catch::Session().run(argc, argv);
 }

@@ -24,16 +24,17 @@
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class GroupNode;
 }
 
-namespace View {
-class CurrentGroupCommand : public UndoableCommand {
-public:
-  static const CommandType Type;
-
+namespace View
+{
+class CurrentGroupCommand : public UndoableCommand
+{
 private:
   Model::GroupNode* m_group;
 
@@ -45,9 +46,8 @@ public:
 
 private:
   std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
-  std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade* document) override;
-
-  bool doCollateWith(UndoableCommand* command) override;
+  std::unique_ptr<CommandResult> doPerformUndo(
+    MapDocumentCommandFacade* document) override;
 
   deleteCopyAndMove(CurrentGroupCommand);
 };

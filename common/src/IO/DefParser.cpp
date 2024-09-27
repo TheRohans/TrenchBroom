@@ -21,155 +21,180 @@
 
 #include "Assets/ModelDefinition.h"
 #include "Assets/PropertyDefinition.h"
+#include "EL/ELExceptions.h"
 #include "Exceptions.h"
+#include "FileLocation.h"
 #include "IO/ELParser.h"
 #include "IO/EntityDefinitionClassInfo.h"
 #include "IO/LegacyModelDefinitionParser.h"
 #include "IO/ParserStatus.h"
 #include "Model/EntityProperties.h"
 
-#include <kdl/string_format.h>
-#include <kdl/vector_utils.h>
+#include "kdl/string_format.h"
+
+#include <fmt/format.h>
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom::IO
+{
+
 DefTokenizer::DefTokenizer(std::string_view str)
-  : Tokenizer(std::move(str), "", 0) {}
+  : Tokenizer{std::move(str), "", 0}
+{
+}
 
 const std::string DefTokenizer::WordDelims = " \t\n\r()[]{};,=";
 
-DefTokenizer::Token DefTokenizer::emitToken() {
-  while (!eof()) {
-    const size_t startLine = line();
-    const size_t startColumn = column();
-    const char* c = curPos();
-    switch (*c) {
-      case '/': {
-        if (lookAhead() == '*') {
-          // eat all chars immediately after the '*' because it's often followed by QUAKE
-          do {
-            advance();
-          } while (!eof() && !isWhitespace(curChar()));
-          return Token(DefToken::ODefinition, c, curPos(), offset(c), startLine, startColumn);
-        } else if (lookAhead() == '/') {
-          discardUntil("\n\r");
-          break;
-        }
-        // fall through and try to read as word
-        switchFallthrough();
-      }
-      case '*': {
-        if (lookAhead() == '/') {
+DefTokenizer::Token DefTokenizer::emitToken()
+{
+  while (!eof())
+  {
+    const auto startLine = line();
+    const auto startColumn = column();
+    const auto* c = curPos();
+    switch (*c)
+    {
+    case '/': {
+      if (lookAhead() == '*')
+      {
+        // eat all chars immediately after the '*' because it's often followed by QUAKE
+        do
+        {
           advance();
-          return Token(DefToken::CDefinition, c, curPos(), offset(c), startLine, startColumn);
-        }
-        // fall through and try to read as word
-        switchFallthrough();
+        } while (!eof() && !isWhitespace(curChar()));
+        return Token{
+          DefToken::ODefinition, c, curPos(), offset(c), startLine, startColumn};
       }
-      case '(':
-        advance();
-        return Token(DefToken::OParenthesis, c, c + 1, offset(c), startLine, startColumn);
-      case ')':
-        advance();
-        return Token(DefToken::CParenthesis, c, c + 1, offset(c), startLine, startColumn);
-      case '{':
-        advance();
-        return Token(DefToken::OBrace, c, c + 1, offset(c), startLine, startColumn);
-      case '}':
-        advance();
-        return Token(DefToken::CBrace, c, c + 1, offset(c), startLine, startColumn);
-      case '=':
-        advance();
-        return Token(DefToken::Equality, c, c + 1, offset(c), startLine, startColumn);
-      case ';':
-        advance();
-        return Token(DefToken::Semicolon, c, c + 1, offset(c), startLine, startColumn);
-      case '\r':
-        if (lookAhead() == '\n') {
-          advance();
-        }
-        // handle carriage return without consecutive linefeed
-        // by falling through into the line feed case
-        switchFallthrough();
-      case '\n':
-        advance();
-        return Token(DefToken::Newline, c, c + 1, offset(c), startLine, startColumn);
-      case ',':
-        advance();
-        return Token(DefToken::Comma, c, c + 1, offset(c), startLine, startColumn);
-      case ' ':
-      case '\t':
-        discardWhile(" \t");
+      else if (lookAhead() == '/')
+      {
+        discardUntil("\n\r");
         break;
-      case '"': { // quoted string
+      }
+      // fall through and try to read as word
+      switchFallthrough();
+    }
+    case '*': {
+      if (lookAhead() == '/')
+      {
         advance();
-        c = curPos();
-        const char* e = readQuotedString();
-        return Token(DefToken::QuotedString, c, e, offset(c), startLine, startColumn);
+        return Token{
+          DefToken::CDefinition, c, curPos(), offset(c), startLine, startColumn};
       }
-      case '-':
-        if (isWhitespace(lookAhead())) {
-          advance();
-          return Token(DefToken::Minus, c, c + 1, offset(c), startLine, startColumn);
-        }
-        // otherwise fallthrough, might be a negative number
-        switchFallthrough();
-      default: { // integer, decimal or word
-        const char* e = readInteger(WordDelims);
-        if (e != nullptr)
-          return Token(DefToken::Integer, c, e, offset(c), startLine, startColumn);
-        e = readDecimal(WordDelims);
-        if (e != nullptr)
-          return Token(DefToken::Decimal, c, e, offset(c), startLine, startColumn);
-        e = readUntil(WordDelims);
-        if (e == nullptr)
-          throw ParserException(
-            startLine, startColumn, "Unexpected character: " + std::string(c, 1));
-        return Token(DefToken::Word, c, e, offset(c), startLine, startColumn);
+      // fall through and try to read as word
+      switchFallthrough();
+    }
+    case '(':
+      advance();
+      return Token{DefToken::OParenthesis, c, c + 1, offset(c), startLine, startColumn};
+    case ')':
+      advance();
+      return Token{DefToken::CParenthesis, c, c + 1, offset(c), startLine, startColumn};
+    case '{':
+      advance();
+      return Token{DefToken::OBrace, c, c + 1, offset(c), startLine, startColumn};
+    case '}':
+      advance();
+      return Token{DefToken::CBrace, c, c + 1, offset(c), startLine, startColumn};
+    case '=':
+      advance();
+      return Token{DefToken::Equality, c, c + 1, offset(c), startLine, startColumn};
+    case ';':
+      advance();
+      return Token{DefToken::Semicolon, c, c + 1, offset(c), startLine, startColumn};
+    case '\r':
+      if (lookAhead() == '\n')
+      {
+        advance();
       }
+      // handle carriage return without consecutive linefeed
+      // by falling through into the line feed case
+      switchFallthrough();
+    case '\n':
+      advance();
+      return Token{DefToken::Newline, c, c + 1, offset(c), startLine, startColumn};
+    case ',':
+      advance();
+      return Token{DefToken::Comma, c, c + 1, offset(c), startLine, startColumn};
+    case ' ':
+    case '\t':
+      discardWhile(" \t");
+      break;
+    case '"': { // quoted string
+      advance();
+      c = curPos();
+      const auto* e = readQuotedString();
+      return Token{DefToken::QuotedString, c, e, offset(c), startLine, startColumn};
+    }
+    case '-':
+      if (isWhitespace(lookAhead()))
+      {
+        advance();
+        return Token{DefToken::Minus, c, c + 1, offset(c), startLine, startColumn};
+      }
+      // otherwise fallthrough, might be a negative number
+      switchFallthrough();
+    default: // integer, decimal or word
+      if (const auto* e = readInteger(WordDelims))
+      {
+        return Token{DefToken::Integer, c, e, offset(c), startLine, startColumn};
+      }
+      if (const auto* e = readDecimal(WordDelims))
+      {
+        return Token{DefToken::Decimal, c, e, offset(c), startLine, startColumn};
+      }
+      if (const auto* e = readUntil(WordDelims))
+      {
+        return Token{DefToken::Word, c, e, offset(c), startLine, startColumn};
+      }
+      throw ParserException{
+        FileLocation{startLine, startColumn}, fmt::format("Unexpected character: {}", c)};
     }
   }
-  return Token(DefToken::Eof, nullptr, nullptr, length(), line(), column());
+  return Token{DefToken::Eof, nullptr, nullptr, length(), line(), column()};
 }
 
 DefParser::DefParser(std::string_view str, const Color& defaultEntityColor)
-  : EntityDefinitionParser(defaultEntityColor)
-  , m_tokenizer(DefTokenizer(std::move(str))) {}
-
-DefParser::TokenNameMap DefParser::tokenNames() const {
-  using namespace DefToken;
-
-  TokenNameMap names;
-  names[Integer] = "integer";
-  names[Decimal] = "decimal";
-  names[QuotedString] = "quoted string";
-  names[OParenthesis] = "'('";
-  names[CParenthesis] = "')'";
-  names[OBrace] = "'{'";
-  names[CBrace] = "'}'";
-  names[Word] = "word";
-  names[ODefinition] = "'/*'";
-  names[CDefinition] = "'*/'";
-  names[Semicolon] = "';'";
-  names[Newline] = "newline";
-  names[Comma] = "','";
-  names[Equality] = "'='";
-  names[Minus] = "'-'";
-  names[Eof] = "end of file";
-  return names;
+  : EntityDefinitionParser{defaultEntityColor}
+  , m_tokenizer{DefTokenizer(str)}
+{
 }
 
-std::vector<EntityDefinitionClassInfo> DefParser::parseClassInfos(ParserStatus& status) {
-  std::vector<EntityDefinitionClassInfo> result;
+DefParser::TokenNameMap DefParser::tokenNames() const
+{
+  using namespace DefToken;
+
+  return TokenNameMap{
+    {Integer, "integer"},
+    {Decimal, "decimal"},
+    {QuotedString, "quoted string"},
+    {OParenthesis, "'('"},
+    {CParenthesis, "')'"},
+    {OBrace, "'{'"},
+    {CBrace, "'}'"},
+    {Word, "word"},
+    {ODefinition, "'/*'"},
+    {CDefinition, "'*/'"},
+    {Semicolon, "';'"},
+    {Newline, "newline"},
+    {Comma, "','"},
+    {Equality, "'='"},
+    {Minus, "'-'"},
+    {Eof, "end of file"},
+  };
+}
+
+std::vector<EntityDefinitionClassInfo> DefParser::parseClassInfos(ParserStatus& status)
+{
+  auto result = std::vector<EntityDefinitionClassInfo>{};
 
   auto classInfo = parseClassInfo(status);
   status.progress(m_tokenizer.progress());
 
-  while (classInfo) {
+  while (classInfo)
+  {
     result.push_back(std::move(*classInfo));
     classInfo = parseClassInfo(status);
     status.progress(m_tokenizer.progress());
@@ -178,43 +203,53 @@ std::vector<EntityDefinitionClassInfo> DefParser::parseClassInfos(ParserStatus& 
   return result;
 }
 
-std::optional<EntityDefinitionClassInfo> DefParser::parseClassInfo(ParserStatus& status) {
-  Token token = m_tokenizer.nextToken();
-  while (token.type() != DefToken::Eof && token.type() != DefToken::ODefinition) {
+std::optional<EntityDefinitionClassInfo> DefParser::parseClassInfo(ParserStatus& status)
+{
+  auto token = m_tokenizer.nextToken();
+  while (token.type() != DefToken::Eof && token.type() != DefToken::ODefinition)
+  {
     token = m_tokenizer.nextToken();
   }
-  if (token.type() == DefToken::Eof) {
+  if (token.type() == DefToken::Eof)
+  {
     return std::nullopt;
   }
 
   expect(status, DefToken::ODefinition, token);
 
-  EntityDefinitionClassInfo classInfo;
+  auto classInfo = EntityDefinitionClassInfo{};
   classInfo.type = EntityDefinitionClassType::BaseClass;
-  classInfo.line = token.line();
-  classInfo.column = token.column();
+  classInfo.location = token.location();
 
   token = expect(status, DefToken::Word, m_tokenizer.nextToken());
   classInfo.name = token.data();
 
-  token = expect(status, DefToken::OParenthesis | DefToken::Newline, m_tokenizer.peekToken());
-  if (token.type() == DefToken::OParenthesis) {
+  token =
+    expect(status, DefToken::OParenthesis | DefToken::Newline, m_tokenizer.peekToken());
+  if (token.type() == DefToken::OParenthesis)
+  {
     classInfo.type = EntityDefinitionClassType::BrushClass;
     classInfo.color = parseColor(status);
 
-    token = expect(status, DefToken::OParenthesis | DefToken::Word, m_tokenizer.peekToken());
-    if (token.hasType(DefToken::OParenthesis)) {
+    token =
+      expect(status, DefToken::OParenthesis | DefToken::Word, m_tokenizer.peekToken());
+    if (token.hasType(DefToken::OParenthesis))
+    {
       classInfo.size = parseBounds(status);
       classInfo.type = EntityDefinitionClassType::PointClass;
-    } else if (token.data() == "?") {
+    }
+    else if (token.data() == "?")
+    {
       m_tokenizer.nextToken();
     }
 
     token = m_tokenizer.peekToken();
-    if (token.hasType(DefToken::Word | DefToken::Minus)) {
-      if (!addPropertyDefinition(classInfo.propertyDefinitions, parseSpawnflags(status))) {
+    if (token.hasType(DefToken::Word | DefToken::Minus))
+    {
+      if (!addPropertyDefinition(classInfo.propertyDefinitions, parseSpawnflags(status)))
+      {
         status.warn(
-          token.line(), token.column(), "Skipping duplicate spawnflags property definition");
+          token.location(), "Skipping duplicate spawnflags property definition");
       }
     }
   }
@@ -229,13 +264,16 @@ std::optional<EntityDefinitionClassInfo> DefParser::parseClassInfo(ParserStatus&
   return classInfo;
 }
 
-DefParser::PropertyDefinitionPtr DefParser::parseSpawnflags(ParserStatus& /* status */) {
-  auto definition =
-    std::make_shared<Assets::FlagsPropertyDefinition>(Model::EntityPropertyKeys::Spawnflags);
+std::unique_ptr<Assets::PropertyDefinition> DefParser::parseSpawnflags(
+  ParserStatus& /* status */)
+{
+  auto definition = std::make_unique<Assets::FlagsPropertyDefinition>(
+    Model::EntityPropertyKeys::Spawnflags);
   size_t numOptions = 0;
 
-  Token token = m_tokenizer.peekToken();
-  while (token.hasType(DefToken::Word | DefToken::Minus)) {
+  auto token = m_tokenizer.peekToken();
+  while (token.hasType(DefToken::Word | DefToken::Minus))
+  {
     token = m_tokenizer.nextToken();
     const auto name = token.hasType(DefToken::Word) ? token.data() : "";
     const auto value = 1 << numOptions++;
@@ -246,35 +284,52 @@ DefParser::PropertyDefinitionPtr DefParser::parseSpawnflags(ParserStatus& /* sta
   return definition;
 }
 
-void DefParser::parseProperties(ParserStatus& status, EntityDefinitionClassInfo& classInfo) {
-  if (m_tokenizer.peekToken().type() == DefToken::OBrace) {
+void DefParser::parseProperties(
+  ParserStatus& status, EntityDefinitionClassInfo& classInfo)
+{
+  if (m_tokenizer.peekToken().type() == DefToken::OBrace)
+  {
     m_tokenizer.nextToken();
     while (parseProperty(status, classInfo))
-      ;
+    {
+    }
   }
 }
 
-bool DefParser::parseProperty(ParserStatus& status, EntityDefinitionClassInfo& classInfo) {
-  Token token = expect(status, DefToken::Word | DefToken::CBrace, nextTokenIgnoringNewlines());
+bool DefParser::parseProperty(ParserStatus& status, EntityDefinitionClassInfo& classInfo)
+{
+  auto token =
+    expect(status, DefToken::Word | DefToken::CBrace, nextTokenIgnoringNewlines());
   if (token.type() != DefToken::Word)
+  {
     return false;
+  }
 
-  const auto line = token.line();
-  const auto column = token.column();
-
-  std::string typeName = token.data();
-  if (typeName == "default") {
+  const auto location = token.location();
+  const auto typeName = token.data();
+  if (typeName == "default")
+  {
     // ignore these properties
     parseDefaultProperty(status);
-  } else if (typeName == "base") {
+  }
+  else if (typeName == "base")
+  {
     classInfo.superClasses.push_back(parseBaseProperty(status));
-  } else if (typeName == "choice") {
-    auto propertyDefinition = parseChoicePropertyDefinition(status);
-    if (!addPropertyDefinition(classInfo.propertyDefinitions, propertyDefinition)) {
+  }
+  else if (typeName == "choice")
+  {
+    auto propertyDefinition =
+      std::shared_ptr<Assets::PropertyDefinition>{parseChoicePropertyDefinition(status)};
+    if (!addPropertyDefinition(classInfo.propertyDefinitions, propertyDefinition))
+    {
       status.warn(
-        line, column, "Skipping duplicate property definition: " + propertyDefinition->key());
+        location,
+        fmt::format(
+          "Skipping duplicate property definition: {}", propertyDefinition->key()));
     }
-  } else if (typeName == "model") {
+  }
+  else if (typeName == "model")
+  {
     classInfo.modelDefinition = parseModelDefinition(status);
   }
 
@@ -282,7 +337,8 @@ bool DefParser::parseProperty(ParserStatus& status, EntityDefinitionClassInfo& c
   return true;
 }
 
-void DefParser::parseDefaultProperty(ParserStatus& status) {
+void DefParser::parseDefaultProperty(ParserStatus& status)
+{
   // Token token;
   expect(status, DefToken::OParenthesis, nextTokenIgnoringNewlines());
   expect(status, DefToken::QuotedString, nextTokenIgnoringNewlines());
@@ -293,30 +349,34 @@ void DefParser::parseDefaultProperty(ParserStatus& status) {
   expect(status, DefToken::CParenthesis, nextTokenIgnoringNewlines());
 }
 
-std::string DefParser::parseBaseProperty(ParserStatus& status) {
+std::string DefParser::parseBaseProperty(ParserStatus& status)
+{
   expect(status, DefToken::OParenthesis, nextTokenIgnoringNewlines());
-  Token token = expect(status, DefToken::QuotedString, nextTokenIgnoringNewlines());
-  const std::string basename = token.data();
+  auto token = expect(status, DefToken::QuotedString, nextTokenIgnoringNewlines());
+  const auto basename = token.data();
   expect(status, DefToken::CParenthesis, nextTokenIgnoringNewlines());
 
   return basename;
 }
 
-DefParser::PropertyDefinitionPtr DefParser::parseChoicePropertyDefinition(ParserStatus& status) {
-  Token token = expect(status, DefToken::QuotedString, m_tokenizer.nextToken());
-  const std::string propertyKey = token.data();
+std::unique_ptr<Assets::PropertyDefinition> DefParser::parseChoicePropertyDefinition(
+  ParserStatus& status)
+{
+  auto token = expect(status, DefToken::QuotedString, m_tokenizer.nextToken());
+  auto propertyKey = token.data();
 
   Assets::ChoicePropertyOption::List options;
   expect(status, DefToken::OParenthesis, nextTokenIgnoringNewlines());
   token = nextTokenIgnoringNewlines();
-  while (token.type() == DefToken::OParenthesis) {
+  while (token.type() == DefToken::OParenthesis)
+  {
     token = expect(status, DefToken::Integer, nextTokenIgnoringNewlines());
-    const std::string name = token.data();
+    auto name = token.data();
 
     expect(status, DefToken::Comma, nextTokenIgnoringNewlines());
     token = expect(status, DefToken::QuotedString, nextTokenIgnoringNewlines());
-    const std::string value = token.data();
-    options.push_back(Assets::ChoicePropertyOption(name, value));
+    auto value = token.data();
+    options.emplace_back(std::move(name), std::move(value));
 
     expect(status, DefToken::CParenthesis, nextTokenIgnoringNewlines());
     token = nextTokenIgnoringNewlines();
@@ -324,19 +384,23 @@ DefParser::PropertyDefinitionPtr DefParser::parseChoicePropertyDefinition(Parser
 
   expect(status, DefToken::CParenthesis, token);
 
-  return DefParser::PropertyDefinitionPtr(
-    new Assets::ChoicePropertyDefinition(propertyKey, "", "", options, false));
+  return std::make_unique<Assets::ChoicePropertyDefinition>(
+    std::move(propertyKey), "", "", std::move(options), false);
 }
 
-Assets::ModelDefinition DefParser::parseModelDefinition(ParserStatus& status) {
+Assets::ModelDefinition DefParser::parseModelDefinition(ParserStatus& status)
+{
   expect(status, DefToken::OParenthesis, m_tokenizer.nextToken());
 
   const auto snapshot = m_tokenizer.snapshot();
   const auto line = m_tokenizer.line();
   const auto column = m_tokenizer.column();
+  const auto location = m_tokenizer.location();
 
-  try {
-    ELParser parser(ELParser::Mode::Lenient, m_tokenizer.remainder(), line, column);
+  try
+  {
+    auto parser =
+      ELParser{ELParser::Mode::Lenient, m_tokenizer.remainder(), line, column};
     auto expression = parser.parse();
 
     // advance our tokenizer by the amount that the `parser` parsed
@@ -344,12 +408,15 @@ Assets::ModelDefinition DefParser::parseModelDefinition(ParserStatus& status) {
     expect(status, DefToken::CParenthesis, m_tokenizer.nextToken());
 
     expression.optimize();
-    return Assets::ModelDefinition(expression);
-  } catch (const ParserException& e) {
-    try {
+    return Assets::ModelDefinition{std::move(expression)};
+  }
+  catch (const ParserException& e)
+  {
+    try
+    {
       m_tokenizer.restore(snapshot);
 
-      LegacyModelDefinitionParser parser(m_tokenizer.remainder(), line, column);
+      auto parser = LegacyModelDefinitionParser{m_tokenizer.remainder(), line, column};
       auto expression = parser.parse(status);
 
       // advance our tokenizer by the amount that `parser` parsed
@@ -358,35 +425,47 @@ Assets::ModelDefinition DefParser::parseModelDefinition(ParserStatus& status) {
 
       expression.optimize();
       status.warn(
-        line, column,
-        "Legacy model expressions are deprecated, replace with '" + expression.asString() + "'");
-      return Assets::ModelDefinition(expression);
-    } catch (const ParserException&) {
+        location,
+        fmt::format(
+          "Legacy model expressions are deprecated, replace with '{}'",
+          expression.asString()));
+      return Assets::ModelDefinition{std::move(expression)};
+    }
+    catch (const ParserException&)
+    {
       m_tokenizer.restore(snapshot);
       throw e;
     }
   }
-}
-
-std::string DefParser::parseDescription() {
-  Token token = m_tokenizer.peekToken();
-  if (token.type() == DefToken::CDefinition) {
-    return "";
+  catch (const EL::EvaluationError& evaluationError)
+  {
+    throw ParserException{location, evaluationError.what()};
   }
-  return std::string(m_tokenizer.readRemainder(DefToken::CDefinition));
 }
 
-vm::vec3 DefParser::parseVector(ParserStatus& status) {
-  vm::vec3 vec;
-  for (size_t i = 0; i < 3; i++) {
-    Token token = expect(status, DefToken::Integer | DefToken::Decimal, m_tokenizer.nextToken());
+std::string DefParser::parseDescription()
+{
+  auto token = m_tokenizer.peekToken();
+  return token.type() != DefToken::CDefinition
+           ? std::string{m_tokenizer.readRemainder(DefToken::CDefinition)}
+           : "";
+}
+
+vm::vec3 DefParser::parseVector(ParserStatus& status)
+{
+  auto vec = vm::vec3{};
+  for (size_t i = 0; i < 3; i++)
+  {
+    auto token =
+      expect(status, DefToken::Integer | DefToken::Decimal, m_tokenizer.nextToken());
     vec[i] = token.toFloat<double>();
   }
   return vec;
 }
 
-vm::bbox3 DefParser::parseBounds(ParserStatus& status) {
-  vm::bbox3 bounds;
+vm::bbox3 DefParser::parseBounds(ParserStatus& status)
+{
+  auto bounds = vm::bbox3{};
   expect(status, DefToken::OParenthesis, m_tokenizer.nextToken());
   bounds.min = parseVector(status);
   expect(status, DefToken::CParenthesis, m_tokenizer.nextToken());
@@ -396,27 +475,33 @@ vm::bbox3 DefParser::parseBounds(ParserStatus& status) {
   return repair(bounds);
 }
 
-Color DefParser::parseColor(ParserStatus& status) {
-  Color color;
-  Token token;
+Color DefParser::parseColor(ParserStatus& status)
+{
+  auto color = Color{};
   expect(status, DefToken::OParenthesis, m_tokenizer.nextToken());
-  for (size_t i = 0; i < 3; i++) {
-    token = expect(status, DefToken::Decimal | DefToken::Integer, m_tokenizer.nextToken());
+  for (size_t i = 0; i < 3; i++)
+  {
+    const auto token =
+      expect(status, DefToken::Decimal | DefToken::Integer, m_tokenizer.nextToken());
     color[i] = token.toFloat<float>();
     if (color[i] > 1.0f)
+    {
       color[i] /= 255.0f;
+    }
   }
   expect(status, DefToken::CParenthesis, m_tokenizer.nextToken());
   color[3] = 1.0f;
   return color;
 }
 
-DefParser::Token DefParser::nextTokenIgnoringNewlines() {
-  Token token = m_tokenizer.nextToken();
-  while (token.type() == DefToken::Newline) {
+DefParser::Token DefParser::nextTokenIgnoringNewlines()
+{
+  auto token = m_tokenizer.nextToken();
+  while (token.type() == DefToken::Newline)
+  {
     token = m_tokenizer.nextToken();
   }
   return token;
 }
-} // namespace IO
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::IO

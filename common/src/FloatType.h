@@ -19,17 +19,19 @@
 
 #pragma once
 
-#include <vecmath/constants.h>
-#include <vecmath/forward.h>
+#include "vm/constants.h"
+#include "vm/forward.h"
 
 using FloatType = double;
 
-namespace vm {
+namespace vm
+{
 using vec3 = vm::vec<FloatType, 3>;
 using vec2 = vm::vec<FloatType, 2>;
 using mat4x4 = vm::mat<FloatType, 4, 4>;
 using quat3 = vm::quat<FloatType>;
 using line3 = vm::line<FloatType, 3>;
+using line2 = vm::line<FloatType, 2>;
 using ray3 = vm::ray<FloatType, 3>;
 using segment3 = vm::segment<FloatType, 3>;
 using plane3 = vm::plane<FloatType, 3>;

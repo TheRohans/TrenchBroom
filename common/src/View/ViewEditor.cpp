@@ -19,6 +19,14 @@
 
 #include "ViewEditor.h"
 
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QGridLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QScrollArea>
+
 #include "Assets/EntityDefinition.h"
 #include "Assets/EntityDefinitionGroup.h"
 #include "Assets/EntityDefinitionManager.h"
@@ -35,68 +43,73 @@
 #include "View/TitledPanel.h"
 #include "View/ViewConstants.h"
 
-#include <kdl/memory_utils.h>
+#include "kdl/memory_utils.h"
 
 #include <vector>
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QGridLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QRadioButton>
-#include <QScrollArea>
-
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 // EntityDefinitionCheckBoxList
 
 EntityDefinitionCheckBoxList::EntityDefinitionCheckBoxList(
-  Assets::EntityDefinitionManager& entityDefinitionManager, Model::EditorContext& editorContext,
+  Assets::EntityDefinitionManager& entityDefinitionManager,
+  Model::EditorContext& editorContext,
   QWidget* parent)
-  : QWidget(parent)
-  , m_entityDefinitionManager(entityDefinitionManager)
-  , m_editorContext(editorContext) {
+  : QWidget{parent}
+  , m_entityDefinitionManager{entityDefinitionManager}
+  , m_editorContext{editorContext}
+{
   createGui();
   refresh();
 }
 
-void EntityDefinitionCheckBoxList::refresh() {
+void EntityDefinitionCheckBoxList::refresh()
+{
   size_t defIndex = 0;
-  const std::vector<Assets::EntityDefinitionGroup>& groups = m_entityDefinitionManager.groups();
-  for (size_t i = 0; i < groups.size(); ++i) {
-    const Assets::EntityDefinitionGroup& group = groups[i];
-    const std::vector<Assets::EntityDefinition*>& definitions = group.definitions();
+  const auto& groups = m_entityDefinitionManager.groups();
+  for (size_t i = 0; i < groups.size(); ++i)
+  {
+    const auto& group = groups[i];
+    const auto& definitions = group.definitions();
 
-    if (!definitions.empty()) {
-      const bool firstHidden = m_editorContext.entityDefinitionHidden(definitions[0]);
-      bool mixed = false;
-      for (size_t j = 0; j < definitions.size(); ++j) {
-        const bool hidden = m_editorContext.entityDefinitionHidden(definitions[j]);
+    if (!definitions.empty())
+    {
+      const auto firstHidden = m_editorContext.entityDefinitionHidden(definitions[0]);
+      auto mixed = false;
+      for (size_t j = 0; j < definitions.size(); ++j)
+      {
+        const auto hidden = m_editorContext.entityDefinitionHidden(definitions[j]);
         mixed |= (hidden != firstHidden);
         m_defCheckBoxes[defIndex++]->setChecked(!hidden);
       }
 
       if (mixed)
+      {
         m_groupCheckBoxes[i]->setCheckState(Qt::PartiallyChecked);
+      }
       else
+      {
         m_groupCheckBoxes[i]->setChecked(!firstHidden);
+      }
       m_groupCheckBoxes[i]->setEnabled(true);
-    } else {
+    }
+    else
+    {
       m_groupCheckBoxes[i]->setChecked(true);
       m_groupCheckBoxes[i]->setEnabled(false);
     }
   }
 }
 
-void EntityDefinitionCheckBoxList::groupCheckBoxChanged(size_t groupIndex, bool checked) {
-  const std::vector<Assets::EntityDefinitionGroup>& groups = m_entityDefinitionManager.groups();
-  ensure(groupIndex < m_entityDefinitionManager.groups().size(), "index out of range");
-  const Assets::EntityDefinitionGroup& group = groups[groupIndex];
+void EntityDefinitionCheckBoxList::groupCheckBoxChanged(size_t groupIndex, bool checked)
+{
+  const auto& groups = m_entityDefinitionManager.groups();
+  const auto& group = groups.at(groupIndex);
 
-  const std::vector<Assets::EntityDefinition*>& definitions = group.definitions();
-  for (size_t i = 0; i < definitions.size(); ++i) {
-    const Assets::EntityDefinition* definition = definitions[i];
+  const auto& definitions = group.definitions();
+  for (size_t i = 0; i < definitions.size(); ++i)
+  {
+    const auto* definition = definitions[i];
     m_editorContext.setEntityDefinitionHidden(definition, !checked);
   }
 
@@ -104,57 +117,64 @@ void EntityDefinitionCheckBoxList::groupCheckBoxChanged(size_t groupIndex, bool 
 }
 
 void EntityDefinitionCheckBoxList::defCheckBoxChanged(
-  const Assets::EntityDefinition* definition, bool checked) {
+  const Assets::EntityDefinition* definition, bool checked)
+{
   m_editorContext.setEntityDefinitionHidden(definition, !checked);
   refresh();
 }
 
-void EntityDefinitionCheckBoxList::showAllClicked() {
+void EntityDefinitionCheckBoxList::showAllClicked()
+{
   hideAll(false);
 }
 
-void EntityDefinitionCheckBoxList::hideAllClicked() {
+void EntityDefinitionCheckBoxList::hideAllClicked()
+{
   hideAll(true);
 }
 
-void EntityDefinitionCheckBoxList::hideAll(const bool hidden) {
-  const std::vector<Assets::EntityDefinitionGroup>& groups = m_entityDefinitionManager.groups();
-  for (size_t i = 0; i < groups.size(); ++i) {
-    const Assets::EntityDefinitionGroup& group = groups[i];
-    const std::vector<Assets::EntityDefinition*>& definitions = group.definitions();
-    for (size_t j = 0; j < definitions.size(); ++j) {
-      const Assets::EntityDefinition* definition = definitions[j];
+void EntityDefinitionCheckBoxList::hideAll(const bool hidden)
+{
+  const auto& groups = m_entityDefinitionManager.groups();
+  for (size_t i = 0; i < groups.size(); ++i)
+  {
+    const auto& group = groups[i];
+    const auto& definitions = group.definitions();
+    for (size_t j = 0; j < definitions.size(); ++j)
+    {
+      const auto* definition = definitions[j];
       m_editorContext.setEntityDefinitionHidden(definition, hidden);
     }
   }
 }
 
-void EntityDefinitionCheckBoxList::createGui() {
-  auto* scrollWidgetLayout = new QVBoxLayout();
+void EntityDefinitionCheckBoxList::createGui()
+{
+  auto* scrollWidgetLayout = new QVBoxLayout{};
   scrollWidgetLayout->setContentsMargins(0, 0, 0, 0);
   scrollWidgetLayout->setSpacing(0);
   scrollWidgetLayout->addSpacing(1);
 
-  const std::vector<Assets::EntityDefinitionGroup>& groups = m_entityDefinitionManager.groups();
-  for (size_t i = 0; i < groups.size(); ++i) {
-    const Assets::EntityDefinitionGroup& group = groups[i];
-    const std::vector<Assets::EntityDefinition*>& definitions = group.definitions();
-    const std::string& groupName = group.displayName();
+  const auto& groups = m_entityDefinitionManager.groups();
+  for (size_t i = 0; i < groups.size(); ++i)
+  {
+    const auto& group = groups[i];
+    const auto& definitions = group.definitions();
+    const auto& groupName = group.displayName();
 
     // Checkbox for the prefix, e.g. "func"
-    auto* groupCB = new QCheckBox(QString::fromStdString(groupName));
+    auto* groupCB = new QCheckBox{QString::fromStdString(groupName)};
     makeEmphasized(groupCB);
-    connect(groupCB, &QAbstractButton::clicked, this, [this, i](bool checked) {
+    connect(groupCB, &QAbstractButton::clicked, this, [&, i](auto checked) {
       this->groupCheckBoxChanged(i, checked);
     });
     m_groupCheckBoxes.push_back(groupCB);
 
     scrollWidgetLayout->addWidget(groupCB);
 
-    for (auto defIt = std::begin(definitions), defEnd = std::end(definitions); defIt != defEnd;
-         ++defIt) {
-      Assets::EntityDefinition* definition = *defIt;
-      const std::string defName = definition->name();
+    for (const auto* definition : definitions)
+    {
+      const auto defName = definition->name();
 
       auto* defCB = new QCheckBox(QString::fromStdString(defName));
       defCB->setObjectName("entityDefinition_checkboxWidget");
@@ -170,25 +190,31 @@ void EntityDefinitionCheckBoxList::createGui() {
 
   scrollWidgetLayout->addSpacing(1);
 
-  auto* scrollWidget = new QWidget();
+  auto* scrollWidget = new QWidget{};
   scrollWidget->setLayout(scrollWidgetLayout);
 
-  auto* scrollArea = new QScrollArea();
+  auto* scrollArea = new QScrollArea{};
   scrollArea->setBackgroundRole(QPalette::Base);
   scrollArea->setAutoFillBackground(true);
   scrollArea->setWidget(scrollWidget);
 
-  auto* showAllButton = new QPushButton(tr("Show all"));
+  auto* showAllButton = new QPushButton{tr("Show all")};
   makeEmphasized(showAllButton);
-  auto* hideAllButton = new QPushButton(tr("Hide all"));
+  auto* hideAllButton = new QPushButton{tr("Hide all")};
   makeEmphasized(hideAllButton);
 
   connect(
-    showAllButton, &QAbstractButton::clicked, this, &EntityDefinitionCheckBoxList::showAllClicked);
+    showAllButton,
+    &QAbstractButton::clicked,
+    this,
+    &EntityDefinitionCheckBoxList::showAllClicked);
   connect(
-    hideAllButton, &QAbstractButton::clicked, this, &EntityDefinitionCheckBoxList::hideAllClicked);
+    hideAllButton,
+    &QAbstractButton::clicked,
+    this,
+    &EntityDefinitionCheckBoxList::hideAllClicked);
 
-  auto* buttonLayout = new QHBoxLayout();
+  auto* buttonLayout = new QHBoxLayout{};
   buttonLayout->setContentsMargins(0, 0, 0, 0);
   buttonLayout->setSpacing(LayoutConstants::NarrowHMargin);
   buttonLayout->addStretch(1);
@@ -196,7 +222,7 @@ void EntityDefinitionCheckBoxList::createGui() {
   buttonLayout->addWidget(hideAllButton);
   buttonLayout->addStretch(1);
 
-  auto* outerLayout = new QVBoxLayout();
+  auto* outerLayout = new QVBoxLayout{};
   outerLayout->setContentsMargins(0, 0, 0, 0);
   outerLayout->setSpacing(LayoutConstants::MediumVMargin);
   outerLayout->addWidget(scrollArea, 1);
@@ -207,65 +233,60 @@ void EntityDefinitionCheckBoxList::createGui() {
 // ViewEditor
 
 ViewEditor::ViewEditor(std::weak_ptr<MapDocument> document, QWidget* parent)
-  : QWidget(parent)
-  , m_document(std::move(document))
-  , m_showEntityClassnamesCheckBox(nullptr)
-  , m_showGroupBoundsCheckBox(nullptr)
-  , m_showBrushEntityBoundsCheckBox(nullptr)
-  , m_showPointEntityBoundsCheckBox(nullptr)
-  , m_showPointEntitiesCheckBox(nullptr)
-  , m_showPointEntityModelsCheckBox(nullptr)
-  , m_entityDefinitionCheckBoxList(nullptr)
-  , m_showBrushesCheckBox(nullptr)
-  , m_renderModeRadioGroup(nullptr)
-  , m_shadeFacesCheckBox(nullptr)
-  , m_showFogCheckBox(nullptr)
-  , m_showEdgesCheckBox(nullptr)
-  , m_entityLinkRadioGroup(nullptr)
-  , m_showSoftBoundsCheckBox(nullptr) {
+  : QWidget{parent}
+  , m_document{std::move(document)}
+{
   connectObservers();
 }
 
-void ViewEditor::connectObservers() {
+void ViewEditor::connectObservers()
+{
   auto document = kdl::mem_lock(m_document);
-  m_notifierConnection +=
-    document->documentWasNewedNotifier.connect(this, &ViewEditor::documentWasNewedOrLoaded);
-  m_notifierConnection +=
-    document->documentWasLoadedNotifier.connect(this, &ViewEditor::documentWasNewedOrLoaded);
-  m_notifierConnection +=
-    document->editorContextDidChangeNotifier.connect(this, &ViewEditor::editorContextDidChange);
+  m_notifierConnection += document->documentWasNewedNotifier.connect(
+    this, &ViewEditor::documentWasNewedOrLoaded);
+  m_notifierConnection += document->documentWasLoadedNotifier.connect(
+    this, &ViewEditor::documentWasNewedOrLoaded);
+  m_notifierConnection += document->editorContextDidChangeNotifier.connect(
+    this, &ViewEditor::editorContextDidChange);
   m_notifierConnection += document->entityDefinitionsDidChangeNotifier.connect(
     this, &ViewEditor::entityDefinitionsDidChange);
 
-  PreferenceManager& prefs = PreferenceManager::instance();
+  auto& prefs = PreferenceManager::instance();
   m_notifierConnection +=
     prefs.preferenceDidChangeNotifier.connect(this, &ViewEditor::preferenceDidChange);
 }
 
-void ViewEditor::documentWasNewedOrLoaded(MapDocument*) {
+void ViewEditor::documentWasNewedOrLoaded(MapDocument*)
+{
   createGui();
   refreshGui();
 }
 
-void ViewEditor::editorContextDidChange() {
+void ViewEditor::editorContextDidChange()
+{
   refreshGui();
 }
 
-void ViewEditor::entityDefinitionsDidChange() {
+void ViewEditor::entityDefinitionsDidChange()
+{
   createGui();
   refreshGui();
 }
 
-void ViewEditor::preferenceDidChange(const IO::Path&) {
+void ViewEditor::preferenceDidChange(const std::filesystem::path&)
+{
   refreshGui();
 }
 
-void ViewEditor::createGui() {
+void ViewEditor::createGui()
+{
   deleteChildWidgetsLaterAndDeleteLayout(this);
 
-  auto* sizer = new QGridLayout();
+  auto* sizer = new QGridLayout{};
   sizer->setContentsMargins(
-    LayoutConstants::WideHMargin, LayoutConstants::WideVMargin, LayoutConstants::WideHMargin,
+    LayoutConstants::WideHMargin,
+    LayoutConstants::WideVMargin,
+    LayoutConstants::WideHMargin,
     LayoutConstants::WideVMargin);
   sizer->setHorizontalSpacing(LayoutConstants::WideHMargin);
   sizer->setVerticalSpacing(LayoutConstants::WideVMargin);
@@ -277,17 +298,18 @@ void ViewEditor::createGui() {
   setLayout(sizer);
 }
 
-QWidget* ViewEditor::createEntityDefinitionsPanel(QWidget* parent) {
-  TitledPanel* panel = new TitledPanel("Entity Definitions", parent, false);
+QWidget* ViewEditor::createEntityDefinitionsPanel(QWidget* parent)
+{
+  auto* panel = new TitledPanel{"Entity Definitions", parent, false};
 
   auto document = kdl::mem_lock(m_document);
-  Assets::EntityDefinitionManager& entityDefinitionManager = document->entityDefinitionManager();
+  auto& entityDefinitionManager = document->entityDefinitionManager();
 
-  Model::EditorContext& editorContext = document->editorContext();
+  auto& editorContext = document->editorContext();
   m_entityDefinitionCheckBoxList =
-    new EntityDefinitionCheckBoxList(entityDefinitionManager, editorContext);
+    new EntityDefinitionCheckBoxList{entityDefinitionManager, editorContext};
 
-  auto* layout = new QVBoxLayout();
+  auto* layout = new QVBoxLayout{};
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
   layout->addWidget(m_entityDefinitionCheckBoxList, 1);
@@ -297,37 +319,50 @@ QWidget* ViewEditor::createEntityDefinitionsPanel(QWidget* parent) {
   return panel;
 }
 
-QWidget* ViewEditor::createEntitiesPanel(QWidget* parent) {
-  TitledPanel* panel = new TitledPanel("Entities", parent, false);
+QWidget* ViewEditor::createEntitiesPanel(QWidget* parent)
+{
+  auto* panel = new TitledPanel{"Entities", parent, false};
 
-  m_showEntityClassnamesCheckBox = new QCheckBox(tr("Show entity classnames"));
-  m_showGroupBoundsCheckBox = new QCheckBox(tr("Show group bounds and names"));
-  m_showBrushEntityBoundsCheckBox = new QCheckBox(tr("Show brush entity bounds"));
-  m_showPointEntityBoundsCheckBox = new QCheckBox(tr("Show point entity bounds"));
+  m_showEntityClassnamesCheckBox = new QCheckBox{tr("Show entity classnames")};
+  m_showGroupBoundsCheckBox = new QCheckBox{tr("Show group bounds and names")};
+  m_showBrushEntityBoundsCheckBox = new QCheckBox{tr("Show brush entity bounds")};
+  m_showPointEntityBoundsCheckBox = new QCheckBox{tr("Show point entity bounds")};
 
-  m_showPointEntitiesCheckBox = new QCheckBox(tr("Show point entities"));
-  m_showPointEntityModelsCheckBox = new QCheckBox(tr("Show point entity models"));
+  m_showPointEntitiesCheckBox = new QCheckBox{tr("Show point entities")};
+  m_showPointEntityModelsCheckBox = new QCheckBox{tr("Show point entity models")};
 
   connect(
-    m_showEntityClassnamesCheckBox, &QAbstractButton::clicked, this,
+    m_showEntityClassnamesCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showEntityClassnamesChanged);
   connect(
-    m_showGroupBoundsCheckBox, &QAbstractButton::clicked, this,
+    m_showGroupBoundsCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showGroupBoundsChanged);
   connect(
-    m_showBrushEntityBoundsCheckBox, &QAbstractButton::clicked, this,
+    m_showBrushEntityBoundsCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showBrushEntityBoundsChanged);
   connect(
-    m_showPointEntityBoundsCheckBox, &QAbstractButton::clicked, this,
+    m_showPointEntityBoundsCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showPointEntityBoundsChanged);
   connect(
-    m_showPointEntitiesCheckBox, &QAbstractButton::clicked, this,
+    m_showPointEntitiesCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showPointEntitiesChanged);
   connect(
-    m_showPointEntityModelsCheckBox, &QAbstractButton::clicked, this,
+    m_showPointEntityModelsCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showPointEntityModelsChanged);
 
-  auto* layout = new QVBoxLayout();
+  auto* layout = new QVBoxLayout{};
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
   layout->addWidget(m_showEntityClassnamesCheckBox);
@@ -341,135 +376,176 @@ QWidget* ViewEditor::createEntitiesPanel(QWidget* parent) {
   return panel;
 }
 
-QWidget* ViewEditor::createBrushesPanel(QWidget* parent) {
-  TitledPanel* panel = new TitledPanel("Brushes", parent, false);
+QWidget* ViewEditor::createBrushesPanel(QWidget* parent)
+{
+  auto* panel = new TitledPanel{"Brushes", parent, false};
   auto* inner = panel->getPanel();
   createTagFilter(inner);
 
-  m_showBrushesCheckBox = new QCheckBox(tr("Show brushes"));
-  connect(m_showBrushesCheckBox, &QAbstractButton::clicked, this, &ViewEditor::showBrushesChanged);
+  m_showBrushesCheckBox = new QCheckBox{tr("Show brushes")};
+  connect(
+    m_showBrushesCheckBox,
+    &QAbstractButton::clicked,
+    this,
+    &ViewEditor::showBrushesChanged);
 
   auto* innerLayout = qobject_cast<QBoxLayout*>(inner->layout());
-  ensure(innerLayout != nullptr, "inner sizer is null");
+  ensure(innerLayout, "inner sizer is null");
   innerLayout->insertWidget(0, m_showBrushesCheckBox);
 
   return panel;
 }
 
-void ViewEditor::createTagFilter(QWidget* parent) {
+void ViewEditor::createTagFilter(QWidget* parent)
+{
   m_tagCheckBoxes.clear();
 
   auto document = kdl::mem_lock(m_document);
   const auto& tags = document->smartTags();
-  if (tags.empty()) {
+  if (tags.empty())
+  {
     createEmptyTagFilter(parent);
-  } else {
+  }
+  else
+  {
     createTagFilter(parent, tags);
   }
 }
 
-void ViewEditor::createEmptyTagFilter(QWidget* parent) {
-  auto* msg = new QLabel(tr("No tags found"));
+void ViewEditor::createEmptyTagFilter(QWidget* parent)
+{
+  auto* msg = new QLabel{tr("No tags found")};
   makeInfo(msg);
 
-  auto* layout = new QHBoxLayout();
-  layout->setContentsMargins(0, LayoutConstants::WideVMargin, 0, LayoutConstants::WideVMargin);
+  auto* layout = new QHBoxLayout{};
+  layout->setContentsMargins(
+    0, LayoutConstants::WideVMargin, 0, LayoutConstants::WideVMargin);
   layout->setSpacing(0);
   layout->addWidget(msg);
 
   parent->setLayout(layout);
 }
 
-void ViewEditor::createTagFilter(QWidget* parent, const std::vector<Model::SmartTag>& tags) {
+void ViewEditor::createTagFilter(
+  QWidget* parent, const std::vector<Model::SmartTag>& tags)
+{
   assert(!tags.empty());
 
-  auto* layout = new QVBoxLayout();
+  auto* layout = new QVBoxLayout{};
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
 
-  for (const auto& tag : tags) {
-    const QString label =
+  for (const auto& tag : tags)
+  {
+    const auto label =
       QString::fromLatin1("Show %1").arg(QString::fromStdString(tag.name()).toLower());
 
-    auto* checkBox = new QCheckBox(label);
-    const Model::TagType::Type tagType = tag.type();
+    auto* checkBox = new QCheckBox{label};
+    const auto tagType = tag.type();
 
     m_tagCheckBoxes.emplace_back(tagType, checkBox);
 
     layout->addWidget(checkBox);
-    connect(checkBox, &QAbstractButton::clicked, this, [this, tagType](const bool checked) {
-      showTagChanged(checked, tagType);
-    });
+    connect(
+      checkBox, &QAbstractButton::clicked, this, [this, tagType](const bool checked) {
+        showTagChanged(checked, tagType);
+      });
   }
   parent->setLayout(layout);
 }
 
-QWidget* ViewEditor::createRendererPanel(QWidget* parent) {
-  TitledPanel* panel = new TitledPanel("Renderer", parent, false);
-  QWidget* inner = panel->getPanel();
+QWidget* ViewEditor::createRendererPanel(QWidget* parent)
+{
+  auto* panel = new TitledPanel{"Renderer", parent, false};
+  auto* inner = panel->getPanel();
 
-  const QList<QString> FaceRenderModes = {"Show textures", "Hide textures", "Hide faces"};
-  const QList<QString> FaceRenderModesPrefValues = {
-    Preferences::faceRenderModeTextured(), Preferences::faceRenderModeFlat(),
+  const auto FaceRenderModes =
+    QStringList{"Show materials", "Hide materials", "Hide faces"};
+  const auto FaceRenderModesPrefValues = QStringList{
+    Preferences::faceRenderModeTextured(),
+    Preferences::faceRenderModeFlat(),
     Preferences::faceRenderModeSkip()};
 
-  m_renderModeRadioGroup = new QButtonGroup(this);
-  for (int i = 0; i < FaceRenderModes.length(); ++i) {
-    const QString& label = FaceRenderModes.at(i);
-    const QString& prefValue = FaceRenderModesPrefValues.at(i);
+  m_renderModeRadioGroup = new QButtonGroup{};
+  for (int i = 0; i < FaceRenderModes.length(); ++i)
+  {
+    const auto& label = FaceRenderModes.at(i);
+    const auto& prefValue = FaceRenderModesPrefValues.at(i);
 
-    auto* radio = new QRadioButton(label);
+    auto* radio = new QRadioButton{label};
     radio->setObjectName(prefValue);
     m_renderModeRadioGroup->addButton(radio, i);
   }
 
-  m_shadeFacesCheckBox = new QCheckBox(tr("Shade faces"));
-  m_showFogCheckBox = new QCheckBox(tr("Use fog"));
-  m_showEdgesCheckBox = new QCheckBox(tr("Show edges"));
+  m_shadeFacesCheckBox = new QCheckBox{tr("Shade faces")};
+  m_showFogCheckBox = new QCheckBox{tr("Use fog")};
+  m_showEdgesCheckBox = new QCheckBox{tr("Show edges")};
 
-  const QList<QString> EntityLinkModes = {
-    "Show all entity links", "Show transitively selected entity links",
-    "Show directly selected entity links", "Hide entity links"};
-  const QList<QString> EntityLinkModesPrefValues = {
-    Preferences::entityLinkModeAll(), Preferences::entityLinkModeTransitive(),
-    Preferences::entityLinkModeDirect(), Preferences::entityLinkModeNone()};
-  m_entityLinkRadioGroup = new QButtonGroup(this);
-  for (int i = 0; i < EntityLinkModes.length(); ++i) {
-    const QString& label = EntityLinkModes.at(i);
-    const QString& prefValue = EntityLinkModesPrefValues.at(i);
+  const auto EntityLinkModes = QStringList{
+    "Show all entity links",
+    "Show transitively selected entity links",
+    "Show directly selected entity links",
+    "Hide entity links"};
+  const auto EntityLinkModesPrefValues = QStringList{
+    Preferences::entityLinkModeAll(),
+    Preferences::entityLinkModeTransitive(),
+    Preferences::entityLinkModeDirect(),
+    Preferences::entityLinkModeNone()};
 
-    auto* radio = new QRadioButton(label);
+  m_entityLinkRadioGroup = new QButtonGroup{};
+  for (int i = 0; i < EntityLinkModes.length(); ++i)
+  {
+    const auto& label = EntityLinkModes.at(i);
+    const auto& prefValue = EntityLinkModesPrefValues.at(i);
+
+    auto* radio = new QRadioButton{label};
     radio->setObjectName(prefValue);
     m_entityLinkRadioGroup->addButton(radio, i);
   }
 
-  m_showSoftBoundsCheckBox = new QCheckBox(tr("Show soft bounds"));
+  m_showSoftBoundsCheckBox = new QCheckBox{tr("Show soft bounds")};
 
-  auto* restoreDefualtsButton = new QPushButton(tr("Restore Defaults"));
+  auto* restoreDefualtsButton = new QPushButton{tr("Restore Defaults")};
   makeEmphasized(restoreDefualtsButton);
 
-  connect(m_shadeFacesCheckBox, &QAbstractButton::clicked, this, &ViewEditor::shadeFacesChanged);
-  connect(m_showFogCheckBox, &QAbstractButton::clicked, this, &ViewEditor::showFogChanged);
-  connect(m_showEdgesCheckBox, &QAbstractButton::clicked, this, &ViewEditor::showEdgesChanged);
+  connect(
+    m_shadeFacesCheckBox,
+    &QAbstractButton::clicked,
+    this,
+    &ViewEditor::shadeFacesChanged);
+  connect(
+    m_showFogCheckBox, &QAbstractButton::clicked, this, &ViewEditor::showFogChanged);
+  connect(
+    m_showEdgesCheckBox, &QAbstractButton::clicked, this, &ViewEditor::showEdgesChanged);
 
   connect(
-    m_renderModeRadioGroup, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
-    this, &ViewEditor::faceRenderModeChanged);
+    m_renderModeRadioGroup,
+    static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
+    this,
+    &ViewEditor::faceRenderModeChanged);
   connect(
-    m_entityLinkRadioGroup, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
-    this, &ViewEditor::entityLinkModeChanged);
+    m_entityLinkRadioGroup,
+    static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
+    this,
+    &ViewEditor::entityLinkModeChanged);
 
   connect(
-    m_showSoftBoundsCheckBox, &QAbstractButton::clicked, this,
+    m_showSoftBoundsCheckBox,
+    &QAbstractButton::clicked,
+    this,
     &ViewEditor::showSoftMapBoundsChanged);
   connect(
-    restoreDefualtsButton, &QAbstractButton::clicked, this, &ViewEditor::restoreDefaultsClicked);
+    restoreDefualtsButton,
+    &QAbstractButton::clicked,
+    this,
+    &ViewEditor::restoreDefaultsClicked);
 
-  auto* layout = new QVBoxLayout();
+  auto* layout = new QVBoxLayout{};
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
 
-  for (auto* button : m_renderModeRadioGroup->buttons()) {
+  for (auto* button : m_renderModeRadioGroup->buttons())
+  {
     layout->addWidget(button);
   }
 
@@ -477,7 +553,8 @@ QWidget* ViewEditor::createRendererPanel(QWidget* parent) {
   layout->addWidget(m_showFogCheckBox);
   layout->addWidget(m_showEdgesCheckBox);
 
-  for (auto* button : m_entityLinkRadioGroup->buttons()) {
+  for (auto* button : m_entityLinkRadioGroup->buttons())
+  {
     layout->addWidget(button);
   }
 
@@ -489,18 +566,21 @@ QWidget* ViewEditor::createRendererPanel(QWidget* parent) {
   return panel;
 }
 
-void ViewEditor::refreshGui() {
+void ViewEditor::refreshGui()
+{
   refreshEntityDefinitionsPanel();
   refreshEntitiesPanel();
   refreshBrushesPanel();
   refreshRendererPanel();
 }
 
-void ViewEditor::refreshEntityDefinitionsPanel() {
+void ViewEditor::refreshEntityDefinitionsPanel()
+{
   m_entityDefinitionCheckBoxList->refresh();
 }
 
-void ViewEditor::refreshEntitiesPanel() {
+void ViewEditor::refreshEntitiesPanel()
+{
   auto document = kdl::mem_lock(m_document);
 
   m_showEntityClassnamesCheckBox->setChecked(pref(Preferences::ShowEntityClassnames));
@@ -511,20 +591,23 @@ void ViewEditor::refreshEntitiesPanel() {
   m_showPointEntityModelsCheckBox->setChecked(pref(Preferences::ShowPointEntityModels));
 }
 
-void ViewEditor::refreshBrushesPanel() {
+void ViewEditor::refreshBrushesPanel()
+{
   auto document = kdl::mem_lock(m_document);
 
   m_showBrushesCheckBox->setChecked(pref(Preferences::ShowBrushes));
 
-  Model::EditorContext& editorContext = document->editorContext();
-  const Model::TagType::Type hiddenTags = editorContext.hiddenTags();
+  auto& editorContext = document->editorContext();
+  const auto hiddenTags = editorContext.hiddenTags();
 
-  for (const auto& [tagType, checkBox] : m_tagCheckBoxes) {
+  for (const auto& [tagType, checkBox] : m_tagCheckBoxes)
+  {
     checkBox->setChecked((tagType & hiddenTags) == 0);
   }
 }
 
-void ViewEditor::refreshRendererPanel() {
+void ViewEditor::refreshRendererPanel()
+{
   checkButtonInGroup(m_renderModeRadioGroup, pref(Preferences::FaceRenderMode), true);
   m_shadeFacesCheckBox->setChecked(pref(Preferences::ShadeFaces));
   m_showFogCheckBox->setChecked(pref(Preferences::ShowFog));
@@ -533,43 +616,54 @@ void ViewEditor::refreshRendererPanel() {
   m_showSoftBoundsCheckBox->setChecked(pref(Preferences::ShowSoftMapBounds));
 }
 
-void ViewEditor::showEntityClassnamesChanged(const bool checked) {
+void ViewEditor::showEntityClassnamesChanged(const bool checked)
+{
   setPref(Preferences::ShowEntityClassnames, checked);
 }
 
-void ViewEditor::showGroupBoundsChanged(const bool checked) {
+void ViewEditor::showGroupBoundsChanged(const bool checked)
+{
   setPref(Preferences::ShowGroupBounds, checked);
 }
 
-void ViewEditor::showBrushEntityBoundsChanged(const bool checked) {
+void ViewEditor::showBrushEntityBoundsChanged(const bool checked)
+{
   setPref(Preferences::ShowBrushEntityBounds, checked);
 }
 
-void ViewEditor::showPointEntityBoundsChanged(const bool checked) {
+void ViewEditor::showPointEntityBoundsChanged(const bool checked)
+{
   setPref(Preferences::ShowPointEntityBounds, checked);
 }
 
-void ViewEditor::showPointEntitiesChanged(const bool checked) {
+void ViewEditor::showPointEntitiesChanged(const bool checked)
+{
   setPref(Preferences::ShowPointEntities, checked);
 }
 
-void ViewEditor::showPointEntityModelsChanged(const bool checked) {
+void ViewEditor::showPointEntityModelsChanged(const bool checked)
+{
   setPref(Preferences::ShowPointEntityModels, checked);
 }
 
-void ViewEditor::showBrushesChanged(const bool checked) {
+void ViewEditor::showBrushesChanged(const bool checked)
+{
   setPref(Preferences::ShowBrushes, checked);
 }
 
-void ViewEditor::showTagChanged(const bool checked, const Model::TagType::Type tagType) {
+void ViewEditor::showTagChanged(const bool checked, const Model::TagType::Type tagType)
+{
   auto document = kdl::mem_lock(m_document);
   auto& editorContext = document->editorContext();
 
-  Model::TagType::Type hiddenTags = editorContext.hiddenTags();
-  if (checked) {
+  auto hiddenTags = editorContext.hiddenTags();
+  if (checked)
+  {
     // Unhide tagType
     hiddenTags &= ~tagType;
-  } else {
+  }
+  else
+  {
     // Hide tagType
     hiddenTags |= tagType;
   }
@@ -577,55 +671,64 @@ void ViewEditor::showTagChanged(const bool checked, const Model::TagType::Type t
   editorContext.setHiddenTags(hiddenTags);
 }
 
-void ViewEditor::faceRenderModeChanged(const int id) {
-  switch (id) {
-    case 1:
-      setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeFlat());
-      break;
-    case 2:
-      setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeSkip());
-      break;
-    default:
-      setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeTextured());
-      break;
+void ViewEditor::faceRenderModeChanged(const int id)
+{
+  switch (id)
+  {
+  case 1:
+    setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeFlat());
+    break;
+  case 2:
+    setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeSkip());
+    break;
+  default:
+    setPref(Preferences::FaceRenderMode, Preferences::faceRenderModeTextured());
+    break;
   }
 }
 
-void ViewEditor::shadeFacesChanged(const bool checked) {
+void ViewEditor::shadeFacesChanged(const bool checked)
+{
   setPref(Preferences::ShadeFaces, checked);
 }
 
-void ViewEditor::showFogChanged(const bool checked) {
+void ViewEditor::showFogChanged(const bool checked)
+{
   setPref(Preferences::ShowFog, checked);
 }
 
-void ViewEditor::showEdgesChanged(const bool checked) {
+void ViewEditor::showEdgesChanged(const bool checked)
+{
   setPref(Preferences::ShowEdges, checked);
 }
 
-void ViewEditor::entityLinkModeChanged(const int id) {
-  switch (id) {
-    case 0:
-      setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeAll());
-      break;
-    case 1:
-      setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeTransitive());
-      break;
-    case 2:
-      setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeDirect());
-      break;
-    default:
-      setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeNone());
-      break;
+void ViewEditor::entityLinkModeChanged(const int id)
+{
+  switch (id)
+  {
+  case 0:
+    setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeAll());
+    break;
+  case 1:
+    setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeTransitive());
+    break;
+  case 2:
+    setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeDirect());
+    break;
+  default:
+    setPref(Preferences::EntityLinkMode, Preferences::entityLinkModeNone());
+    break;
   }
 }
 
-void ViewEditor::showSoftMapBoundsChanged(const bool checked) {
+void ViewEditor::showSoftMapBoundsChanged(const bool checked)
+{
   setPref(Preferences::ShowSoftMapBounds, checked);
 }
 
-void ViewEditor::restoreDefaultsClicked() {
-  PreferenceManager& prefs = PreferenceManager::instance();
+void ViewEditor::restoreDefaultsClicked()
+{
+  auto& prefs = PreferenceManager::instance();
   prefs.resetToDefault(Preferences::ShowEntityClassnames);
   prefs.resetToDefault(Preferences::ShowGroupBounds);
   prefs.resetToDefault(Preferences::ShowBrushEntityBounds);
@@ -643,30 +746,29 @@ void ViewEditor::restoreDefaultsClicked() {
 }
 
 ViewPopupEditor::ViewPopupEditor(std::weak_ptr<MapDocument> document, QWidget* parent)
-  : QWidget(parent)
-  , m_button(nullptr)
-  , m_editor(nullptr) {
-  m_button = new PopupButton(tr("View Options"));
+  : QWidget{parent}
+{
+  m_button = new PopupButton{tr("View Options")};
   m_button->setToolTip(tr("Click to edit view settings"));
 
-  auto* editorContainer = new BorderPanel();
-  m_editor = new ViewEditor(document);
+  auto* editorContainer = new BorderPanel{};
+  m_editor = new ViewEditor{std::move(document)};
 
-  auto* containerSizer = new QVBoxLayout();
+  auto* containerSizer = new QVBoxLayout{};
   containerSizer->setContentsMargins(0, 0, 0, 0);
   containerSizer->addWidget(m_editor);
   editorContainer->setLayout(containerSizer);
 
-  auto* popupSizer = new QVBoxLayout();
+  auto* popupSizer = new QVBoxLayout{};
   popupSizer->setContentsMargins(0, 0, 0, 0);
   popupSizer->addWidget(editorContainer);
   m_button->GetPopupWindow()->setLayout(popupSizer);
 
-  auto* sizer = new QHBoxLayout();
+  auto* sizer = new QHBoxLayout{};
   sizer->setContentsMargins(0, 0, 0, 0);
   sizer->addWidget(m_button, Qt::AlignVCenter);
 
   setLayout(sizer);
 }
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

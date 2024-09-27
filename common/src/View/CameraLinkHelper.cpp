@@ -24,18 +24,16 @@
 #include "Preferences.h"
 #include "Renderer/Camera.h"
 
-#include <kdl/set_temp.h>
-#include <kdl/vector_utils.h>
+#include "kdl/set_temp.h"
+#include "kdl/vector_utils.h"
 
-#include <vecmath/forward.h>
-#include <vecmath/vec.h>
+#include "vm/forward.h"
+#include "vm/vec.h"
 
-namespace TrenchBroom {
-namespace View {
-CameraLinkHelper::CameraLinkHelper()
-  : m_ignoreNotifications(false) {}
-
-void CameraLinkHelper::addCamera(Renderer::Camera* camera) {
+namespace TrenchBroom::View
+{
+void CameraLinkHelper::addCamera(Renderer::Camera* camera)
+{
   ensure(camera != nullptr, "camera is null");
   assert(!kdl::vec_contains(m_cameras, camera));
   m_cameras.push_back(camera);
@@ -43,29 +41,32 @@ void CameraLinkHelper::addCamera(Renderer::Camera* camera) {
     camera->cameraDidChangeNotifier.connect(this, &CameraLinkHelper::cameraDidChange);
 }
 
-void CameraLinkHelper::cameraDidChange(const Renderer::Camera* camera) {
-  if (!m_ignoreNotifications && pref(Preferences::Link2DCameras)) {
-    const kdl::set_temp ignoreNotifications(m_ignoreNotifications);
+void CameraLinkHelper::updateCameras(const Renderer::Camera* masterCamera)
+{
+  for (auto* camera : m_cameras)
+  {
+    if (camera != masterCamera)
+    {
+      camera->setZoom(masterCamera->zoom());
 
-    for (Renderer::Camera* other : m_cameras) {
-      if (camera != other) {
-        other->setZoom(camera->zoom());
-
-        const vm::vec3f oldPosition = other->position();
-        const vm::vec3f factors =
-          vm::vec3f::one() - abs(camera->direction()) - abs(other->direction());
-        const vm::vec3f newPosition =
-          (vm::vec3f::one() - factors) * oldPosition + factors * camera->position();
-        other->moveTo(newPosition);
-      }
+      const auto oldPosition = camera->position();
+      const auto factors =
+        vm::vec3f::one() - abs(masterCamera->direction()) - abs(camera->direction());
+      const auto newPosition =
+        (vm::vec3f::one() - factors) * oldPosition + factors * masterCamera->position();
+      camera->moveTo(newPosition);
     }
   }
 }
 
-CameraLinkableView::~CameraLinkableView() = default;
-
-void CameraLinkableView::linkCamera(CameraLinkHelper& linkHelper) {
-  doLinkCamera(linkHelper);
+void CameraLinkHelper::cameraDidChange(const Renderer::Camera* camera)
+{
+  if (!m_ignoreNotifications && pref(Preferences::Link2DCameras))
+  {
+    const auto ignoreNotifications = kdl::set_temp{m_ignoreNotifications};
+    updateCameras(camera);
+  }
 }
-} // namespace View
-} // namespace TrenchBroom
+
+CameraLinkableView::~CameraLinkableView() = default;
+} // namespace TrenchBroom::View

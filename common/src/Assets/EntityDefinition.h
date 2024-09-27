@@ -19,45 +19,47 @@
 
 #pragma once
 
+#include "Assets/DecalDefinition.h"
 #include "Assets/ModelDefinition.h"
 #include "Color.h"
 #include "FloatType.h"
 
-#include <vecmath/bbox.h>
+#include "vm/bbox.h"
 
 #include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom
+{
+namespace Assets
+{
 class PropertyDefinition;
 class FlagsPropertyDefinition;
 class FlagsPropertyOption;
 
-enum class EntityDefinitionType {
+enum class EntityDefinitionType
+{
   PointEntity,
   BrushEntity
 };
 
-enum class EntityDefinitionSortOrder {
+enum class EntityDefinitionSortOrder
+{
   Name,
   Usage
 };
 
-class EntityDefinition {
-protected:
-  using PropertyDefinitionPtr = std::shared_ptr<PropertyDefinition>;
-  using PropertyDefinitionList = std::vector<PropertyDefinitionPtr>;
-
+class EntityDefinition
+{
 private:
   size_t m_index;
   std::string m_name;
   Color m_color;
   std::string m_description;
   std::atomic<size_t> m_usageCount;
-  PropertyDefinitionList m_propertyDefinitions;
+  std::vector<std::shared_ptr<PropertyDefinition>> m_propertyDefinitions;
 
 public:
   virtual ~EntityDefinition();
@@ -76,7 +78,7 @@ public:
   void decUsageCount();
 
   const FlagsPropertyDefinition* spawnflags() const;
-  const PropertyDefinitionList& propertyDefinitions() const;
+  const std::vector<std::shared_ptr<PropertyDefinition>>& propertyDefinitions() const;
   const PropertyDefinition* propertyDefinition(const std::string& propertyKey) const;
 
   static const PropertyDefinition* safeGetPropertyDefinition(
@@ -85,36 +87,49 @@ public:
     const EntityDefinition* entityDefinition, const std::string& propertyKey);
 
   static std::vector<EntityDefinition*> filterAndSort(
-    const std::vector<EntityDefinition*>& definitions, EntityDefinitionType type,
+    const std::vector<EntityDefinition*>& definitions,
+    EntityDefinitionType type,
     EntityDefinitionSortOrder prder = EntityDefinitionSortOrder::Name);
 
 protected:
   EntityDefinition(
-    const std::string& name, const Color& color, const std::string& description,
-    const PropertyDefinitionList& propertyDefinitions);
+    std::string name,
+    const Color& color,
+    std::string description,
+    std::vector<std::shared_ptr<PropertyDefinition>> propertyDefinitions);
 };
 
-class PointEntityDefinition : public EntityDefinition {
+class PointEntityDefinition : public EntityDefinition
+{
 private:
   vm::bbox3 m_bounds;
   ModelDefinition m_modelDefinition;
+  DecalDefinition m_decalDefinition;
 
 public:
   PointEntityDefinition(
-    const std::string& name, const Color& color, const vm::bbox3& bounds,
-    const std::string& description, const PropertyDefinitionList& propertyDefinitions,
-    const ModelDefinition& modelDefinition);
+    std::string name,
+    const Color& color,
+    const vm::bbox3& bounds,
+    std::string description,
+    std::vector<std::shared_ptr<PropertyDefinition>> propertyDefinitions,
+    ModelDefinition modelDefinition,
+    DecalDefinition decalDefinition);
 
   EntityDefinitionType type() const override;
   const vm::bbox3& bounds() const;
   const ModelDefinition& modelDefinition() const;
+  const DecalDefinition& decalDefinition() const;
 };
 
-class BrushEntityDefinition : public EntityDefinition {
+class BrushEntityDefinition : public EntityDefinition
+{
 public:
   BrushEntityDefinition(
-    const std::string& name, const Color& color, const std::string& description,
-    const PropertyDefinitionList& propertyDefinitions);
+    std::string name,
+    const Color& color,
+    std::string description,
+    std::vector<std::shared_ptr<PropertyDefinition>> propertyDefinitions);
   EntityDefinitionType type() const override;
 };
 } // namespace Assets

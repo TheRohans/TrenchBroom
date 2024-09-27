@@ -23,21 +23,25 @@
 #include "Color.h"
 #include "Renderer/EdgeRenderer.h"
 
-#include <kdl/vector_set.h>
+#include "kdl/vector_set.h"
 
 #include <vector>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class EditorContext;
 class GroupNode;
 } // namespace Model
 
-namespace Renderer {
+namespace Renderer
+{
 class RenderBatch;
 class RenderContext;
 
-class GroupRenderer {
+class GroupRenderer
+{
 private:
   class GroupNameAnchor;
 
@@ -69,8 +73,8 @@ public:
   void clear();
 
   /**
-   * Adds a group. Calling with an already-added group is allowed, but ignored (not guaranteed to
-   * invalidate it).
+   * Adds a group. Calling with an already-added group is allowed, but ignored (not
+   * guaranteed to invalidate it).
    */
   void addGroup(const Model::GroupNode* group);
   /**
@@ -78,7 +82,8 @@ public:
    */
   void removeGroup(const Model::GroupNode* group);
   /**
-   * Causes cached renderer data to be rebuilt for the given group (on the next render() call).
+   * Causes cached renderer data to be rebuilt for the given group (on the next render()
+   * call).
    */
   void invalidateGroup(const Model::GroupNode* group);
 
@@ -104,10 +109,10 @@ private:
   void invalidateBounds();
   void validateBounds();
 
-  bool shouldRenderGroup(const Model::GroupNode* group) const;
+  bool shouldRenderGroup(const Model::GroupNode& group) const;
 
-  AttrString groupString(const Model::GroupNode* group) const;
-  Color groupColor(const Model::GroupNode* group) const;
+  AttrString groupString(const Model::GroupNode& group) const;
+  Color groupColor(const Model::GroupNode& group) const;
 };
 } // namespace Renderer
 } // namespace TrenchBroom

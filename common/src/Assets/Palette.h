@@ -20,49 +20,61 @@
 #pragma once
 
 #include "Color.h"
-#include "IO/Reader.h"
+#include "Result.h"
+
+#include "kdl/reflection_decl.h"
 
 #include <cassert>
+#include <filesystem>
+#include <iosfwd>
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace IO {
-class BufferedReader;
-class FileSystem;
-class Path;
-} // namespace IO
+namespace TrenchBroom::IO
+{
+class File;
+class Reader;
+} // namespace TrenchBroom::IO
 
-namespace Assets {
-struct PaletteData;
+namespace TrenchBroom::Assets
+{
 class TextureBuffer;
 
-enum class PaletteTransparency {
+struct PaletteData
+{
+  /**
+   * 1024 bytes, RGBA order.
+   */
+  std::vector<unsigned char> opaqueData;
+  /**
+   * 1024 bytes, RGBA order.
+   */
+  std::vector<unsigned char> index255TransparentData;
+
+  kdl_reflect_decl(PaletteData, opaqueData, index255TransparentData);
+};
+
+enum class PaletteTransparency
+{
   Opaque,
   Index255Transparent
 };
 
-class Palette {
+enum class PaletteColorFormat
+{
+  Rgb,
+  Rgba,
+};
+
+std::ostream& operator<<(std::ostream& lhs, PaletteColorFormat rhs);
+
+class Palette
+{
 private:
   std::shared_ptr<PaletteData> m_data;
 
 public:
-  Palette();
-  /**
-   * @throws AssetException if data is not 768 bytes
-   */
-  Palette(const std::vector<unsigned char>& data);
-
-  /**
-   * @throws AssetException if the palette can't be loaded
-   */
-  static Palette loadFile(const IO::FileSystem& fs, const IO::Path& path);
-  static Palette loadLmp(IO::Reader& reader);
-  static Palette loadPcx(IO::Reader& reader);
-  static Palette loadBmp(IO::Reader& reader);
-  static Palette fromRaw(IO::Reader& reader);
-
-  bool initialized() const;
+  explicit Palette(std::shared_ptr<PaletteData> m_data);
 
   /**
    * Reads `pixelCount` bytes from `reader` where each byte is a palette index,
@@ -75,15 +87,29 @@ public:
    * @param pixelCount number of pixels (bytes) to read
    * @param rgbaImage the destination buffer, size must be exactly `pixelCount` * 4 bytes
    * @param transparency controls whether or not the palette contains a transparent index
-   * @param averageColor output parameter for the average color of the generated pixel buffer
-   * @return true if the given index buffer did contain a transparent index, unless the transparency
-   * parameter indicates that the image is opaque
+   * @param averageColor output parameter for the average color of the generated pixel
+   * buffer
+   * @return true if the given index buffer did contain a transparent index, unless the
+   * transparency parameter indicates that the image is opaque
    *
    * @throws ReaderException if reader doesn't have pixelCount bytes available
    */
   bool indexedToRgba(
-    IO::BufferedReader& reader, size_t pixelCount, TextureBuffer& rgbaImage,
-    const PaletteTransparency transparency, Color& averageColor) const;
+    IO::Reader& reader,
+    size_t pixelCount,
+    TextureBuffer& rgbaImage,
+    PaletteTransparency transparency,
+    Color& averageColor) const;
+
+  friend bool operator==(const Palette& lhs, const Palette& rhs);
+  friend bool operator!=(const Palette& lhs, const Palette& rhs);
+  friend std::ostream& operator<<(std::ostream& lhs, const Palette& rhs);
 };
-} // namespace Assets
-} // namespace TrenchBroom
+
+Result<Palette> makePalette(
+  const std::vector<unsigned char>& data, PaletteColorFormat colorFormat);
+
+Result<Palette> loadPalette(const IO::File& file, const std::filesystem::path& path);
+Result<Palette> loadPalette(IO::Reader& reader, PaletteColorFormat colorFormat);
+
+} // namespace TrenchBroom::Assets

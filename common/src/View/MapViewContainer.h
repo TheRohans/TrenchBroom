@@ -23,12 +23,13 @@
 
 #include "View/MapView.h"
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 class MapViewActivationTracker;
 class MapViewBase;
 
-class MapViewContainer : public QWidget, public MapView {
+class MapViewContainer : public QWidget, public MapView
+{
   Q_OBJECT
 public:
   explicit MapViewContainer(QWidget* parent);
@@ -60,5 +61,4 @@ private: // subclassing interface
 public:
   virtual void cycleChildMapView(MapView* after) = 0;
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

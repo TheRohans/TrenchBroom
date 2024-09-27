@@ -24,16 +24,17 @@
 
 #include <memory>
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
 class LayerNode;
 }
 
-namespace View {
-class SetCurrentLayerCommand : public UndoableCommand {
-public:
-  static const CommandType Type;
-
+namespace View
+{
+class SetCurrentLayerCommand : public UndoableCommand
+{
 private:
   Model::LayerNode* m_currentLayer;
   Model::LayerNode* m_oldCurrentLayer;
@@ -45,9 +46,10 @@ public:
 
 private:
   std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade* document) override;
-  std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade* document) override;
+  std::unique_ptr<CommandResult> doPerformUndo(
+    MapDocumentCommandFacade* document) override;
 
-  bool doCollateWith(UndoableCommand* command) override;
+  bool doCollateWith(UndoableCommand& command) override;
 
   deleteCopyAndMove(SetCurrentLayerCommand);
 };

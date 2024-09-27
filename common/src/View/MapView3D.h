@@ -22,24 +22,29 @@
 #include "NotifierConnection.h"
 #include "View/MapViewBase.h"
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
 class QKeyEvent;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
 
-namespace Renderer {
+namespace Renderer
+{
 class PerspectiveCamera;
 }
 
-namespace View {
+namespace View
+{
 class FlyModeHelper;
 
-class MapView3D : public MapViewBase {
+class MapView3D : public MapViewBase
+{
   Q_OBJECT
 private:
   std::unique_ptr<Renderer::PerspectiveCamera> m_camera;
@@ -50,8 +55,11 @@ private:
 
 public:
   MapView3D(
-    std::weak_ptr<MapDocument> document, MapViewToolBox& toolBox, Renderer::MapRenderer& renderer,
-    GLContextManager& contextManager, Logger* logger);
+    std::weak_ptr<MapDocument> document,
+    MapViewToolBox& toolBox,
+    Renderer::MapRenderer& renderer,
+    GLContextManager& contextManager,
+    Logger* logger);
   ~MapView3D() override;
 
 private:
@@ -61,7 +69,7 @@ private:
 private: // notification
   void connectObservers();
   void cameraDidChange(const Renderer::Camera* camera);
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
 
 protected: // QWidget overrides
   void keyPressEvent(QKeyEvent* event) override;
@@ -93,14 +101,18 @@ private: // implement MapView interface
   bool doCanSelectTall() override;
   void doSelectTall() override;
 
+  void doReset2dCameras(const Renderer::Camera& masterCamera, bool animate) override;
   void doFocusCameraOnSelection(bool animate) override;
 
-  vm::vec3 focusCameraOnObjectsPosition(const std::vector<Model::Node*>& nodes);
+  vm::vec3f focusCameraOnObjectsPosition(const std::vector<Model::Node*>& nodes);
 
-  void doMoveCameraToPosition(const vm::vec3& position, bool animate) override;
+  void doMoveCameraToPosition(const vm::vec3f& position, bool animate) override;
   void animateCamera(
-    const vm::vec3f& position, const vm::vec3f& direction, const vm::vec3f& up,
-    const int duration = DefaultCameraAnimationDuration);
+    const vm::vec3f& position,
+    const vm::vec3f& direction,
+    const vm::vec3f& up,
+    float zoom,
+    int duration = DefaultCameraAnimationDuration);
 
   void doMoveCameraToCurrentTracePoint() override;
 
@@ -119,18 +131,20 @@ private: // implement MapViewBase interface
   void doRenderGrid(
     Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) override;
   void doRenderMap(
-    Renderer::MapRenderer& renderer, Renderer::RenderContext& renderContext,
+    Renderer::MapRenderer& renderer,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch) override;
   void doRenderTools(
-    MapViewToolBox& toolBox, Renderer::RenderContext& renderContext,
+    MapViewToolBox& toolBox,
+    Renderer::RenderContext& renderContext,
     Renderer::RenderBatch& renderBatch) override;
   void doRenderSoftWorldBounds(
     Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) override;
 
   bool doBeforePopupMenu() override;
 
-private: // implement CameraLinkableView interface
-  void doLinkCamera(CameraLinkHelper& linkHelper) override;
+public: // implement CameraLinkableView interface
+  void linkCamera(CameraLinkHelper& linkHelper) override;
 };
 } // namespace View
 } // namespace TrenchBroom

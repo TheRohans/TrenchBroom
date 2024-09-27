@@ -19,44 +19,51 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "FloatType.h"
 #include "NotifierConnection.h"
 
-#include <vecmath/forward.h>
-#include <vecmath/util.h>
+#include "vm/forward.h"
+#include "vm/util.h"
 
 #include <memory>
 
-#include <QWidget>
-
-class QAbstractButton;
+class QCheckBox;
 class QComboBox;
+class QPushButton;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class MapDocument;
 class RotateObjectsTool;
 class Selection;
 class SpinControl;
 
-class RotateObjectsToolPage : public QWidget {
+class RotateObjectsToolPage : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
   RotateObjectsTool& m_tool;
 
   QComboBox* m_recentlyUsedCentersList;
-  QAbstractButton* m_resetCenterButton;
+  QPushButton* m_resetCenterButton;
 
   SpinControl* m_angle;
   QComboBox* m_axis;
-  QAbstractButton* m_rotateButton;
+  QPushButton* m_rotateButton;
+  QCheckBox* m_updateAnglePropertyAfterTransformCheckBox;
 
   NotifierConnection m_notifierConnection;
 
 public:
   RotateObjectsToolPage(
-    std::weak_ptr<MapDocument> document, RotateObjectsTool& tool, QWidget* parent = nullptr);
+    std::weak_ptr<MapDocument> document,
+    RotateObjectsTool& tool,
+    QWidget* parent = nullptr);
 
   void setAxis(vm::axis::type axis);
   void setRecentlyUsedCenters(const std::vector<vm::vec3>& centers);
@@ -69,11 +76,13 @@ private:
   void updateGui();
 
   void selectionDidChange(const Selection& selection);
+  void documentWasNewedOrLoaded(MapDocument* document);
 
   void centerChanged();
   void resetCenterClicked();
   void angleChanged(double value);
   void rotateClicked();
+  void updateAnglePropertyAfterTransformClicked();
   vm::vec3 getAxis() const;
 };
 } // namespace View

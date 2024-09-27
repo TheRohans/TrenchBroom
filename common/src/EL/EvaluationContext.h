@@ -25,9 +25,11 @@
 #include <memory>
 #include <string>
 
-namespace TrenchBroom {
-namespace EL {
-class EvaluationContext {
+namespace TrenchBroom::EL
+{
+
+class EvaluationContext
+{
 private:
   std::unique_ptr<VariableStore> m_store;
 
@@ -42,7 +44,8 @@ public:
   deleteCopyAndMove(EvaluationContext);
 };
 
-class EvaluationStack : public EvaluationContext {
+class EvaluationStack : public EvaluationContext
+{
 private:
   const EvaluationContext& m_next;
 
@@ -53,5 +56,5 @@ public:
 
   deleteCopyAndMove(EvaluationStack);
 };
-} // namespace EL
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::EL

@@ -19,216 +19,225 @@
 
 #include "EntityModel.h"
 
-#include "AABBTree.h"
-#include "Assets/TextureCollection.h"
+#include "Assets/MaterialCollection.h"
+#include "Assets/Texture.h"
 #include "Renderer/IndexRangeMap.h"
+#include "Renderer/MaterialIndexRangeMap.h"
+#include "Renderer/MaterialIndexRangeRenderer.h"
 #include "Renderer/PrimType.h"
-#include "Renderer/TexturedIndexRangeMap.h"
-#include "Renderer/TexturedIndexRangeRenderer.h"
 
-#include <vecmath/bbox.h>
-#include <vecmath/forward.h>
-#include <vecmath/intersection.h>
+#include "kdl/reflection_impl.h"
+#include "kdl/vector_utils.h"
 
-#include <kdl/vector_utils.h>
+#include "vm/bbox.h"
+#include "vm/forward.h"
+#include "vm/intersection.h"
 
+#include <fmt/format.h>
+
+#include <ranges>
 #include <string>
 
-namespace TrenchBroom {
-namespace Assets {
+namespace TrenchBroom::Assets
+{
+
+std::ostream& operator<<(std::ostream& lhs, const PitchType rhs)
+{
+  switch (rhs)
+  {
+  case PitchType::Normal:
+    lhs << "Normal";
+    break;
+  case PitchType::MdlInverted:
+    lhs << "MdlInverted";
+    break;
+  }
+  return lhs;
+}
+
+std::ostream& operator<<(std::ostream& lhs, const Orientation rhs)
+{
+  switch (rhs)
+  {
+  case Orientation::ViewPlaneParallelUpright:
+    lhs << "ViewPlaneParallelUpright";
+    break;
+  case Orientation::FacingUpright:
+    lhs << "FacingUpright";
+    break;
+  case Orientation::ViewPlaneParallel:
+    lhs << "ViewPlaneParallel";
+    break;
+  case Orientation::Oriented:
+    lhs << "Oriented";
+    break;
+  case Orientation::ViewPlaneParallelOriented:
+    lhs << "ViewPlaneParallelOriented";
+    break;
+  }
+  return lhs;
+}
+
+
 // EntityModelFrame
 
-EntityModelFrame::EntityModelFrame(const size_t index)
+kdl_reflect_impl(EntityModelFrame);
+
+EntityModelFrame::EntityModelFrame(
+  const size_t index, std::string name, const vm::bbox3f& bounds)
   : m_index{index}
-  , m_skinOffset{0} {}
+  , m_name{std::move(name)}
+  , m_bounds{bounds}
+  , m_spacialTree{16.0f}
+{
+}
 
-EntityModelFrame::~EntityModelFrame() = default;
-
-size_t EntityModelFrame::index() const {
+size_t EntityModelFrame::index() const
+{
   return m_index;
 }
 
-size_t EntityModelFrame::skinOffset() const {
+size_t EntityModelFrame::skinOffset() const
+{
   return m_skinOffset;
 }
 
-void EntityModelFrame::setSkinOffset(const size_t skinOffset) {
+void EntityModelFrame::setSkinOffset(const size_t skinOffset)
+{
   m_skinOffset = skinOffset;
 }
 
-// EntityModel::LoadedFrame
-
-EntityModelLoadedFrame::EntityModelLoadedFrame(
-  const size_t index, const std::string& name, const vm::bbox3f& bounds, const PitchType pitchType,
-  const Orientation orientation)
-  : EntityModelFrame{index}
-  , m_name{name}
-  , m_bounds{bounds}
-  , m_pitchType{pitchType}
-  , m_orientation{orientation}
-  , m_spacialTree{std::make_unique<SpacialTree>()} {}
-
-EntityModelLoadedFrame::~EntityModelLoadedFrame() = default;
-
-bool EntityModelLoadedFrame::loaded() const {
-  return true;
-}
-
-const std::string& EntityModelLoadedFrame::name() const {
+const std::string& EntityModelFrame::name() const
+{
   return m_name;
 }
 
-const vm::bbox3f& EntityModelLoadedFrame::bounds() const {
+const vm::bbox3f& EntityModelFrame::bounds() const
+{
   return m_bounds;
 }
 
-PitchType EntityModelLoadedFrame::pitchType() const {
-  return m_pitchType;
-}
+std::optional<float> EntityModelFrame::intersect(const vm::ray3f& ray) const
+{
+  auto closestDistance = std::optional<float>{};
 
-Orientation EntityModelLoadedFrame::orientation() const {
-  return m_orientation;
-}
-
-float EntityModelLoadedFrame::intersect(const vm::ray3f& ray) const {
-  auto closestDistance = vm::nan<float>();
-
-  const auto candidates = m_spacialTree->findIntersectors(ray);
-  for (const TriNum triNum : candidates) {
-    const vm::vec3f& p1 = m_tris[triNum * 3 + 0];
-    const vm::vec3f& p2 = m_tris[triNum * 3 + 1];
-    const vm::vec3f& p3 = m_tris[triNum * 3 + 2];
-    closestDistance = vm::safe_min(closestDistance, vm::intersect_ray_triangle(ray, p1, p2, p3));
+  const auto candidates = m_spacialTree.find_intersectors(ray);
+  for (const auto triNum : candidates)
+  {
+    const auto& p1 = m_tris[triNum * 3 + 0];
+    const auto& p2 = m_tris[triNum * 3 + 1];
+    const auto& p3 = m_tris[triNum * 3 + 2];
+    closestDistance =
+      vm::safe_min(closestDistance, vm::intersect_ray_triangle(ray, p1, p2, p3));
   }
 
   return closestDistance;
 }
 
-void EntityModelLoadedFrame::addToSpacialTree(
-  const std::vector<EntityModelVertex>& vertices, const Renderer::PrimType primType,
-  const size_t index, const size_t count) {
-  switch (primType) {
-    case Renderer::PrimType::Points:
-    case Renderer::PrimType::Lines:
-    case Renderer::PrimType::LineStrip:
-    case Renderer::PrimType::LineLoop:
-      break;
-    case Renderer::PrimType::Triangles: {
-      assert(count % 3 == 0);
-      m_tris.reserve(m_tris.size() + count);
-      for (size_t i = 0; i < count; i += 3) {
-        auto bounds = vm::bbox3f::builder{};
-        const auto& p1 = Renderer::getVertexComponent<0>(vertices[index + i + 0]);
-        const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
-        const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 2]);
-        bounds.add(p1);
-        bounds.add(p2);
-        bounds.add(p3);
+void EntityModelFrame::addToSpacialTree(
+  const std::vector<EntityModelVertex>& vertices,
+  const Renderer::PrimType primType,
+  const size_t index,
+  const size_t count)
+{
+  switch (primType)
+  {
+  case Renderer::PrimType::Points:
+  case Renderer::PrimType::Lines:
+  case Renderer::PrimType::LineStrip:
+  case Renderer::PrimType::LineLoop:
+    break;
+  case Renderer::PrimType::Triangles: {
+    assert(count % 3 == 0);
+    m_tris.reserve(m_tris.size() + count);
+    for (size_t i = 0; i < count; i += 3)
+    {
+      auto bounds = vm::bbox3f::builder{};
+      const auto& p1 = Renderer::getVertexComponent<0>(vertices[index + i + 0]);
+      const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
+      const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 2]);
+      bounds.add(p1);
+      bounds.add(p2);
+      bounds.add(p3);
 
-        const size_t triIndex = m_tris.size() / 3u;
+      const auto triIndex = m_tris.size() / 3u;
+      m_tris.push_back(p1);
+      m_tris.push_back(p2);
+      m_tris.push_back(p3);
+      m_spacialTree.insert(bounds.bounds(), triIndex);
+    }
+    break;
+  }
+  case Renderer::PrimType::Polygon:
+  case Renderer::PrimType::TriangleFan: {
+    assert(count > 2);
+    m_tris.reserve(m_tris.size() + (count - 2) * 3);
+
+    const auto& p1 = Renderer::getVertexComponent<0>(vertices[index]);
+    for (size_t i = 1; i < count - 1; ++i)
+    {
+      auto bounds = vm::bbox3f::builder{};
+      const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i]);
+      const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
+      bounds.add(p1);
+      bounds.add(p2);
+      bounds.add(p3);
+
+      const auto triIndex = m_tris.size() / 3u;
+      m_tris.push_back(p1);
+      m_tris.push_back(p2);
+      m_tris.push_back(p3);
+      m_spacialTree.insert(bounds.bounds(), triIndex);
+    }
+    break;
+  }
+  case Renderer::PrimType::Quads:
+  case Renderer::PrimType::QuadStrip:
+  case Renderer::PrimType::TriangleStrip: {
+    assert(count > 2);
+    m_tris.reserve(m_tris.size() + (count - 2) * 3);
+    for (size_t i = 0; i < count - 2; ++i)
+    {
+      auto bounds = vm::bbox3f::builder{};
+      const auto& p1 = Renderer::getVertexComponent<0>(vertices[index + i + 0]);
+      const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
+      const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 2]);
+      bounds.add(p1);
+      bounds.add(p2);
+      bounds.add(p3);
+
+      const auto triIndex = m_tris.size() / 3u;
+      if (i % 2 == 0)
+      {
         m_tris.push_back(p1);
         m_tris.push_back(p2);
         m_tris.push_back(p3);
-        m_spacialTree->insert(bounds.bounds(), triIndex);
       }
-      break;
-    }
-    case Renderer::PrimType::Polygon:
-    case Renderer::PrimType::TriangleFan: {
-      assert(count > 2);
-      m_tris.reserve(m_tris.size() + (count - 2) * 3);
-
-      const auto& p1 = Renderer::getVertexComponent<0>(vertices[index]);
-      for (size_t i = 1; i < count - 1; ++i) {
-        auto bounds = vm::bbox3f::builder{};
-        const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i]);
-        const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
-        bounds.add(p1);
-        bounds.add(p2);
-        bounds.add(p3);
-
-        const size_t triIndex = m_tris.size() / 3u;
+      else
+      {
         m_tris.push_back(p1);
-        m_tris.push_back(p2);
         m_tris.push_back(p3);
-        m_spacialTree->insert(bounds.bounds(), triIndex);
+        m_tris.push_back(p2);
       }
-      break;
+      m_spacialTree.insert(bounds.bounds(), triIndex);
     }
-    case Renderer::PrimType::Quads:
-    case Renderer::PrimType::QuadStrip:
-    case Renderer::PrimType::TriangleStrip: {
-      assert(count > 2);
-      m_tris.reserve(m_tris.size() + (count - 2) * 3);
-      for (size_t i = 0; i < count - 2; ++i) {
-        auto bounds = vm::bbox3f::builder{};
-        const auto& p1 = Renderer::getVertexComponent<0>(vertices[index + i + 0]);
-        const auto& p2 = Renderer::getVertexComponent<0>(vertices[index + i + 1]);
-        const auto& p3 = Renderer::getVertexComponent<0>(vertices[index + i + 2]);
-        bounds.add(p1);
-        bounds.add(p2);
-        bounds.add(p3);
-
-        const size_t triIndex = m_tris.size() / 3u;
-        if (i % 2 == 0) {
-          m_tris.push_back(p1);
-          m_tris.push_back(p2);
-          m_tris.push_back(p3);
-        } else {
-          m_tris.push_back(p1);
-          m_tris.push_back(p3);
-          m_tris.push_back(p2);
-        }
-        m_spacialTree->insert(bounds.bounds(), triIndex);
-      }
-      break;
-    }
-      switchDefault();
+    break;
+  }
+    switchDefault();
   }
 }
 
-// EntityModel::UnloadedFrame
-
-/**
- * A frame of the model in its unloaded state.
- */
-class EntityModelUnloadedFrame : public EntityModelFrame {
-public:
-  /**
-   * Creates a new frame with the given index.
-   *
-   * @param index the index of this frame
-   */
-  explicit EntityModelUnloadedFrame(const size_t index)
-    : EntityModelFrame{index} {}
-
-  bool loaded() const override { return false; }
-
-  const std::string& name() const override {
-    static const std::string name = "Unloaded frame";
-    return name;
-  }
-
-  const vm::bbox3f& bounds() const override {
-    static const auto bounds = vm::bbox3f(8.0f);
-    return bounds;
-  }
-
-  PitchType pitchType() const override { return PitchType::Normal; }
-
-  Orientation orientation() const override { return Orientation::Oriented; }
-
-  float intersect(const vm::ray3f& /* ray */) const override { return vm::nan<float>(); }
-};
-
-// EntityModel::Mesh
+// EntityModelData::Mesh
 
 /**
  * The mesh associated with a frame and a surface.
  */
-class EntityModelMesh {
+class EntityModelMesh
+{
 protected:
   std::vector<EntityModelVertex> m_vertices;
+
+  kdl_reflect_inline_empty(EntityModelMesh);
 
   /**
    * Creates a new frame mesh that uses the given vertices.
@@ -236,19 +245,23 @@ protected:
    * @param vertices the vertices
    */
   explicit EntityModelMesh(std::vector<EntityModelVertex> vertices)
-    : m_vertices{std::move(vertices)} {}
+    : m_vertices{std::move(vertices)}
+  {
+  }
 
 public:
   virtual ~EntityModelMesh() = default;
 
 public:
   /**
-   * Returns a renderer that renders this mesh with the given texture.
+   * Returns a renderer that renders this mesh with the given material.
    *
-   * @param skin the texture to use when rendering the mesh
+   * @param skin the material to use when rendering the mesh
    * @return the renderer
    */
-  std::unique_ptr<Renderer::TexturedIndexRangeRenderer> buildRenderer(const Texture* skin) {
+  std::unique_ptr<Renderer::MaterialIndexRangeRenderer> buildRenderer(
+    const Material* skin) const
+  {
     const auto vertexArray = Renderer::VertexArray::ref(m_vertices);
     return doBuildRenderer(skin, vertexArray);
   }
@@ -261,18 +274,24 @@ private:
    * @param vertices the vertices associated with this mesh
    * @return the renderer
    */
-  virtual std::unique_ptr<Renderer::TexturedIndexRangeRenderer> doBuildRenderer(
-    const Texture* skin, const Renderer::VertexArray& vertices) = 0;
+  virtual std::unique_ptr<Renderer::MaterialIndexRangeRenderer> doBuildRenderer(
+    const Material* skin, const Renderer::VertexArray& vertices) const = 0;
 };
 
-// EntityModel::IndexedMesh
+// EntityModelData::IndexedMesh
+
+namespace
+{
 
 /**
  * A model frame mesh for indexed rendering. Stores vertices and vertex indices.
  */
-class EntityModelIndexedMesh : public EntityModelMesh {
+class EntityModelIndexedMesh : public EntityModelMesh
+{
 private:
-  EntityModelIndices m_indices;
+  Renderer::IndexRangeMap m_indices;
+
+  kdl_reflect_inline_empty(EntityModelIndexedMesh);
 
 public:
   /**
@@ -283,10 +302,12 @@ public:
    * @param indices the indices
    */
   EntityModelIndexedMesh(
-    EntityModelLoadedFrame& frame, std::vector<EntityModelVertex> vertices,
-    EntityModelIndices indices)
+    EntityModelFrame& frame,
+    std::vector<EntityModelVertex> vertices,
+    Renderer::IndexRangeMap indices)
     : EntityModelMesh{std::move(vertices)}
-    , m_indices{std::move(indices)} {
+    , m_indices{std::move(indices)}
+  {
     m_indices.forEachPrimitive(
       [&](const Renderer::PrimType primType, const size_t index, const size_t count) {
         frame.addToSpacialTree(m_vertices, primType, index, count);
@@ -294,261 +315,319 @@ public:
   }
 
 private:
-  std::unique_ptr<Renderer::TexturedIndexRangeRenderer> doBuildRenderer(
-    const Texture* skin, const Renderer::VertexArray& vertices) override {
-    const Renderer::TexturedIndexRangeMap texturedIndices(skin, m_indices);
-    return std::make_unique<Renderer::TexturedIndexRangeRenderer>(vertices, texturedIndices);
+  std::unique_ptr<Renderer::MaterialIndexRangeRenderer> doBuildRenderer(
+    const Material* skin, const Renderer::VertexArray& vertices) const override
+  {
+    const Renderer::MaterialIndexRangeMap indices(skin, m_indices);
+    return std::make_unique<Renderer::MaterialIndexRangeRenderer>(vertices, indices);
   }
 };
 
-// EntityModel::TexturedMesh
+// EntityModelMaterialMesh
 
 /**
- * A model frame mesh for per texture indexed rendering. Stores vertices and per texture indices.
+ * A model frame mesh for per material indexed rendering. Stores vertices and per material
+ * indices.
  */
-class EntityModelTexturedMesh : public EntityModelMesh {
+class EntityModelMaterialMesh : public EntityModelMesh
+{
 private:
-  EntityModelTexturedIndices m_indices;
+  Renderer::MaterialIndexRangeMap m_indices;
+
+  kdl_reflect_inline_empty(EntityModelMaterialMesh);
 
 public:
   /**
-   * Creates a new frame mesh with the given vertices and per texture indices.
+   * Creates a new frame mesh with the given vertices and per material indices.
    *
    * @param frame the frame to which this mesh belongs
    * @param vertices the vertices
-   * @param indices the per texture indices
+   * @param indices the per material indices
    */
-  EntityModelTexturedMesh(
-    EntityModelLoadedFrame& frame, std::vector<EntityModelVertex> vertices,
-    EntityModelTexturedIndices indices)
+  EntityModelMaterialMesh(
+    EntityModelFrame& frame,
+    std::vector<EntityModelVertex> vertices,
+    Renderer::MaterialIndexRangeMap indices)
     : EntityModelMesh{std::move(vertices)}
-    , m_indices{std::move(indices)} {
+    , m_indices{std::move(indices)}
+  {
     m_indices.forEachPrimitive([&](
-                                 const Texture* /* texture */, const Renderer::PrimType primType,
-                                 const size_t index, const size_t count) {
+                                 const Material* /* material */,
+                                 const Renderer::PrimType primType,
+                                 const size_t index,
+                                 const size_t count) {
       frame.addToSpacialTree(m_vertices, primType, index, count);
     });
   }
 
 private:
-  std::unique_ptr<Renderer::TexturedIndexRangeRenderer> doBuildRenderer(
-    const Texture* /* skin */, const Renderer::VertexArray& vertices) override {
-    return std::make_unique<Renderer::TexturedIndexRangeRenderer>(vertices, m_indices);
+  std::unique_ptr<Renderer::MaterialIndexRangeRenderer> doBuildRenderer(
+    const Material* /* skin */, const Renderer::VertexArray& vertices) const override
+  {
+    return std::make_unique<Renderer::MaterialIndexRangeRenderer>(vertices, m_indices);
   }
 };
 
-// EntityModel::Surface
+} // namespace
+
+// EntityModelSurface
+
+kdl_reflect_impl(EntityModelSurface);
 
 EntityModelSurface::EntityModelSurface(std::string name, const size_t frameCount)
   : m_name{std::move(name)}
   , m_meshes{frameCount}
-  , m_skins{std::make_unique<TextureCollection>()} {}
+  , m_skins{std::make_unique<MaterialCollection>()}
+{
+}
 
 EntityModelSurface::~EntityModelSurface() = default;
 
-const std::string& EntityModelSurface::name() const {
+const std::string& EntityModelSurface::name() const
+{
   return m_name;
 }
 
-void EntityModelSurface::prepare(const int minFilter, const int magFilter) {
-  m_skins->prepare(minFilter, magFilter);
-}
-
-void EntityModelSurface::setTextureMode(const int minFilter, const int magFilter) {
-  m_skins->setTextureMode(minFilter, magFilter);
-}
-
-void EntityModelSurface::addIndexedMesh(
-  EntityModelLoadedFrame& frame, std::vector<EntityModelVertex> vertices,
-  EntityModelIndices indices) {
-  assert(frame.index() < frameCount());
-  m_meshes[frame.index()] =
-    std::make_unique<EntityModelIndexedMesh>(frame, std::move(vertices), std::move(indices));
-}
-
-void EntityModelSurface::addTexturedMesh(
-  EntityModelLoadedFrame& frame, std::vector<EntityModelVertex> vertices,
-  EntityModelTexturedIndices indices) {
-  assert(frame.index() < frameCount());
-  m_meshes[frame.index()] =
-    std::make_unique<EntityModelTexturedMesh>(frame, std::move(vertices), std::move(indices));
-}
-
-void EntityModelSurface::setSkins(std::vector<Texture> skins) {
-  m_skins = std::make_unique<TextureCollection>(std::move(skins));
-}
-
-size_t EntityModelSurface::frameCount() const {
-  return m_meshes.size();
-}
-
-size_t EntityModelSurface::skinCount() const {
-  return m_skins->textureCount();
-}
-
-const Texture* EntityModelSurface::skin(const std::string& name) const {
-  return m_skins->textureByName(name);
-}
-
-const Texture* EntityModelSurface::skin(const size_t index) const {
-  return m_skins->textureByIndex(index);
-}
-
-std::unique_ptr<Renderer::TexturedIndexRangeRenderer> EntityModelSurface::buildRenderer(
-  const size_t skinIndex, const size_t frameIndex) {
-  assert(frameIndex < frameCount());
-  assert(skinIndex < skinCount());
-
-  if (m_meshes[frameIndex] == nullptr) {
-    return nullptr;
-  } else {
-    const auto* skin = this->skin(skinIndex);
-    return m_meshes[frameIndex]->buildRenderer(skin);
+void EntityModelSurface::upload(const bool glContextAvailable)
+{
+  for (auto& material : m_skins->materials())
+  {
+    if (auto* texture = material.texture())
+    {
+      texture->upload(glContextAvailable);
+    }
   }
 }
 
-// EntityModel
+void EntityModelSurface::drop(const bool glContextAvailable)
+{
+  for (auto& material : m_skins->materials())
+  {
+    if (auto* texture = material.texture())
+    {
+      texture->drop(glContextAvailable);
+    }
+  }
+}
 
-EntityModel::EntityModel(std::string name, const PitchType pitchType, const Orientation orientation)
-  : m_name{std::move(name)}
-  , m_prepared{false}
-  , m_pitchType{pitchType}
-  , m_orientation{orientation} {}
+void EntityModelSurface::addMesh(
+  EntityModelFrame& frame,
+  std::vector<EntityModelVertex> vertices,
+  Renderer::IndexRangeMap indices)
+{
+  assert(frame.index() < frameCount());
+  m_meshes[frame.index()] = std::make_unique<EntityModelIndexedMesh>(
+    frame, std::move(vertices), std::move(indices));
+}
 
-std::unique_ptr<Renderer::TexturedRenderer> EntityModel::buildRenderer(
-  const size_t skinIndex, const size_t frameIndex) const {
-  std::vector<std::unique_ptr<Renderer::TexturedIndexRangeRenderer>> renderers;
-  if (frameIndex >= frameCount()) {
+void EntityModelSurface::addMesh(
+  EntityModelFrame& frame,
+  std::vector<EntityModelVertex> vertices,
+  Renderer::MaterialIndexRangeMap indices)
+{
+  assert(frame.index() < frameCount());
+  m_meshes[frame.index()] = std::make_unique<EntityModelMaterialMesh>(
+    frame, std::move(vertices), std::move(indices));
+}
+
+void EntityModelSurface::setSkins(std::vector<Material> skins)
+{
+  m_skins = std::make_unique<MaterialCollection>(std::move(skins));
+}
+
+size_t EntityModelSurface::frameCount() const
+{
+  return m_meshes.size();
+}
+
+size_t EntityModelSurface::skinCount() const
+{
+  return m_skins->materialCount();
+}
+
+const Material* EntityModelSurface::skin(const std::string& name) const
+{
+  return m_skins->materialByName(name);
+}
+
+const Material* EntityModelSurface::skin(const size_t index) const
+{
+  return m_skins->materialByIndex(index);
+}
+
+std::unique_ptr<Renderer::MaterialIndexRangeRenderer> EntityModelSurface::buildRenderer(
+  const size_t skinIndex, const size_t frameIndex) const
+{
+  assert(frameIndex < frameCount());
+  assert(skinIndex < skinCount());
+
+  return m_meshes[frameIndex] ? m_meshes[frameIndex]->buildRenderer(skin(skinIndex))
+                              : nullptr;
+}
+
+// EntityModelData
+
+kdl_reflect_impl(EntityModelData);
+
+EntityModelData::EntityModelData(const PitchType pitchType, const Orientation orientation)
+  : m_pitchType{pitchType}
+  , m_orientation{orientation}
+{
+}
+
+PitchType EntityModelData::pitchType() const
+{
+  return m_pitchType;
+}
+
+Orientation EntityModelData::orientation() const
+{
+  return m_orientation;
+}
+
+std::unique_ptr<Renderer::MaterialRenderer> EntityModelData::buildRenderer(
+  const size_t skinIndex, const size_t frameIndex) const
+{
+  auto renderers = std::vector<std::unique_ptr<Renderer::MaterialIndexRangeRenderer>>{};
+  if (frameIndex >= frameCount())
+  {
     return nullptr;
   }
 
   const auto& frame = this->frame(frameIndex);
   const auto actualSkinIndex = skinIndex + frame->skinOffset();
-  for (const auto& surface : m_surfaces) {
-    if (actualSkinIndex < surface->skinCount()) {
-      if (auto renderer = surface->buildRenderer(actualSkinIndex, frameIndex)) {
-        renderers.push_back(std::move(renderer));
-      }
+  for (auto& surface : m_surfaces)
+  {
+    // If an out of range skin is requested, use the first skin as a fallback
+    const auto correctedSkinIndex =
+      actualSkinIndex < surface.skinCount() ? actualSkinIndex : 0;
+    if (auto renderer = surface.buildRenderer(correctedSkinIndex, frameIndex))
+    {
+      renderers.push_back(std::move(renderer));
     }
   }
-  if (renderers.empty()) {
-    return nullptr;
-  } else {
-    return std::make_unique<Renderer::MultiTexturedIndexRangeRenderer>(std::move(renderers));
+  return !renderers.empty() ? std::make_unique<Renderer::MultiMaterialIndexRangeRenderer>(
+           std::move(renderers))
+                            : nullptr;
+}
+
+vm::bbox3f EntityModelData::bounds(const size_t frameIndex) const
+{
+  return frameIndex < m_frames.size() ? m_frames[frameIndex].bounds() : vm::bbox3f{8.0f};
+}
+
+void EntityModelData::upload(const bool glContextAvailable)
+{
+  for (auto& surface : m_surfaces)
+  {
+    surface.upload(glContextAvailable);
   }
 }
 
-vm::bbox3f EntityModel::bounds(const size_t frameIndex) const {
-  if (frameIndex >= m_frames.size()) {
-    return vm::bbox3f(8.0f);
-  } else {
-    return m_frames[frameIndex]->bounds();
+void EntityModelData::drop(const bool glContextAvailable)
+{
+  for (auto& surface : m_surfaces)
+  {
+    surface.drop(glContextAvailable);
   }
 }
 
-bool EntityModel::prepared() const {
-  return m_prepared;
+EntityModelFrame& EntityModelData::addFrame(std::string name, const vm::bbox3f& bounds)
+{
+  return m_frames.emplace_back(frameCount(), std::move(name), bounds);
 }
 
-void EntityModel::prepare(const int minFilter, const int magFilter) {
-  if (!m_prepared) {
-    for (auto& surface : m_surfaces) {
-      surface->prepare(minFilter, magFilter);
-    }
-    m_prepared = true;
-  }
+EntityModelSurface& EntityModelData::addSurface(std::string name, const size_t frameCount)
+{
+  return m_surfaces.emplace_back(std::move(name), frameCount);
 }
 
-void EntityModel::setTextureMode(const int minFilter, const int magFilter) {
-  for (auto& surface : m_surfaces) {
-    surface->setTextureMode(minFilter, magFilter);
-  }
-}
-
-EntityModelFrame& EntityModel::addFrame() {
-  m_frames.push_back(std::make_unique<EntityModelUnloadedFrame>(frameCount()));
-  return *m_frames.back();
-}
-
-EntityModelLoadedFrame& EntityModel::loadFrame(
-  const size_t frameIndex, const std::string& name, const vm::bbox3f& bounds) {
-  if (frameIndex >= frameCount()) {
-    throw AssetException(
-      "Frame index " + std::to_string(frameIndex) +
-      " is out of bounds (frame count = " + std::to_string(frameCount()) + ")");
-  }
-
-  auto frame =
-    std::make_unique<EntityModelLoadedFrame>(frameIndex, name, bounds, m_pitchType, m_orientation);
-  frame->setSkinOffset(m_frames[frameIndex]->skinOffset());
-
-  auto& result = *frame;
-  m_frames[frameIndex] = std::move(frame);
-  return result;
-}
-
-EntityModelSurface& EntityModel::addSurface(std::string name) {
-  m_surfaces.push_back(std::make_unique<EntityModelSurface>(std::move(name), frameCount()));
-  return *m_surfaces.back();
-}
-
-size_t EntityModel::frameCount() const {
+size_t EntityModelData::frameCount() const
+{
   return m_frames.size();
 }
 
-size_t EntityModel::surfaceCount() const {
+size_t EntityModelData::surfaceCount() const
+{
   return m_surfaces.size();
 }
 
-std::vector<const EntityModelFrame*> EntityModel::frames() const {
-  return kdl::vec_transform(m_frames, [](const auto& frame) {
-    return const_cast<const EntityModelFrame*>(frame.get());
-  });
+const std::vector<EntityModelFrame>& EntityModelData::frames() const
+{
+  return m_frames;
 }
 
-std::vector<EntityModelFrame*> EntityModel::frames() {
-  return kdl::vec_transform(m_frames, [](const auto& frame) {
-    return frame.get();
-  });
+std::vector<EntityModelFrame>& EntityModelData::frames()
+{
+  return m_frames;
 }
 
-std::vector<const EntityModelSurface*> EntityModel::surfaces() const {
-  return kdl::vec_transform(m_surfaces, [](const auto& surface) {
-    return const_cast<const EntityModelSurface*>(surface.get());
-  });
+const std::vector<EntityModelSurface>& EntityModelData::surfaces() const
+{
+  return m_surfaces;
 }
 
-const EntityModelFrame* EntityModel::frame(const std::string& name) const {
-  for (const auto& frame : m_frames) {
-    if (frame->name() == name) {
-      return frame.get();
-    }
+const EntityModelFrame* EntityModelData::frame(const std::string& name) const
+{
+  const auto it = std::ranges::find_if(
+    m_frames, [&](const auto& frame) { return frame.name() == name; });
+  return it != m_frames.end() ? &*it : nullptr;
+}
+
+const EntityModelFrame* EntityModelData::frame(const size_t index) const
+{
+  return index < frameCount() ? &m_frames[index] : nullptr;
+}
+
+const EntityModelSurface& EntityModelData::surface(const size_t index) const
+{
+  if (index >= surfaceCount())
+  {
+    throw std::out_of_range{"Surface index is out of bounds"};
   }
-  return nullptr;
+  return m_surfaces[index];
 }
 
-const EntityModelFrame* EntityModel::frame(const size_t index) const {
-  if (index >= frameCount()) {
-    return nullptr;
-  } else {
-    return m_frames[index].get();
-  }
+EntityModelSurface& EntityModelData::surface(const size_t index)
+{
+  return const_cast<EntityModelSurface&>(
+    const_cast<const EntityModelData&>(*this).surface(index));
 }
 
-EntityModelSurface& EntityModel::surface(const size_t index) {
-  if (index >= surfaceCount()) {
-    throw std::out_of_range("Surface index is out of bounds");
-  }
-  return *m_surfaces[index];
+const EntityModelSurface* EntityModelData::surface(const std::string& name) const
+{
+  const auto it = std::ranges::find_if(
+    m_surfaces, [&](const auto& surface) { return surface.name() == name; });
+  return it != m_surfaces.end() ? &*it : nullptr;
 }
 
-const EntityModelSurface* EntityModel::surface(const std::string& name) const {
-  for (const auto& surface : m_surfaces) {
-    if (surface->name() == name) {
-      return surface.get();
-    }
-  }
-  return nullptr;
+kdl_reflect_impl(EntityModel);
+
+EntityModel::EntityModel(
+  std::string name, std::shared_ptr<EntityModelDataResource> dataResource)
+  : m_name{std::move(name)}
+  , m_dataResource{std::move(dataResource)}
+{
 }
-} // namespace Assets
-} // namespace TrenchBroom
+
+const std::string& EntityModel::name() const
+{
+  return m_name;
+}
+
+const EntityModelData* EntityModel::data() const
+{
+  return m_dataResource->get();
+}
+
+EntityModelData* EntityModel::data()
+{
+  return m_dataResource->get();
+}
+
+const EntityModelDataResource& EntityModel::dataResource() const
+{
+  return *m_dataResource;
+}
+
+} // namespace TrenchBroom::Assets

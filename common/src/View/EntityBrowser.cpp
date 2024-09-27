@@ -19,18 +19,6 @@
 
 #include "EntityBrowser.h"
 
-#include "Assets/EntityDefinition.h"
-#include "Assets/EntityDefinitionManager.h"
-#include "Model/WorldNode.h"
-#include "PreferenceManager.h"
-#include "Preferences.h"
-#include "View/EntityBrowserView.h"
-#include "View/MapDocument.h"
-#include "View/QtUtils.h"
-#include "View/ViewConstants.h"
-
-#include <kdl/memory_utils.h>
-
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -38,28 +26,36 @@
 #include <QScrollBar>
 #include <QtGlobal>
 
+#include "Assets/EntityDefinition.h"
+#include "Assets/EntityDefinitionManager.h"
+#include "Model/WorldNode.h"
+#include "PreferenceManager.h"
+#include "View/EntityBrowserView.h"
+#include "View/MapDocument.h"
+#include "View/QtUtils.h"
+#include "View/ViewConstants.h"
+
+#include "kdl/memory_utils.h"
+
 // for use in QVariant
 Q_DECLARE_METATYPE(TrenchBroom::Assets::EntityDefinitionSortOrder)
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
 EntityBrowser::EntityBrowser(
   std::weak_ptr<MapDocument> document, GLContextManager& contextManager, QWidget* parent)
-  : QWidget(parent)
-  , m_document(std::move(document))
-  , m_sortOrderChoice(nullptr)
-  , m_groupButton(nullptr)
-  , m_usedButton(nullptr)
-  , m_filterBox(nullptr)
-  , m_scrollBar(nullptr)
-  , m_view(nullptr) {
+  : QWidget{parent}
+  , m_document{std::move(document)}
+{
   createGui(contextManager);
   connectObservers();
 }
 
-void EntityBrowser::reload() {
-  if (m_view != nullptr) {
-    auto document = kdl::mem_lock(m_document);
+void EntityBrowser::reload()
+{
+  auto document = kdl::mem_lock(m_document);
+  if (m_view && document->world())
+  {
     m_view->setDefaultModelScaleExpression(
       document->world()->entityPropertyConfig().defaultModelScaleExpression);
 
@@ -68,59 +64,59 @@ void EntityBrowser::reload() {
   }
 }
 
-void EntityBrowser::createGui(GLContextManager& contextManager) {
-  m_scrollBar = new QScrollBar(Qt::Vertical);
+void EntityBrowser::createGui(GLContextManager& contextManager)
+{
+  m_scrollBar = new QScrollBar{Qt::Vertical};
 
-  auto document = kdl::mem_lock(m_document);
+  m_view = new EntityBrowserView{m_scrollBar, contextManager, m_document};
 
-  m_view = new EntityBrowserView(
-    m_scrollBar, contextManager, document->entityDefinitionManager(),
-    document->entityModelManager(), *document);
-
-  auto* browserPanelSizer = new QHBoxLayout();
+  auto* browserPanelSizer = new QHBoxLayout{};
   browserPanelSizer->setContentsMargins(0, 0, 0, 0);
   browserPanelSizer->setSpacing(0);
   browserPanelSizer->addWidget(m_view, 1);
   browserPanelSizer->addWidget(m_scrollBar, 0);
 
-  auto* browserPanel = new QWidget(this);
+  auto* browserPanel = new QWidget{};
   browserPanel->setLayout(browserPanelSizer);
 
-  m_sortOrderChoice = new QComboBox();
+  m_sortOrderChoice = new QComboBox{};
   m_sortOrderChoice->addItem(
     tr("Name"), QVariant::fromValue(Assets::EntityDefinitionSortOrder::Name));
   m_sortOrderChoice->addItem(
     tr("Usage"), QVariant::fromValue(Assets::EntityDefinitionSortOrder::Usage));
   m_sortOrderChoice->setCurrentIndex(0);
   m_sortOrderChoice->setToolTip(tr("Select ordering criterion"));
-  connect(m_sortOrderChoice, QOverload<int>::of(&QComboBox::activated), this, [=](int index) {
-    auto sortOrder =
-      static_cast<Assets::EntityDefinitionSortOrder>(m_sortOrderChoice->itemData(index).toInt());
-    m_view->setSortOrder(sortOrder);
-  });
+  connect(
+    m_sortOrderChoice, QOverload<int>::of(&QComboBox::activated), this, [&](int index) {
+      auto sortOrder = static_cast<Assets::EntityDefinitionSortOrder>(
+        m_sortOrderChoice->itemData(index).toInt());
+      m_view->setSortOrder(sortOrder);
+    });
 
-  m_groupButton = new QPushButton(tr("Group"));
+  m_groupButton = new QPushButton{tr("Group")};
   m_groupButton->setToolTip(tr("Group entity definitions by category"));
   m_groupButton->setCheckable(true);
-  connect(m_groupButton, &QAbstractButton::clicked, this, [=]() {
+  connect(m_groupButton, &QAbstractButton::clicked, this, [&]() {
     m_view->setGroup(m_groupButton->isChecked());
   });
 
-  m_usedButton = new QPushButton(tr("Used"));
+  m_usedButton = new QPushButton{tr("Used")};
   m_usedButton->setToolTip(tr("Only show entity definitions currently in use"));
   m_usedButton->setCheckable(true);
-  connect(m_usedButton, &QAbstractButton::clicked, this, [=]() {
+  connect(m_usedButton, &QAbstractButton::clicked, this, [&]() {
     m_view->setHideUnused(m_usedButton->isChecked());
   });
 
   m_filterBox = createSearchBox();
-  connect(m_filterBox, &QLineEdit::textEdited, this, [=]() {
+  connect(m_filterBox, &QLineEdit::textEdited, this, [&]() {
     m_view->setFilterText(m_filterBox->text().toStdString());
   });
 
-  auto* controlSizer = new QHBoxLayout();
+  auto* controlSizer = new QHBoxLayout{};
   controlSizer->setContentsMargins(
-    LayoutConstants::NarrowHMargin, LayoutConstants::NarrowVMargin, LayoutConstants::NarrowHMargin,
+    LayoutConstants::NarrowHMargin,
+    LayoutConstants::NarrowVMargin,
+    LayoutConstants::NarrowHMargin,
     LayoutConstants::NarrowVMargin);
   controlSizer->setSpacing(LayoutConstants::NarrowHMargin);
   controlSizer->addWidget(m_sortOrderChoice, 0);
@@ -128,7 +124,7 @@ void EntityBrowser::createGui(GLContextManager& contextManager) {
   controlSizer->addWidget(m_usedButton, 0);
   controlSizer->addWidget(m_filterBox, 1);
 
-  auto* outerSizer = new QVBoxLayout();
+  auto* outerSizer = new QVBoxLayout{};
   outerSizer->setContentsMargins(0, 0, 0, 0);
   outerSizer->setSpacing(0);
   outerSizer->addWidget(browserPanel, 1);
@@ -137,7 +133,8 @@ void EntityBrowser::createGui(GLContextManager& contextManager) {
   setLayout(outerSizer);
 }
 
-void EntityBrowser::connectObservers() {
+void EntityBrowser::connectObservers()
+{
   auto document = kdl::mem_lock(m_document);
   m_notifierConnection +=
     document->documentWasNewedNotifier.connect(this, &EntityBrowser::documentWasNewed);
@@ -149,40 +146,56 @@ void EntityBrowser::connectObservers() {
     this, &EntityBrowser::entityDefinitionsDidChange);
   m_notifierConnection +=
     document->nodesDidChangeNotifier.connect(this, &EntityBrowser::nodesDidChange);
+  m_notifierConnection += document->resourcesWereProcessedNotifier.connect(
+    this, &EntityBrowser::resourcesWereProcessed);
 
-  PreferenceManager& prefs = PreferenceManager::instance();
+  auto& prefs = PreferenceManager::instance();
   m_notifierConnection +=
     prefs.preferenceDidChangeNotifier.connect(this, &EntityBrowser::preferenceDidChange);
 }
 
-void EntityBrowser::documentWasNewed(MapDocument*) {
+void EntityBrowser::documentWasNewed(MapDocument*)
+{
   reload();
 }
 
-void EntityBrowser::documentWasLoaded(MapDocument*) {
+void EntityBrowser::documentWasLoaded(MapDocument*)
+{
   reload();
 }
 
-void EntityBrowser::modsDidChange() {
+void EntityBrowser::modsDidChange()
+{
   reload();
 }
 
-void EntityBrowser::nodesDidChange(const std::vector<Model::Node*>&) {
+void EntityBrowser::nodesDidChange(const std::vector<Model::Node*>&)
+{
   // to handle definition usage count changes
   reload();
 }
 
-void EntityBrowser::entityDefinitionsDidChange() {
+void EntityBrowser::entityDefinitionsDidChange()
+{
   reload();
 }
 
-void EntityBrowser::preferenceDidChange(const IO::Path& path) {
+void EntityBrowser::preferenceDidChange(const std::filesystem::path& path)
+{
   auto document = kdl::mem_lock(m_document);
-  if (document->isGamePathPreference(path)) {
+  if (document->isGamePathPreference(path))
+  {
     reload();
-  } else {
+  }
+  else
+  {
     m_view->update();
   }
 }
-} // namespace View
-} // namespace TrenchBroom
+
+void EntityBrowser::resourcesWereProcessed(const std::vector<Assets::ResourceId>&)
+{
+  reload();
+}
+
+} // namespace TrenchBroom::View

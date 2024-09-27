@@ -21,17 +21,18 @@
 
 #include <QMainWindow>
 
+#include <filesystem>
+
 class QPushButton;
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
-
-namespace View {
+namespace TrenchBroom
+{
+namespace View
+{
 class RecentDocumentListBox;
 
-class WelcomeWindow : public QMainWindow {
+class WelcomeWindow : public QMainWindow
+{
   Q_OBJECT
 private:
   RecentDocumentListBox* m_recentDocumentListBox;
@@ -47,7 +48,7 @@ private:
 private slots:
   void createNewDocument();
   void openOtherDocument();
-  void openDocument(const IO::Path& path);
+  void openDocument(const std::filesystem::path& path);
 };
 } // namespace View
 } // namespace TrenchBroom

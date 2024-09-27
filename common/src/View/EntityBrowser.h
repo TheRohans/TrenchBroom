@@ -19,47 +19,53 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "NotifierConnection.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
-
-#include <QWidget>
 
 class QPushButton;
 class QComboBox;
 class QLineEdit;
 class QScrollBar;
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
-namespace Model {
+namespace TrenchBroom::Assets
+{
+class ResourceId;
+};
+
+namespace TrenchBroom::Model
+{
 class Node;
 }
 
-namespace View {
+namespace TrenchBroom::View
+{
 class EntityBrowserView;
 class GLContextManager;
 class MapDocument;
 
-class EntityBrowser : public QWidget {
+class EntityBrowser : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
-  QComboBox* m_sortOrderChoice;
-  QPushButton* m_groupButton;
-  QPushButton* m_usedButton;
-  QLineEdit* m_filterBox;
-  QScrollBar* m_scrollBar;
-  EntityBrowserView* m_view;
+  QComboBox* m_sortOrderChoice = nullptr;
+  QPushButton* m_groupButton = nullptr;
+  QPushButton* m_usedButton = nullptr;
+  QLineEdit* m_filterBox = nullptr;
+  QScrollBar* m_scrollBar = nullptr;
+  EntityBrowserView* m_view = nullptr;
 
   NotifierConnection m_notifierConnection;
 
 public:
   EntityBrowser(
-    std::weak_ptr<MapDocument> document, GLContextManager& contextManager,
+    std::weak_ptr<MapDocument> document,
+    GLContextManager& contextManager,
     QWidget* parent = nullptr);
 
   void reload();
@@ -75,7 +81,7 @@ private:
   void modsDidChange();
   void nodesDidChange(const std::vector<Model::Node*>& nodes);
   void entityDefinitionsDidChange();
-  void preferenceDidChange(const IO::Path& path);
+  void preferenceDidChange(const std::filesystem::path& path);
+  void resourcesWereProcessed(const std::vector<Assets::ResourceId>& resources);
 };
-} // namespace View
-} // namespace TrenchBroom
+} // namespace TrenchBroom::View

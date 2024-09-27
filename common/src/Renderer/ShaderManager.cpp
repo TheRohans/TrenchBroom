@@ -20,69 +20,96 @@
 #include "ShaderManager.h"
 
 #include "Ensure.h"
-#include "IO/Path.h"
+#include "Error.h"
 #include "IO/SystemPaths.h"
-#include "Renderer/Shader.h"
 #include "Renderer/ShaderConfig.h"
-#include "Renderer/ShaderProgram.h"
+
+#include "kdl/result.h"
+#include "kdl/result_fold.h"
+#include "kdl/vector_utils.h"
 
 #include <cassert>
+#include <filesystem>
 #include <string>
 
-namespace TrenchBroom {
-namespace Renderer {
-ShaderManager::ShaderManager()
-  : m_currentProgram(nullptr) {}
+namespace TrenchBroom::Renderer
+{
 
-ShaderManager::~ShaderManager() = default;
-
-ShaderProgram& ShaderManager::program(const ShaderConfig& config) {
-  auto it = m_programs.find(&config);
-  if (it != std::end(m_programs)) {
-    return *it->second;
-  }
-
-  auto result = m_programs.emplace(&config, createProgram(config));
-  assert(result.second);
-
-  return *(result.first->second);
+Result<void> ShaderManager::loadProgram(const ShaderConfig& config)
+{
+  return createProgram(config) | kdl::and_then([&](auto program) -> Result<void> {
+           if (!m_programs.emplace(config.name(), std::move(program)).second)
+           {
+             return Error{"Shader program '" + config.name() + "' already loaded"};
+           }
+           return kdl::void_success;
+         });
 }
 
-ShaderProgram* ShaderManager::currentProgram() {
+ShaderProgram& ShaderManager::program(const ShaderConfig& config)
+{
+  auto it = m_programs.find(config.name());
+  ensure(it != std::end(m_programs), "Shader program was previously loaded");
+  return it->second;
+}
+
+ShaderProgram* ShaderManager::currentProgram()
+{
   return m_currentProgram;
 }
 
-void ShaderManager::setCurrentProgram(ShaderProgram* program) {
+void ShaderManager::setCurrentProgram(ShaderProgram* program)
+{
   m_currentProgram = program;
 }
 
-std::unique_ptr<ShaderProgram> ShaderManager::createProgram(const ShaderConfig& config) {
-  auto program = std::make_unique<ShaderProgram>(this, config.name());
-
-  for (const auto& path : config.vertexShaders()) {
-    Shader& shader = loadShader(path, GL_VERTEX_SHADER);
-    program->attach(shader);
-  }
-
-  for (const auto& path : config.fragmentShaders()) {
-    Shader& shader = loadShader(path, GL_FRAGMENT_SHADER);
-    program->attach(shader);
-  }
-
-  return program;
+Result<ShaderProgram> ShaderManager::createProgram(const ShaderConfig& config)
+{
+  return createShaderProgram(config.name()) | kdl::and_then([&](auto program) {
+           return kdl::vec_transform(
+                    config.vertexShaders(),
+                    [&](const auto& path) {
+                      return loadShader(path, GL_VERTEX_SHADER)
+                             | kdl::transform(
+                               [&](auto shader) { program.attach(shader.get()); });
+                    })
+                  | kdl::fold | kdl::transform([&]() { return std::move(program); });
+         })
+         | kdl::and_then([&](auto program) {
+             return kdl::vec_transform(
+                      config.fragmentShaders(),
+                      [&](const auto& path) {
+                        return loadShader(path, GL_FRAGMENT_SHADER)
+                               | kdl::transform(
+                                 [&](auto shader) { program.attach(shader.get()); });
+                      })
+                    | kdl::fold | kdl::transform([&]() { return std::move(program); });
+           })
+         | kdl::and_then([&](auto program) {
+             return program.link() | kdl::transform([&]() { return std::move(program); });
+           });
 }
 
-Shader& ShaderManager::loadShader(const std::string& name, const GLenum type) {
+Result<std::reference_wrapper<Shader>> ShaderManager::loadShader(
+  const std::string& name, const GLenum type)
+{
   auto it = m_shaders.find(name);
-  if (it != std::end(m_shaders)) {
-    return *it->second;
+  if (it != std::end(m_shaders))
+  {
+    return std::ref(it->second);
   }
 
-  const auto shaderPath = IO::SystemPaths::findResourceFile(IO::Path("shader") + IO::Path(name));
-  auto result = m_shaders.emplace(name, std::make_unique<Shader>(shaderPath, type));
-  assert(result.second);
+  const auto shaderPath =
+    IO::SystemPaths::findResourceFile(std::filesystem::path{"shader"} / name);
 
-  return *(result.first->second);
+  return Renderer::loadShader(shaderPath, type) | kdl::transform([&](auto shader) {
+           const auto [insertIt, inserted] = m_shaders.emplace(name, std::move(shader));
+
+           assert(inserted);
+           unused(inserted);
+
+           return std::ref(insertIt->second);
+         });
 }
-} // namespace Renderer
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::Renderer

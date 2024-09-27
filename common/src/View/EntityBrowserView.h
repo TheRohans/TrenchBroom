@@ -25,36 +25,44 @@
 #include "Renderer/GLVertexType.h"
 #include "View/CellView.h"
 
-#include <vecmath/bbox.h>
-#include <vecmath/forward.h>
-#include <vecmath/quat.h>
+#include "vm/bbox.h" // IWYU pragma: keep
+#include "vm/forward.h"
+#include "vm/quat.h" // IWYU pragma: keep
 
 #include <optional>
 #include <string>
 #include <vector>
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace Assets {
-class EntityDefinitionManager;
+namespace TrenchBroom::Assets
+{
+class EntityDefinition;
 enum class EntityDefinitionSortOrder;
-class EntityModelManager;
 enum class Orientation;
 class PointEntityDefinition;
-} // namespace Assets
+class ResourceId;
+} // namespace TrenchBroom::Assets
 
-namespace Renderer {
+namespace TrenchBroom::Renderer
+{
 class FontDescriptor;
-class TexturedRenderer;
+class MaterialRenderer;
 class Transformation;
-} // namespace Renderer
+} // namespace TrenchBroom::Renderer
 
-namespace View {
+namespace TrenchBroom::View
+{
+class MapDocument;
+
 using EntityGroupData = std::string;
 
-struct EntityCellData {
-  using EntityRenderer = Renderer::TexturedRenderer;
+struct EntityCellData
+{
+  using EntityRenderer = Renderer::MaterialRenderer;
   const Assets::PointEntityDefinition* entityDefinition;
   EntityRenderer* modelRenderer;
   Assets::Orientation modelOrientation;
@@ -63,26 +71,25 @@ struct EntityCellData {
   vm::vec3f modelScale;
 };
 
-class EntityBrowserView : public CellView {
+class EntityBrowserView : public CellView
+{
   Q_OBJECT
 private:
-  using EntityRenderer = Renderer::TexturedRenderer;
+  using EntityRenderer = Renderer::MaterialRenderer;
 
-  using TextVertex = Renderer::GLVertexTypes::P2T2C4::Vertex;
+  using TextVertex = Renderer::GLVertexTypes::P2UV2C4::Vertex;
   using StringMap = std::map<Renderer::FontDescriptor, std::vector<TextVertex>>;
 
   static constexpr auto CameraPosition = vm::vec3f{256.0f, 0.0f, 0.0f};
   static constexpr auto CameraDirection = vm::vec3f::neg_x();
   static constexpr auto CameraUp = vm::vec3f::pos_z();
 
-  Assets::EntityDefinitionManager& m_entityDefinitionManager;
-  Assets::EntityModelManager& m_entityModelManager;
-  std::optional<EL::Expression> m_defaultScaleModelExpression;
-  Logger& m_logger;
+  std::weak_ptr<MapDocument> m_document;
+  std::optional<EL::ExpressionNode> m_defaultScaleModelExpression;
   vm::quatf m_rotation;
 
-  bool m_group;
-  bool m_hideUnused;
+  bool m_group = false;
+  bool m_hideUnused = false;
   Assets::EntityDefinitionSortOrder m_sortOrder;
   std::string m_filterText;
 
@@ -90,13 +97,14 @@ private:
 
 public:
   EntityBrowserView(
-    QScrollBar* scrollBar, GLContextManager& contextManager,
-    Assets::EntityDefinitionManager& entityDefinitionManager,
-    Assets::EntityModelManager& entityModelManager, Logger& logger);
+    QScrollBar* scrollBar,
+    GLContextManager& contextManager,
+    std::weak_ptr<MapDocument> document);
   ~EntityBrowserView() override;
 
 public:
-  void setDefaultModelScaleExpression(std::optional<EL::Expression> defaultModelScaleExpression);
+  void setDefaultModelScaleExpression(
+    std::optional<EL::ExpressionNode> defaultModelScaleExpression);
 
   void setSortOrder(Assets::EntityDefinitionSortOrder sortOrder);
   void setGroup(bool group);
@@ -110,8 +118,15 @@ private:
   bool dndEnabled() override;
   QString dndData(const Cell& cell) override;
 
+  void resourcesWereProcessed(const std::vector<Assets::ResourceId>& resources);
+
+  void addEntitiesToLayout(
+    Layout& layout,
+    const std::vector<Assets::EntityDefinition*>& definitions,
+    const Renderer::FontDescriptor& font);
   void addEntityToLayout(
-    Layout& layout, const Assets::PointEntityDefinition* definition,
+    Layout& layout,
+    const Assets::PointEntityDefinition* definition,
     const Renderer::FontDescriptor& font);
 
   void doClear() override;
@@ -125,11 +140,6 @@ private:
   void renderModels(
     Layout& layout, float y, float height, Renderer::Transformation& transformation);
 
-  void renderNames(Layout& layout, float y, float height, const vm::mat4x4f& projection);
-  void renderGroupTitleBackgrounds(Layout& layout, float y, float height);
-  void renderStrings(Layout& layout, float y, float height);
-  StringMap collectStringVertices(Layout& layout, float y, float height);
-
   vm::mat4x4f itemTransformation(
     const Cell& cell, float y, float height, bool applyModelScale) const;
 
@@ -137,5 +147,5 @@ private:
 
   const EntityCellData& cellData(const Cell& cell) const;
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

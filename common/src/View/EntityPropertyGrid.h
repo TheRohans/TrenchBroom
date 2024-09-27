@@ -19,32 +19,37 @@
 
 #pragma once
 
+#include <QWidget>
+
 #include "NotifierConnection.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <QWidget>
-
 class QTableView;
 class QCheckBox;
-class QAbstractButton;
 class QShortcut;
 class QSortFilterProxyModel;
+class QToolButton;
 
-namespace TrenchBroom {
-namespace Model {
+namespace TrenchBroom
+{
+namespace Model
+{
+class EntityNode;
 class Node;
-}
+} // namespace Model
 
-namespace View {
+namespace View
+{
 class EntityPropertyModel;
 class EntityPropertyTable;
 class MapDocument;
 class Selection;
 
-struct PropertyGridSelection {
+struct PropertyGridSelection
+{
   std::string propertyKey;
   int column;
 };
@@ -53,7 +58,8 @@ struct PropertyGridSelection {
  * Panel with the entity property table, and the toolbar below it (add/remove icons,
  * "show default properties" checkbox, etc.)
  */
-class EntityPropertyGrid : public QWidget {
+class EntityPropertyGrid : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
@@ -61,16 +67,18 @@ private:
   EntityPropertyModel* m_model;
   QSortFilterProxyModel* m_proxyModel;
   EntityPropertyTable* m_table;
-  QAbstractButton* m_addProtectedPropertyButton;
-  QAbstractButton* m_addPropertyButton;
-  QAbstractButton* m_removePropertiesButton;
+  QToolButton* m_addProtectedPropertyButton;
+  QToolButton* m_addPropertyButton;
+  QToolButton* m_removePropertiesButton;
+  QToolButton* m_setDefaultPropertiesButton;
   QCheckBox* m_showDefaultPropertiesCheckBox;
   std::vector<PropertyGridSelection> m_selectionBackup;
 
   NotifierConnection m_notifierConnection;
 
 public:
-  explicit EntityPropertyGrid(std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
+  explicit EntityPropertyGrid(
+    std::weak_ptr<MapDocument> document, QWidget* parent = nullptr);
 
 private:
   void backupSelection();
@@ -80,6 +88,7 @@ private:
   void removeSelectedProperties();
 
   bool canRemoveSelectedProperties() const;
+
   std::vector<int> selectedRowsAndCursorRow() const;
 
 private:

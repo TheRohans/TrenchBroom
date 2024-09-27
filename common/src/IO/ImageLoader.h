@@ -19,22 +19,28 @@
 
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
-namespace TrenchBroom {
-namespace IO {
+namespace TrenchBroom
+{
+namespace IO
+{
 class ImageLoaderImpl;
 class Path;
 
-class ImageLoader {
+class ImageLoader
+{
 public:
-  enum Format {
+  enum Format
+  {
     PCX,
     BMP
   };
 
-  enum PixelFormat {
+  enum PixelFormat
+  {
     RGB,
     RGBA
   };
@@ -44,7 +50,7 @@ private:
   std::unique_ptr<ImageLoaderImpl> m_impl;
 
 public:
-  ImageLoader(const Format format, const Path& path);
+  ImageLoader(const Format format, const std::filesystem::path& path);
   ImageLoader(const Format format, const char* begin, const char* end);
   ~ImageLoader();
 

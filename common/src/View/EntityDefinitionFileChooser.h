@@ -19,21 +19,23 @@
 
 #pragma once
 
+#include <QListWidget>
+
 #include "NotifierConnection.h"
 
 #include <memory>
-
-#include <QListWidget>
 
 class QPushButton;
 class QListWidget;
 class QLabel;
 
-namespace TrenchBroom {
-namespace View {
+namespace TrenchBroom::View
+{
+
 class MapDocument;
 
-class SingleSelectionListWidget : public QListWidget {
+class SingleSelectionListWidget : public QListWidget
+{
   Q_OBJECT
 private:
   bool m_allowDeselectAll;
@@ -44,20 +46,22 @@ public:
   bool allowDeselectAll() const;
 
 protected: // QAbstractItemView overrides
-  void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override;
-  // QItemSelectionModel::SelectionFlags selectionCommand(const QModelIndex& index, const QEvent*
-  // event) const override;
+  void selectionChanged(
+    const QItemSelection& selected, const QItemSelection& deselected) override;
+  // QItemSelectionModel::SelectionFlags selectionCommand(const QModelIndex& index, const
+  // QEvent* event) const override;
 };
 
-class EntityDefinitionFileChooser : public QWidget {
+class EntityDefinitionFileChooser : public QWidget
+{
   Q_OBJECT
 private:
   std::weak_ptr<MapDocument> m_document;
 
-  SingleSelectionListWidget* m_builtin;
-  QLabel* m_external;
-  QPushButton* m_chooseExternal;
-  QPushButton* m_reloadExternal;
+  SingleSelectionListWidget* m_builtin = nullptr;
+  QLabel* m_externalLabel = nullptr;
+  QPushButton* m_browseExternal = nullptr;
+  QPushButton* m_reloadExternal = nullptr;
 
   NotifierConnection m_notifierConnection;
 
@@ -81,5 +85,5 @@ private:
   void chooseExternalClicked();
   void reloadExternalClicked();
 };
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View

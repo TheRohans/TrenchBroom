@@ -19,16 +19,20 @@
 
 #pragma once
 
-#include <vecmath/forward.h>
-#include <vecmath/vec.h>
+#include "Result.h"
 
-#include <kdl/reflection_decl.h>
+#include "kdl/reflection_decl.h"
 
-#include <optional>
+#include "vm/forward.h"
+#include "vm/vec.h"
+
+#include <iosfwd>
 #include <vector>
 
-namespace TrenchBroom::Model {
-class PointTrace {
+namespace TrenchBroom::Model
+{
+class PointTrace
+{
 private:
   std::vector<vm::vec3f> m_points;
   size_t m_current;
@@ -49,5 +53,5 @@ public:
   kdl_reflect_decl(PointTrace, m_points, m_current);
 };
 
-std::optional<PointTrace> loadPointFile(std::istream& stream);
+Result<PointTrace> loadPointFile(std::istream& stream);
 } // namespace TrenchBroom::Model

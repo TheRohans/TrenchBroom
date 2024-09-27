@@ -19,19 +19,23 @@
 
 #pragma once
 
-#include <vecmath/forward.h>
+#include "vm/forward.h"
 
 #include <cstdint>
 
 class QKeyEvent;
 
-namespace TrenchBroom {
-namespace Renderer {
+namespace TrenchBroom
+{
+namespace Renderer
+{
 class Camera;
 }
 
-namespace View {
-class FlyModeHelper {
+namespace View
+{
+class FlyModeHelper
+{
 private:
   Renderer::Camera& m_camera;
 
@@ -41,6 +45,8 @@ private:
   bool m_right;
   bool m_up;
   bool m_down;
+  bool m_fast;
+  bool m_slow;
 
   int64_t m_lastPollTime;
 

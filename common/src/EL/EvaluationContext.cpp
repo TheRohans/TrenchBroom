@@ -24,34 +24,39 @@
 
 #include <string>
 
-namespace TrenchBroom {
-namespace EL {
+namespace TrenchBroom::EL
+{
+
 EvaluationContext::EvaluationContext()
-  : m_store(std::make_unique<VariableTable>()) {}
+  : m_store{std::make_unique<VariableTable>()}
+{
+}
 
 EvaluationContext::EvaluationContext(const VariableStore& store)
-  : m_store(store.clone()) {}
+  : m_store{store.clone()}
+{
+}
 
 EvaluationContext::~EvaluationContext() = default;
 
-Value EvaluationContext::variableValue(const std::string& name) const {
+Value EvaluationContext::variableValue(const std::string& name) const
+{
   return m_store->value(name);
 }
 
-void EvaluationContext::declareVariable(const std::string& name, const Value& value) {
+void EvaluationContext::declareVariable(const std::string& name, const Value& value)
+{
   m_store->declare(name, value);
 }
 
 EvaluationStack::EvaluationStack(const EvaluationContext& next)
-  : m_next(next) {}
-
-Value EvaluationStack::variableValue(const std::string& name) const {
-  const Value& value = EvaluationContext::variableValue(name);
-  if (value != Value::Undefined) {
-    return value;
-  } else {
-    return m_next.variableValue(name);
-  }
+  : m_next{next}
+{
 }
-} // namespace EL
-} // namespace TrenchBroom
+
+Value EvaluationStack::variableValue(const std::string& name) const
+{
+  const auto& value = EvaluationContext::variableValue(name);
+  return value != Value::Undefined ? value : m_next.variableValue(name);
+}
+} // namespace TrenchBroom::EL

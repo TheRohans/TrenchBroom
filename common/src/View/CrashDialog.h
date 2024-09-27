@@ -19,27 +19,31 @@
 
 #pragma once
 
-#include <string>
-
 #include <QDialog>
 
-namespace TrenchBroom {
-namespace IO {
-class Path;
-}
+#include <filesystem>
+#include <string>
 
-namespace View {
-class CrashDialog : public QDialog {
+namespace TrenchBroom
+{
+namespace View
+{
+class CrashDialog : public QDialog
+{
   Q_OBJECT
 public:
   CrashDialog(
-    const std::string& reason, const IO::Path& reportPath, const IO::Path& mapPath,
-    const IO::Path& logPath);
+    const std::string& reason,
+    const std::filesystem::path& reportPath,
+    const std::filesystem::path& mapPath,
+    const std::filesystem::path& logPath);
 
 private:
   void createGui(
-    const std::string& reason, const IO::Path& reportPath, const IO::Path& mapPath,
-    const IO::Path& logPath);
+    const std::string& reason,
+    const std::filesystem::path& reportPath,
+    const std::filesystem::path& mapPath,
+    const std::filesystem::path& logPath);
 };
 } // namespace View
 } // namespace TrenchBroom

@@ -26,18 +26,16 @@ class QWidget;
 class QString;
 class QStringList;
 
-namespace TrenchBroom {
+namespace TrenchBroom
+{
 class Logger;
+}
 
-namespace View {
+namespace TrenchBroom::View
+{
 class MapDocument;
 
 void combineFlags(size_t numFlags, int newFlagValue, int& setFlags, int& mixedFlags);
-
-bool loadTextureCollection(
-  std::weak_ptr<MapDocument> document, QWidget* parent, const QString& path);
-size_t loadTextureCollections(
-  std::weak_ptr<MapDocument> document, QWidget* parent, const QStringList& pathStrs);
 
 bool loadEntityDefinitionFile(
   std::weak_ptr<MapDocument> document, QWidget* parent, const QString& path);
@@ -46,5 +44,5 @@ size_t loadEntityDefinitionFile(
 
 std::string queryGroupName(QWidget* parent, const std::string& suggestion);
 std::string queryLayerName(QWidget* parent, const std::string& suggestion);
-} // namespace View
-} // namespace TrenchBroom
+
+} // namespace TrenchBroom::View
